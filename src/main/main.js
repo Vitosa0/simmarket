@@ -27,6 +27,7 @@ const APP_ICON_PNG_PATH = path.join(__dirname, "..", "assets", "branding", "simm
 
 if (IS_WINDOWS) {
   app.disableHardwareAcceleration();
+  app.commandLine.appendSwitch("disable-direct-composition");
 }
 
 function dataPaths() {
