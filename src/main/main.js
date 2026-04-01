@@ -1,6 +1,6 @@
 const fs = require("node:fs");
 const path = require("node:path");
-const { app, BrowserWindow, ipcMain, nativeImage, shell } = require("electron");
+const { app, BrowserWindow, ipcMain, nativeImage, shell, Menu } = require("electron");
 const { RESOURCE_CATALOG, getResourceById } = require("./catalog");
 const { DEFAULT_CONFIG } = require("./defaults");
 const {
@@ -18,12 +18,55 @@ const { classifyRule, describeCondition, formatMarketNumber, normalizeRule, scan
 let mainWindow = null;
 let scanTimer = null;
 let scanInFlight = false;
+let discordAvatarData = null;
+const IS_WINDOWS = process.platform === "win32";
 const APP_ICON_PATH = process.platform === "win32"
   ? path.join(__dirname, "..", "assets", "branding", "simmarket-mark.ico")
   : path.join(__dirname, "..", "assets", "branding", "simmarket-mark-1024.png");
+const APP_ICON_PNG_PATH = path.join(__dirname, "..", "assets", "branding", "simmarket-mark-1024.png");
+
+if (IS_WINDOWS) {
+  app.disableHardwareAcceleration();
+}
 
 function dataPaths() {
   return appDataPaths();
+}
+
+function isDiscordWebhookUrl(rawUrl) {
+  try {
+    const parsed = new URL(String(rawUrl || "").trim());
+    if (!["discord.com", "www.discord.com", "ptb.discord.com", "canary.discord.com", "discordapp.com"].includes(parsed.hostname)) {
+      return false;
+    }
+    return /\/api(?:\/v\d+)?\/webhooks\/[^/]+\/[^/]+/i.test(parsed.pathname);
+  } catch (error) {
+    return false;
+  }
+}
+
+function appIconDataUri() {
+  if (discordAvatarData) return discordAvatarData;
+  const buffer = fs.readFileSync(APP_ICON_PNG_PATH);
+  discordAvatarData = `data:image/png;base64,${buffer.toString("base64")}`;
+  return discordAvatarData;
+}
+
+async function configureDiscordWebhookBranding(webhookUrl) {
+  if (!isDiscordWebhookUrl(webhookUrl)) {
+    return;
+  }
+  const response = await fetch(String(webhookUrl).trim(), {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      name: "SimMarket",
+      avatar: appIconDataUri()
+    })
+  });
+  if (!response.ok) {
+    throw new Error(`Discord branding ${response.status}`);
+  }
 }
 
 function buildConfigSnapshot(config) {
@@ -230,7 +273,6 @@ async function runScan(triggerNotifications = true) {
           mainWindow.webContents.send("alert:triggered", payload);
         }
         if (config.channels?.desktop) {
-          shell.beep();
           if (process.platform === "darwin" && app.dock) {
             app.dock.bounce("informational");
           }
@@ -267,9 +309,10 @@ function createWindow() {
     minHeight: 780,
     center: true,
     show: false,
-    fullscreen: true,
+    fullscreen: !IS_WINDOWS,
     simpleFullscreen: false,
-    backgroundColor: "#000000",
+    autoHideMenuBar: IS_WINDOWS,
+    backgroundColor: "#0b0b0b",
     ...(fs.existsSync(APP_ICON_PATH) ? { icon: APP_ICON_PATH } : {}),
     webPreferences: {
       preload: path.join(__dirname, "preload.js"),
@@ -278,11 +321,23 @@ function createWindow() {
     }
   });
 
+  if (IS_WINDOWS) {
+    mainWindow.setMenuBarVisibility(false);
+    if (typeof mainWindow.removeMenu === "function") {
+      mainWindow.removeMenu();
+    }
+  }
+
   mainWindow.loadFile(path.join(__dirname, "..", "renderer", "index.html"));
 
   mainWindow.once("ready-to-show", () => {
-    mainWindow.setSimpleFullScreen(false);
-    mainWindow.setFullScreen(true);
+    if (IS_WINDOWS) {
+      mainWindow.setFullScreen(false);
+      mainWindow.maximize();
+    } else {
+      mainWindow.setSimpleFullScreen(false);
+      mainWindow.setFullScreen(true);
+    }
     mainWindow.show();
   });
 }
@@ -303,12 +358,25 @@ function normalizeIncomingConfig(payload) {
 }
 
 app.whenReady().then(() => {
+  if (IS_WINDOWS) {
+    Menu.setApplicationMenu(null);
+  }
   if (process.platform === "darwin" && fs.existsSync(APP_ICON_PATH)) {
     app.dock.setIcon(nativeImage.createFromPath(APP_ICON_PATH));
   }
   createWindow();
   restartScheduler();
   const initialConfig = buildConfigSnapshot(loadConfig(dataPaths()));
+  if (initialConfig.channels?.discordWebhookUrl) {
+    configureDiscordWebhookBranding(initialConfig.channels.discordWebhookUrl).catch((error) => {
+      appendEvent(dataPaths(), {
+        time: new Date().toISOString(),
+        type: "error",
+        label: "Discord webhook",
+        error: error.message
+      });
+    });
+  }
   if (initialConfig.scanEnabled !== false) {
     runScan(false).catch(() => {});
   }
@@ -317,7 +385,20 @@ app.whenReady().then(() => {
 
   ipcMain.handle("config:save", async (_event, payload) => {
     const paths = dataPaths();
-    saveConfig(paths, normalizeIncomingConfig(payload));
+    const nextConfig = normalizeIncomingConfig(payload);
+    saveConfig(paths, nextConfig);
+    if (nextConfig.channels?.discordWebhookUrl) {
+      try {
+        await configureDiscordWebhookBranding(nextConfig.channels.discordWebhookUrl);
+      } catch (error) {
+        appendEvent(paths, {
+          time: new Date().toISOString(),
+          type: "error",
+          label: "Discord webhook",
+          error: error.message
+        });
+      }
+    }
     restartScheduler();
     return buildDashboard();
   });

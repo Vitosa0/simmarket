@@ -55,6 +55,7 @@ const state = {
   contactActiveGroup: null,
   contactResourceSearch: "",
   resourceManualMode: false,
+  platform: window.simcoDesktop?.platform || "unknown",
   activeView: localStorage.getItem(VIEW_STORAGE_KEY) || "mercado",
   theme: localStorage.getItem(THEME_STORAGE_KEY) || "dark",
   calculator: loadCalculatorState(),
@@ -1898,6 +1899,7 @@ function bindStaticUi() {
 }
 
 async function boot() {
+  document.body.dataset.platform = state.platform;
   applyTheme(state.theme);
   bindStaticUi();
   renderActiveView();
