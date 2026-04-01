@@ -49,7 +49,7 @@ function loadConfig(paths) {
       telegramBotToken: String(config.channels?.telegramBotToken ?? ""),
       telegramChatId: String(config.channels?.telegramChatId ?? "")
     },
-    alerts: Array.isArray(config.alerts) && config.alerts.length ? config.alerts : structuredClone(DEFAULT_CONFIG.alerts)
+    alerts: Array.isArray(config.alerts) ? config.alerts : structuredClone(DEFAULT_CONFIG.alerts)
   };
 }
 
