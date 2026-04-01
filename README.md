@@ -28,7 +28,7 @@ Repositorio oficial:
 
 macOS:
 
-- `SimMarket-Installer-1.0.0-arm64.pkg`
+- `SimMarket-Installer-<version>-arm64.pkg`
 
 1. Abrí el installer.
 2. Instalá `SimMarket.app` en `/Applications`.
@@ -38,7 +38,7 @@ macOS:
 
 Windows:
 
-- `SimMarket-Installer-1.0.0-x64.exe`
+- `SimMarket-Installer-<version>-x64.exe`
 
 1. Abrí el installer.
 2. Elegí la carpeta de instalación o usá la sugerida.

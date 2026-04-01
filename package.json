@@ -1,10 +1,14 @@
 {
   "name": "simmarket",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Desktop app for monitoring SimCompanies market alerts locally.",
   "main": "src/main/main.js",
   "author": "Javi",
   "license": "UNLICENSED",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Vitosa0/simmarket.git"
+  },
   "scripts": {
     "check": "node scripts/check-project.js",
     "start": "electron .",
@@ -18,6 +22,9 @@
   "devDependencies": {
     "electron": "^31.0.0",
     "electron-builder": "^24.13.3"
+  },
+  "dependencies": {
+    "electron-updater": "^6.3.9"
   },
   "build": {
     "appId": "com.javi.simmarket",
@@ -59,6 +66,13 @@
       "installerIcon": "src/assets/branding/simmarket-mark.ico",
       "uninstallerIcon": "src/assets/branding/simmarket-mark.ico",
       "installerHeaderIcon": "src/assets/branding/simmarket-mark.ico"
-    }
+    },
+    "publish": [
+      {
+        "provider": "github",
+        "owner": "Vitosa0",
+        "repo": "simmarket"
+      }
+    ]
   }
 }
