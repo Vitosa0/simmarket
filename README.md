@@ -11,9 +11,8 @@ Repositorio oficial:
 - Selector completo de `142` activos agrupados por rubro
 - Notificaciones locales en macOS
 - Envío de alertas por Discord y Telegram
-- Calculadora de costos con fee fijo del `4%`
+- Calculadora de costos 
 - Registro interno de contactos
-- Intro de marca integrada al arranque
 - Instalador `.pkg` para macOS Apple Silicon
 - Desinstalador incluido en la instalación
 
