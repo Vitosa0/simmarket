@@ -1,0 +1,1285 @@
+{
+  "realm_id": 0,
+  "generated_at": "2026-03-31T19:04:13+00:00",
+  "logo_dir": "src/assets/product-logos",
+  "resources": [
+    {
+      "id": 100,
+      "key": "aerospace_research",
+      "label": "Investigaci\u00f3n aeroespacial",
+      "api_name": "Aerospace research",
+      "image_path": "images/resources/aero-research.png",
+      "logo_file": "aero-research.png",
+      "remote_url": "https://www.simcompanies.com/static/images/resources/aero-research.png"
+    },
+    {
+      "id": 2,
+      "key": "water",
+      "label": "Agua",
+      "api_name": "Water",
+      "image_path": "images/resources/water.png",
+      "logo_file": "water.png",
+      "remote_url": "https://www.simcompanies.com/static/images/resources/water.png"
+    },
+    {
+      "id": 18,
+      "key": "aluminium",
+      "label": "Aluminio",
+      "api_name": "Aluminium",
+      "image_path": "images/resources/aluminium.png",
+      "logo_file": "aluminium.png",
+      "remote_url": "https://www.simcompanies.com/static/images/resources/aluminium.png"
+    },
+    {
+      "id": 125,
+      "key": "apple_cider",
+      "label": "Sidra de manzana",
+      "api_name": "Apple cider",
+      "image_path": "images/resources/apple-cider.png",
+      "logo_file": "apple-cider.png",
+      "remote_url": "https://www.simcompanies.com/static/images/resources/apple-cider.png"
+    },
+    {
+      "id": 154,
+      "key": "apple_icecream",
+      "label": "Helado de manzana",
+      "api_name": "Apple icecream",
+      "image_path": "images/resources/icecream-apple.png",
+      "logo_file": "icecream-apple.png",
+      "remote_url": "https://www.simcompanies.com/static/images/resources/icecream-apple.png"
+    },
+    {
+      "id": 123,
+      "key": "apple_pie",
+      "label": "Tarta de manzana",
+      "api_name": "Apple pie",
+      "image_path": "images/resources/apple-pie.png",
+      "logo_file": "apple-pie.png",
+      "remote_url": "https://www.simcompanies.com/static/images/resources/apple-pie.png"
+    },
+    {
+      "id": 3,
+      "key": "apples",
+      "label": "Manzanas",
+      "api_name": "Apples",
+      "image_path": "images/resources/apples.png",
+      "logo_file": "apples.png",
+      "remote_url": "https://www.simcompanies.com/static/images/resources/apples.png"
+    },
+    {
+      "id": 82,
+      "key": "attitude_control",
+      "label": "Control de actitud",
+      "api_name": "Attitude control",
+      "image_path": "images/resources/attitude-control.png",
+      "logo_file": "attitude-control.png",
+      "remote_url": "https://www.simcompanies.com/static/images/resources/attitude-control.png"
+    },
+    {
+      "id": 58,
+      "key": "automotive_research",
+      "label": "Investigaci\u00f3n automotriz",
+      "api_name": "Automotive research",
+      "image_path": "images/resources/automotive-research.png",
+      "logo_file": "automotive-research.png",
+      "remote_url": "https://www.simcompanies.com/static/images/resources/automotive-research.png"
+    },
+    {
+      "id": 50,
+      "key": "basic_interior",
+      "label": "Interior b\u00e1sico",
+      "api_name": "Basic interior",
+      "image_path": "images/resources/car-interior.png",
+      "logo_file": "car-interior.png",
+      "remote_url": "https://www.simcompanies.com/static/images/resources/car-interior.png"
+    },
+    {
+      "id": 22,
+      "key": "batteries",
+      "label": "Bater\u00edas",
+      "api_name": "Batteries",
+      "image_path": "images/resources/batteries.png",
+      "logo_file": "batteries.png",
+      "remote_url": "https://www.simcompanies.com/static/images/resources/batteries.png"
+    },
+    {
+      "id": 15,
+      "key": "bauxite",
+      "label": "Bauxita",
+      "api_name": "Bauxite",
+      "image_path": "images/resources/bauxite.png",
+      "logo_file": "bauxite.png",
+      "remote_url": "https://www.simcompanies.com/static/images/resources/bauxite.png"
+    },
+    {
+      "id": 121,
+      "key": "bread",
+      "label": "Pan",
+      "api_name": "Bread",
+      "image_path": "images/resources/bread.png",
+      "logo_file": "bread.png",
+      "remote_url": "https://www.simcompanies.com/static/images/resources/bread.png"
+    },
+    {
+      "id": 33,
+      "key": "breeding_research",
+      "label": "Investigaci\u00f3n ganadera",
+      "api_name": "Breeding research",
+      "image_path": "images/resources/breeding-research.png",
+      "logo_file": "breeding-research.png",
+      "remote_url": "https://www.simcompanies.com/static/images/resources/breeding-research.png"
+    },
+    {
+      "id": 102,
+      "key": "bricks",
+      "label": "Bloques",
+      "api_name": "Bricks",
+      "image_path": "images/resources/bricks.png",
+      "logo_file": "bricks.png",
+      "remote_url": "https://www.simcompanies.com/static/images/resources/bricks.png"
+    },
+    {
+      "id": 112,
+      "key": "bulldozer",
+      "label": "Excavadora",
+      "api_name": "Bulldozer",
+      "image_path": "images/resources/bulldozer.png",
+      "logo_file": "bulldozer.png",
+      "remote_url": "https://www.simcompanies.com/static/images/resources/bulldozer.png"
+    },
+    {
+      "id": 134,
+      "key": "butter",
+      "label": "Mantequilla",
+      "api_name": "Butter",
+      "image_path": "images/resources/butter.png",
+      "logo_file": "butter.png",
+      "remote_url": "https://www.simcompanies.com/static/images/resources/butter.png"
+    },
+    {
+      "id": 51,
+      "key": "car_body",
+      "label": "Carrocer\u00eda",
+      "api_name": "Car body",
+      "image_path": "images/resources/car-body.png",
+      "logo_file": "car-body.png",
+      "remote_url": "https://www.simcompanies.com/static/images/resources/car-body.png"
+    },
+    {
+      "id": 76,
+      "key": "carbon_composite",
+      "label": "Compuesto de carbono",
+      "api_name": "Carbon composite",
+      "image_path": "images/resources/carbon-composite.png",
+      "logo_file": "carbon-composite.png",
+      "remote_url": "https://www.simcompanies.com/static/images/resources/carbon-composite.png"
+    },
+    {
+      "id": 75,
+      "key": "carbon_fibers",
+      "label": "Fibras de carbono",
+      "api_name": "Carbon fibers",
+      "image_path": "images/resources/carbon-fiber.png",
+      "logo_file": "carbon-fiber.png",
+      "remote_url": "https://www.simcompanies.com/static/images/resources/carbon-fiber.png"
+    },
+    {
+      "id": 103,
+      "key": "cement",
+      "label": "Cemento",
+      "api_name": "Cement",
+      "image_path": "images/resources/cement.png",
+      "logo_file": "cement.png",
+      "remote_url": "https://www.simcompanies.com/static/images/resources/cement.png"
+    },
+    {
+      "id": 122,
+      "key": "cheese",
+      "label": "Queso",
+      "api_name": "Cheese",
+      "image_path": "images/resources/cheese.png",
+      "logo_file": "cheese.png",
+      "remote_url": "https://www.simcompanies.com/static/images/resources/cheese.png"
+    },
+    {
+      "id": 17,
+      "key": "chemicals",
+      "label": "Qu\u00edmicos",
+      "api_name": "Chemicals",
+      "image_path": "images/resources/chemicals.png",
+      "logo_file": "chemicals.png",
+      "remote_url": "https://www.simcompanies.com/static/images/resources/chemicals.png"
+    },
+    {
+      "id": 34,
+      "key": "chemistry_research",
+      "label": "Investigaci\u00f3n qu\u00edmica",
+      "api_name": "Chemistry research",
+      "image_path": "images/resources/chemistry-research.png",
+      "logo_file": "chemistry-research.png",
+      "remote_url": "https://www.simcompanies.com/static/images/resources/chemistry-research.png"
+    },
+    {
+      "id": 140,
+      "key": "chocolate",
+      "label": "Chocolate",
+      "api_name": "Chocolate",
+      "image_path": "images/resources/chocolate.png",
+      "logo_file": "chocolate.png",
+      "remote_url": "https://www.simcompanies.com/static/images/resources/chocolate.png"
+    },
+    {
+      "id": 153,
+      "key": "chocolate_icecream",
+      "label": "Helado de chocolate",
+      "api_name": "Chocolate icecream",
+      "image_path": "images/resources/icecream-chocolate.png",
+      "logo_file": "icecream-chocolate.png",
+      "remote_url": "https://www.simcompanies.com/static/images/resources/icecream-chocolate.png"
+    },
+    {
+      "id": 104,
+      "key": "clay",
+      "label": "Arcilla",
+      "api_name": "Clay",
+      "image_path": "images/resources/clay.png",
+      "logo_file": "clay.png",
+      "remote_url": "https://www.simcompanies.com/static/images/resources/clay.png"
+    },
+    {
+      "id": 81,
+      "key": "cockpit",
+      "label": "Cabina",
+      "api_name": "Cockpit",
+      "image_path": "images/resources/cockpit.png",
+      "logo_file": "cockpit.png",
+      "remote_url": "https://www.simcompanies.com/static/images/resources/cockpit.png"
+    },
+    {
+      "id": 132,
+      "key": "cocktails",
+      "label": "C\u00f3cteles",
+      "api_name": "Cocktails",
+      "image_path": "images/resources/cocktails.png",
+      "logo_file": "cocktails.png",
+      "remote_url": "https://www.simcompanies.com/static/images/resources/cocktails.png"
+    },
+    {
+      "id": 136,
+      "key": "cocoa",
+      "label": "Cacao",
+      "api_name": "Cocoa",
+      "image_path": "images/resources/cocoa-beans.png",
+      "logo_file": "cocoa-beans.png",
+      "remote_url": "https://www.simcompanies.com/static/images/resources/cocoa-beans.png"
+    },
+    {
+      "id": 118,
+      "key": "coffee_beans",
+      "label": "Granos de caf\u00e9",
+      "api_name": "Coffee beans",
+      "image_path": "images/resources/coffee-beans.png",
+      "logo_file": "coffee-beans.png",
+      "remote_url": "https://www.simcompanies.com/static/images/resources/coffee-beans.png"
+    },
+    {
+      "id": 119,
+      "key": "coffee_powder",
+      "label": "Caf\u00e9 en polvo",
+      "api_name": "Coffee powder",
+      "image_path": "images/resources/coffee-ground.png",
+      "logo_file": "coffee-ground.png",
+      "remote_url": "https://www.simcompanies.com/static/images/resources/coffee-ground.png"
+    },
+    {
+      "id": 52,
+      "key": "combustion_engine",
+      "label": "Motor de combusti\u00f3n",
+      "api_name": "Combustion engine",
+      "image_path": "images/resources/combustion-engine.png",
+      "logo_file": "combustion-engine.png",
+      "remote_url": "https://www.simcompanies.com/static/images/resources/combustion-engine.png"
+    },
+    {
+      "id": 40,
+      "key": "cotton",
+      "label": "Algod\u00f3n",
+      "api_name": "Cotton",
+      "image_path": "images/resources/cotton.png",
+      "logo_file": "cotton.png",
+      "remote_url": "https://www.simcompanies.com/static/images/resources/cotton.png"
+    },
+    {
+      "id": 115,
+      "key": "cows",
+      "label": "Vacas",
+      "api_name": "Cows",
+      "image_path": "images/resources/cow.png",
+      "logo_file": "cow.png",
+      "remote_url": "https://www.simcompanies.com/static/images/resources/cow.png"
+    },
+    {
+      "id": 155,
+      "key": "cream_egg",
+      "label": "Cream egg",
+      "api_name": "Cream egg",
+      "image_path": "images/resources/cream-egg.png",
+      "logo_file": "cream-egg.png",
+      "remote_url": "https://www.simcompanies.com/static/images/resources/cream-egg.png"
+    },
+    {
+      "id": 10,
+      "key": "crude_oil",
+      "label": "Petr\u00f3leo",
+      "api_name": "Crude oil",
+      "image_path": "images/resources/crude-oil.png",
+      "logo_file": "crude-oil.png",
+      "remote_url": "https://www.simcompanies.com/static/images/resources/crude-oil.png"
+    },
+    {
+      "id": 12,
+      "key": "diesel",
+      "label": "Di\u00e9sel",
+      "api_name": "Diesel",
+      "image_path": "images/resources/diesel.png",
+      "logo_file": "diesel.png",
+      "remote_url": "https://www.simcompanies.com/static/images/resources/diesel.png"
+    },
+    {
+      "id": 23,
+      "key": "displays",
+      "label": "Pantallas",
+      "api_name": "Displays",
+      "image_path": "images/resources/displays.png",
+      "logo_file": "displays.png",
+      "remote_url": "https://www.simcompanies.com/static/images/resources/displays.png"
+    },
+    {
+      "id": 137,
+      "key": "dough",
+      "label": "Masa",
+      "api_name": "Dough",
+      "image_path": "images/resources/dough.png",
+      "logo_file": "dough.png",
+      "remote_url": "https://www.simcompanies.com/static/images/resources/dough.png"
+    },
+    {
+      "id": 62,
+      "key": "dress",
+      "label": "Vestido",
+      "api_name": "Dress",
+      "image_path": "images/resources/dress.png",
+      "logo_file": "dress.png",
+      "remote_url": "https://www.simcompanies.com/static/images/resources/dress.png"
+    },
+    {
+      "id": 151,
+      "key": "easter_bunny",
+      "label": "Conejo de Pascua",
+      "api_name": "Easter Bunny",
+      "image_path": "images/resources/easter-bunny.png",
+      "logo_file": "easter-bunny.png",
+      "remote_url": "https://www.simcompanies.com/static/images/resources/easter-bunny.png"
+    },
+    {
+      "id": 55,
+      "key": "economy_car",
+      "label": "Coche econ\u00f3mico",
+      "api_name": "Economy car",
+      "image_path": "images/resources/economy-car.png",
+      "logo_file": "economy-car.png",
+      "remote_url": "https://www.simcompanies.com/static/images/resources/economy-car.png"
+    },
+    {
+      "id": 53,
+      "key": "economy_e_car",
+      "label": "E-car econ\u00f3mico",
+      "api_name": "Economy e-car",
+      "image_path": "images/resources/economy-e-car.png",
+      "logo_file": "economy-e-car.png",
+      "remote_url": "https://www.simcompanies.com/static/images/resources/economy-e-car.png"
+    },
+    {
+      "id": 9,
+      "key": "eggs",
+      "label": "Huevos",
+      "api_name": "Eggs",
+      "image_path": "images/resources/eggs.png",
+      "logo_file": "eggs.png",
+      "remote_url": "https://www.simcompanies.com/static/images/resources/eggs.png"
+    },
+    {
+      "id": 48,
+      "key": "electric_motor",
+      "label": "Motor el\u00e9ctrico",
+      "api_name": "Electric motor",
+      "image_path": "images/resources/electric-motor.png",
+      "logo_file": "electric-motor.png",
+      "remote_url": "https://www.simcompanies.com/static/images/resources/electric-motor.png"
+    },
+    {
+      "id": 21,
+      "key": "electronic_components",
+      "label": "Componentes electr\u00f3nicos",
+      "api_name": "Electronic components",
+      "image_path": "images/resources/electronic-components.png",
+      "logo_file": "electronic-components.png",
+      "remote_url": "https://www.simcompanies.com/static/images/resources/electronic-components.png"
+    },
+    {
+      "id": 32,
+      "key": "electronics_research",
+      "label": "Investigaci\u00f3n electr\u00f3nica",
+      "api_name": "Electronics research",
+      "image_path": "images/resources/electronics-research.png",
+      "logo_file": "electronics-research.png",
+      "remote_url": "https://www.simcompanies.com/static/images/resources/electronics-research.png"
+    },
+    {
+      "id": 30,
+      "key": "energy_research",
+      "label": "Investigaci\u00f3n energ\u00e9tica",
+      "api_name": "Energy research",
+      "image_path": "images/resources/energy-research.png",
+      "logo_file": "energy-research.png",
+      "remote_url": "https://www.simcompanies.com/static/images/resources/energy-research.png"
+    },
+    {
+      "id": 73,
+      "key": "ethanol",
+      "label": "Etanol",
+      "api_name": "Ethanol",
+      "image_path": "images/resources/ethanol.png",
+      "logo_file": "ethanol.png",
+      "remote_url": "https://www.simcompanies.com/static/images/resources/ethanol.png"
+    },
+    {
+      "id": 41,
+      "key": "fabric",
+      "label": "Tela",
+      "api_name": "Fabric",
+      "image_path": "images/resources/fabric.png",
+      "logo_file": "fabric.png",
+      "remote_url": "https://www.simcompanies.com/static/images/resources/fabric.png"
+    },
+    {
+      "id": 59,
+      "key": "fashion_research",
+      "label": "Investigaci\u00f3n de moda",
+      "api_name": "Fashion research",
+      "image_path": "images/resources/fashion-research.png",
+      "logo_file": "fashion-research.png",
+      "remote_url": "https://www.simcompanies.com/static/images/resources/fashion-research.png"
+    },
+    {
+      "id": 80,
+      "key": "flight_computer",
+      "label": "Computadora de vuelo",
+      "api_name": "Flight computer",
+      "image_path": "images/resources/flight-computer.png",
+      "logo_file": "flight-computer.png",
+      "remote_url": "https://www.simcompanies.com/static/images/resources/flight-computer.png"
+    },
+    {
+      "id": 133,
+      "key": "flour",
+      "label": "Harina",
+      "api_name": "Flour",
+      "image_path": "images/resources/flour.png",
+      "logo_file": "flour.png",
+      "remote_url": "https://www.simcompanies.com/static/images/resources/flour.png"
+    },
+    {
+      "id": 139,
+      "key": "fodder",
+      "label": "Forraje",
+      "api_name": "Fodder",
+      "image_path": "images/resources/fodder.png",
+      "logo_file": "fodder.png",
+      "remote_url": "https://www.simcompanies.com/static/images/resources/fodder.png"
+    },
+    {
+      "id": 127,
+      "key": "frozen_pizza",
+      "label": "Pizza congelada",
+      "api_name": "Frozen pizza",
+      "image_path": "images/resources/pizza.png",
+      "logo_file": "pizza.png",
+      "remote_url": "https://www.simcompanies.com/static/images/resources/pizza.png"
+    },
+    {
+      "id": 77,
+      "key": "fuselage",
+      "label": "Fuselaje",
+      "api_name": "Fuselage",
+      "image_path": "images/resources/fuselage.png",
+      "logo_file": "fuselage.png",
+      "remote_url": "https://www.simcompanies.com/static/images/resources/fuselage.png"
+    },
+    {
+      "id": 126,
+      "key": "ginger_beer",
+      "label": "Cerveza de jengibre",
+      "api_name": "Ginger beer",
+      "image_path": "images/resources/ginger-beer.png",
+      "logo_file": "ginger-beer.png",
+      "remote_url": "https://www.simcompanies.com/static/images/resources/ginger-beer.png"
+    },
+    {
+      "id": 45,
+      "key": "glass",
+      "label": "Vidrio",
+      "api_name": "Glass",
+      "image_path": "images/resources/glass.png",
+      "logo_file": "glass.png",
+      "remote_url": "https://www.simcompanies.com/static/images/resources/glass.png"
+    },
+    {
+      "id": 61,
+      "key": "gloves",
+      "label": "Guantes",
+      "api_name": "Gloves",
+      "image_path": "images/resources/gloves.png",
+      "logo_file": "gloves.png",
+      "remote_url": "https://www.simcompanies.com/static/images/resources/gloves.png"
+    },
+    {
+      "id": 68,
+      "key": "gold_ore",
+      "label": "Mineral de oro",
+      "api_name": "Gold ore",
+      "image_path": "images/resources/gold-ore.png",
+      "logo_file": "gold-ore.png",
+      "remote_url": "https://www.simcompanies.com/static/images/resources/gold-ore.png"
+    },
+    {
+      "id": 69,
+      "key": "golden_bars",
+      "label": "Barras de oro",
+      "api_name": "Golden bars",
+      "image_path": "images/resources/golden-bars.png",
+      "logo_file": "golden-bars.png",
+      "remote_url": "https://www.simcompanies.com/static/images/resources/golden-bars.png"
+    },
+    {
+      "id": 6,
+      "key": "grain",
+      "label": "Grano",
+      "api_name": "Grain",
+      "image_path": "images/resources/grain.png",
+      "logo_file": "grain.png",
+      "remote_url": "https://www.simcompanies.com/static/images/resources/grain.png"
+    },
+    {
+      "id": 5,
+      "key": "grapes",
+      "label": "Uvas",
+      "api_name": "Grapes",
+      "image_path": "images/resources/grapes.png",
+      "logo_file": "grapes.png",
+      "remote_url": "https://www.simcompanies.com/static/images/resources/grapes.png"
+    },
+    {
+      "id": 129,
+      "key": "hamburger",
+      "label": "Hamburguesa",
+      "api_name": "Hamburger",
+      "image_path": "images/resources/hamburger.png",
+      "logo_file": "hamburger.png",
+      "remote_url": "https://www.simcompanies.com/static/images/resources/hamburger.png"
+    },
+    {
+      "id": 64,
+      "key": "handbags",
+      "label": "Bolsos de mano",
+      "api_name": "Handbags",
+      "image_path": "images/resources/handbags.png",
+      "logo_file": "handbags.png",
+      "remote_url": "https://www.simcompanies.com/static/images/resources/handbags.png"
+    },
+    {
+      "id": 87,
+      "key": "heat_shield",
+      "label": "Escudo t\u00e9rmico",
+      "api_name": "Heat shield",
+      "image_path": "images/resources/heat-shield.png",
+      "logo_file": "heat-shield.png",
+      "remote_url": "https://www.simcompanies.com/static/images/resources/heat-shield.png"
+    },
+    {
+      "id": 79,
+      "key": "high_grade_e_comps",
+      "label": "Electr\u00f3nicos de alto grado",
+      "api_name": "High grade e-comps",
+      "image_path": "images/resources/high-grade-e-components.png",
+      "logo_file": "high-grade-e-components.png",
+      "remote_url": "https://www.simcompanies.com/static/images/resources/high-grade-e-components.png"
+    },
+    {
+      "id": 88,
+      "key": "ion_drive",
+      "label": "Propulsor i\u00f3nico",
+      "api_name": "Ion drive",
+      "image_path": "images/resources/ion-drive.png",
+      "logo_file": "ion-drive.png",
+      "remote_url": "https://www.simcompanies.com/static/images/resources/ion-drive.png"
+    },
+    {
+      "id": 42,
+      "key": "iron_ore",
+      "label": "Mineral de hierro",
+      "api_name": "Iron ore",
+      "image_path": "images/resources/iron-ore.png",
+      "logo_file": "iron-ore.png",
+      "remote_url": "https://www.simcompanies.com/static/images/resources/iron-ore.png"
+    },
+    {
+      "id": 147,
+      "key": "jack_o_lantern",
+      "label": "Calabaza de Halloween",
+      "api_name": "Jack o'lantern",
+      "image_path": "images/resources/jack-o-lantern.png",
+      "logo_file": "jack-o-lantern.png",
+      "remote_url": "https://www.simcompanies.com/static/images/resources/jack-o-lantern.png"
+    },
+    {
+      "id": 89,
+      "key": "jet_engine",
+      "label": "Motor de turbina",
+      "api_name": "Jet engine",
+      "image_path": "images/resources/jet-engine.png",
+      "logo_file": "jet-engine.png",
+      "remote_url": "https://www.simcompanies.com/static/images/resources/jet-engine.png"
+    },
+    {
+      "id": 26,
+      "key": "laptops",
+      "label": "Laptops",
+      "api_name": "Laptops",
+      "image_path": "images/resources/laptops.png",
+      "logo_file": "laptops.png",
+      "remote_url": "https://www.simcompanies.com/static/images/resources/laptops.png"
+    },
+    {
+      "id": 130,
+      "key": "lasagna",
+      "label": "Lasa\u00f1a",
+      "api_name": "Lasagna",
+      "image_path": "images/resources/lasagna.png",
+      "logo_file": "lasagna.png",
+      "remote_url": "https://www.simcompanies.com/static/images/resources/lasagna.png"
+    },
+    {
+      "id": 46,
+      "key": "leather",
+      "label": "Cuero",
+      "api_name": "Leather",
+      "image_path": "images/resources/leather.png",
+      "logo_file": "leather.png",
+      "remote_url": "https://www.simcompanies.com/static/images/resources/leather.png"
+    },
+    {
+      "id": 105,
+      "key": "limestone",
+      "label": "Caliza",
+      "api_name": "Limestone",
+      "image_path": "images/resources/limestone.png",
+      "logo_file": "limestone.png",
+      "remote_url": "https://www.simcompanies.com/static/images/resources/limestone.png"
+    },
+    {
+      "id": 56,
+      "key": "luxury_car",
+      "label": "Coche de lujo",
+      "api_name": "Luxury car",
+      "image_path": "images/resources/luxury-car.png",
+      "logo_file": "luxury-car.png",
+      "remote_url": "https://www.simcompanies.com/static/images/resources/luxury-car.png"
+    },
+    {
+      "id": 49,
+      "key": "luxury_car_interior",
+      "label": "Interior de coche de lujo",
+      "api_name": "Luxury car interior",
+      "image_path": "images/resources/luxury-car-interior.png",
+      "logo_file": "luxury-car-interior.png",
+      "remote_url": "https://www.simcompanies.com/static/images/resources/luxury-car-interior.png"
+    },
+    {
+      "id": 54,
+      "key": "luxury_e_car",
+      "label": "E-car de lujo",
+      "api_name": "Luxury e-car",
+      "image_path": "images/resources/luxury-e-car.png",
+      "logo_file": "luxury-e-car.png",
+      "remote_url": "https://www.simcompanies.com/static/images/resources/luxury-e-car.png"
+    },
+    {
+      "id": 70,
+      "key": "luxury_watch",
+      "label": "Reloj de lujo",
+      "api_name": "Luxury watch",
+      "image_path": "images/resources/gold-watch.png",
+      "logo_file": "gold-watch.png",
+      "remote_url": "https://www.simcompanies.com/static/images/resources/gold-watch.png"
+    },
+    {
+      "id": 1,
+      "key": "power",
+      "label": "Electricidad",
+      "api_name": "Power",
+      "image_path": "images/resources/power.png",
+      "logo_file": "power.png",
+      "remote_url": "https://www.simcompanies.com/static/images/resources/power.png"
+    },
+    {
+      "id": 113,
+      "key": "materials_research",
+      "label": "Investigaci\u00f3n de materiales",
+      "api_name": "Materials research",
+      "image_path": "images/resources/materials-research.png",
+      "logo_file": "materials-research.png",
+      "remote_url": "https://www.simcompanies.com/static/images/resources/materials-research.png"
+    },
+    {
+      "id": 131,
+      "key": "meat_balls",
+      "label": "Alb\u00f3ndigas",
+      "api_name": "Meat balls",
+      "image_path": "images/resources/meatballs.png",
+      "logo_file": "meatballs.png",
+      "remote_url": "https://www.simcompanies.com/static/images/resources/meatballs.png"
+    },
+    {
+      "id": 74,
+      "key": "methane",
+      "label": "Metano",
+      "api_name": "Methane",
+      "image_path": "images/resources/methane.png",
+      "logo_file": "methane.png",
+      "remote_url": "https://www.simcompanies.com/static/images/resources/methane.png"
+    },
+    {
+      "id": 117,
+      "key": "milk",
+      "label": "Leche",
+      "api_name": "Milk",
+      "image_path": "images/resources/milk.png",
+      "logo_file": "milk.png",
+      "remote_url": "https://www.simcompanies.com/static/images/resources/milk.png"
+    },
+    {
+      "id": 14,
+      "key": "minerals",
+      "label": "Minerales",
+      "api_name": "Minerals",
+      "image_path": "images/resources/minerals.png",
+      "logo_file": "minerals.png",
+      "remote_url": "https://www.simcompanies.com/static/images/resources/minerals.png"
+    },
+    {
+      "id": 31,
+      "key": "mining_research",
+      "label": "Investigaci\u00f3n minera",
+      "api_name": "Mining research",
+      "image_path": "images/resources/mining-research.png",
+      "logo_file": "mining-research.png",
+      "remote_url": "https://www.simcompanies.com/static/images/resources/mining-research.png"
+    },
+    {
+      "id": 27,
+      "key": "monitors",
+      "label": "Monitores",
+      "api_name": "Monitors",
+      "image_path": "images/resources/monitors.png",
+      "logo_file": "monitors.png",
+      "remote_url": "https://www.simcompanies.com/static/images/resources/monitors.png"
+    },
+    {
+      "id": 71,
+      "key": "necklace",
+      "label": "Collar",
+      "api_name": "Necklace",
+      "image_path": "images/resources/necklace.png",
+      "logo_file": "necklace.png",
+      "remote_url": "https://www.simcompanies.com/static/images/resources/necklace.png"
+    },
+    {
+      "id": 47,
+      "key": "on_board_computer",
+      "label": "Computadora a bordo",
+      "api_name": "On-board computer",
+      "image_path": "images/resources/on-board-computer.png",
+      "logo_file": "on-board-computer.png",
+      "remote_url": "https://www.simcompanies.com/static/images/resources/on-board-computer.png"
+    },
+    {
+      "id": 124,
+      "key": "orange_juice",
+      "label": "Jugo de naranja",
+      "api_name": "Orange juice",
+      "image_path": "images/resources/orange-juice.png",
+      "logo_file": "orange-juice.png",
+      "remote_url": "https://www.simcompanies.com/static/images/resources/orange-juice.png"
+    },
+    {
+      "id": 4,
+      "key": "oranges",
+      "label": "Naranjas",
+      "api_name": "Oranges",
+      "image_path": "images/resources/oranges.png",
+      "logo_file": "oranges.png",
+      "remote_url": "https://www.simcompanies.com/static/images/resources/oranges.png"
+    },
+    {
+      "id": 128,
+      "key": "pasta",
+      "label": "Pasta",
+      "api_name": "Pasta",
+      "image_path": "images/resources/pasta.png",
+      "logo_file": "pasta.png",
+      "remote_url": "https://www.simcompanies.com/static/images/resources/pasta.png"
+    },
+    {
+      "id": 11,
+      "key": "petrol",
+      "label": "Gasolina",
+      "api_name": "Petrol",
+      "image_path": "images/resources/petrol.png",
+      "logo_file": "petrol.png",
+      "remote_url": "https://www.simcompanies.com/static/images/resources/petrol.png"
+    },
+    {
+      "id": 116,
+      "key": "pigs",
+      "label": "Cerdos",
+      "api_name": "Pigs",
+      "image_path": "images/resources/pig.png",
+      "logo_file": "pig.png",
+      "remote_url": "https://www.simcompanies.com/static/images/resources/pig.png"
+    },
+    {
+      "id": 108,
+      "key": "planks",
+      "label": "Tablones",
+      "api_name": "Planks",
+      "image_path": "images/resources/planks.png",
+      "logo_file": "planks.png",
+      "remote_url": "https://www.simcompanies.com/static/images/resources/planks.png"
+    },
+    {
+      "id": 29,
+      "key": "plant_research",
+      "label": "Investigaci\u00f3n agr\u00edcola",
+      "api_name": "Plant research",
+      "image_path": "images/resources/plant-research.png",
+      "logo_file": "plant-research.png",
+      "remote_url": "https://www.simcompanies.com/static/images/resources/plant-research.png"
+    },
+    {
+      "id": 19,
+      "key": "plastic",
+      "label": "Pl\u00e1stico",
+      "api_name": "Plastic",
+      "image_path": "images/resources/plastic.png",
+      "logo_file": "plastic.png",
+      "remote_url": "https://www.simcompanies.com/static/images/resources/plastic.png"
+    },
+    {
+      "id": 20,
+      "key": "processors",
+      "label": "Procesadores",
+      "api_name": "Processors",
+      "image_path": "images/resources/processors.png",
+      "logo_file": "processors.png",
+      "remote_url": "https://www.simcompanies.com/static/images/resources/processors.png"
+    },
+    {
+      "id": 84,
+      "key": "propellant_tank",
+      "label": "Tanque de propelente",
+      "api_name": "Propellant tank",
+      "image_path": "images/resources/fuel-tank.png",
+      "logo_file": "fuel-tank.png",
+      "remote_url": "https://www.simcompanies.com/static/images/resources/fuel-tank.png"
+    },
+    {
+      "id": 146,
+      "key": "pumpkin",
+      "label": "Calabaza",
+      "api_name": "Pumpkin",
+      "image_path": "images/resources/pumpkin.png",
+      "logo_file": "pumpkin.png",
+      "remote_url": "https://www.simcompanies.com/static/images/resources/pumpkin.png"
+    },
+    {
+      "id": 149,
+      "key": "pumpkin_soup",
+      "label": "Sopa de calabaza",
+      "api_name": "Pumpkin soup",
+      "image_path": "images/resources/pumpkin-soup.png",
+      "logo_file": "pumpkin-soup.png",
+      "remote_url": "https://www.simcompanies.com/static/images/resources/pumpkin-soup.png"
+    },
+    {
+      "id": 98,
+      "key": "quadcopter",
+      "label": "Cuadric\u00f3ptero",
+      "api_name": "Quadcopter",
+      "image_path": "images/resources/quadcopter.png",
+      "logo_file": "quadcopter.png",
+      "remote_url": "https://www.simcompanies.com/static/images/resources/quadcopter.png"
+    },
+    {
+      "id": 152,
+      "key": "ramadan_sweets",
+      "label": "dulces de ramad\u00e1n",
+      "api_name": "Ramadan sweets",
+      "image_path": "images/resources/ramadan-sweets.png",
+      "logo_file": "ramadan-sweets.png",
+      "remote_url": "https://www.simcompanies.com/static/images/resources/ramadan-sweets.png"
+    },
+    {
+      "id": 145,
+      "key": "recipes",
+      "label": "Recetas",
+      "api_name": "Recipes",
+      "image_path": "images/resources/recipes.png",
+      "logo_file": "recipes.png",
+      "remote_url": "https://www.simcompanies.com/static/images/resources/recipes.png"
+    },
+    {
+      "id": 101,
+      "key": "reinforced_concrete",
+      "label": "Concreto reforzado",
+      "api_name": "Reinforced concrete",
+      "image_path": "images/resources/reinforced-concrete.png",
+      "logo_file": "reinforced-concrete.png",
+      "remote_url": "https://www.simcompanies.com/static/images/resources/reinforced-concrete.png"
+    },
+    {
+      "id": 114,
+      "key": "robots",
+      "label": "Robots",
+      "api_name": "Robots",
+      "image_path": "images/resources/robots.png",
+      "logo_file": "robots.png",
+      "remote_url": "https://www.simcompanies.com/static/images/resources/robots.png"
+    },
+    {
+      "id": 86,
+      "key": "rocket_engine",
+      "label": "Motor cohete",
+      "api_name": "Rocket engine",
+      "image_path": "images/resources/rocket-engine.png",
+      "logo_file": "rocket-engine.png",
+      "remote_url": "https://www.simcompanies.com/static/images/resources/rocket-engine.png"
+    },
+    {
+      "id": 83,
+      "key": "rocket_fuel",
+      "label": "Combustible para cohetes",
+      "api_name": "Rocket fuel",
+      "image_path": "images/resources/rocket-fuel.png",
+      "logo_file": "rocket-fuel.png",
+      "remote_url": "https://www.simcompanies.com/static/images/resources/rocket-fuel.png"
+    },
+    {
+      "id": 142,
+      "key": "salad",
+      "label": "Ensalada",
+      "api_name": "Salad",
+      "image_path": "images/resources/salad.png",
+      "logo_file": "salad.png",
+      "remote_url": "https://www.simcompanies.com/static/images/resources/salad.png"
+    },
+    {
+      "id": 143,
+      "key": "samosa",
+      "label": "Samosa",
+      "api_name": "Samosa",
+      "image_path": "images/resources/samosas.png",
+      "logo_file": "samosas.png",
+      "remote_url": "https://www.simcompanies.com/static/images/resources/samosas.png"
+    },
+    {
+      "id": 44,
+      "key": "sand",
+      "label": "Arena",
+      "api_name": "Sand",
+      "image_path": "images/resources/sand.png",
+      "logo_file": "sand.png",
+      "remote_url": "https://www.simcompanies.com/static/images/resources/sand.png"
+    },
+    {
+      "id": 138,
+      "key": "sauce",
+      "label": "Salsa",
+      "api_name": "Sauce",
+      "image_path": "images/resources/gravy-boat.png",
+      "logo_file": "gravy-boat.png",
+      "remote_url": "https://www.simcompanies.com/static/images/resources/gravy-boat.png"
+    },
+    {
+      "id": 8,
+      "key": "sausages",
+      "label": "Salchichas",
+      "api_name": "Sausages",
+      "image_path": "images/resources/sausages.png",
+      "logo_file": "sausages.png",
+      "remote_url": "https://www.simcompanies.com/static/images/resources/sausages.png"
+    },
+    {
+      "id": 66,
+      "key": "seeds",
+      "label": "Semillas",
+      "api_name": "Seeds",
+      "image_path": "images/resources/seeds.png",
+      "logo_file": "seeds.png",
+      "remote_url": "https://www.simcompanies.com/static/images/resources/seeds.png"
+    },
+    {
+      "id": 16,
+      "key": "silicon",
+      "label": "Silicio",
+      "api_name": "Silicon",
+      "image_path": "images/resources/silicon.png",
+      "logo_file": "silicon.png",
+      "remote_url": "https://www.simcompanies.com/static/images/resources/silicon.png"
+    },
+    {
+      "id": 24,
+      "key": "smart_phones",
+      "label": "Tel\u00e9fonos inteligentes",
+      "api_name": "Smart phones",
+      "image_path": "images/resources/smart-phones.png",
+      "logo_file": "smart-phones.png",
+      "remote_url": "https://www.simcompanies.com/static/images/resources/smart-phones.png"
+    },
+    {
+      "id": 65,
+      "key": "sneakers",
+      "label": "Zapatillas",
+      "api_name": "Sneakers",
+      "image_path": "images/resources/sneakers.png",
+      "logo_file": "sneakers.png",
+      "remote_url": "https://www.simcompanies.com/static/images/resources/sneakers.png"
+    },
+    {
+      "id": 35,
+      "key": "software",
+      "label": "Software",
+      "api_name": "Software",
+      "image_path": "images/resources/software.png",
+      "logo_file": "software.png",
+      "remote_url": "https://www.simcompanies.com/static/images/resources/software.png"
+    },
+    {
+      "id": 85,
+      "key": "solid_fuel_booster",
+      "label": "Propulsor s\u00f3lido",
+      "api_name": "Solid fuel booster",
+      "image_path": "images/resources/solid-rocket.png",
+      "logo_file": "solid-rocket.png",
+      "remote_url": "https://www.simcompanies.com/static/images/resources/solid-rocket.png"
+    },
+    {
+      "id": 7,
+      "key": "steak",
+      "label": "Bistec",
+      "api_name": "Steak",
+      "image_path": "images/resources/steak.png",
+      "logo_file": "steak.png",
+      "remote_url": "https://www.simcompanies.com/static/images/resources/steak.png"
+    },
+    {
+      "id": 43,
+      "key": "steel",
+      "label": "Acero",
+      "api_name": "Steel",
+      "image_path": "images/resources/steel.png",
+      "logo_file": "steel.png",
+      "remote_url": "https://www.simcompanies.com/static/images/resources/steel.png"
+    },
+    {
+      "id": 107,
+      "key": "steel_beams",
+      "label": "Vigas de acero",
+      "api_name": "Steel beams",
+      "image_path": "images/resources/steel-beams.png",
+      "logo_file": "steel-beams.png",
+      "remote_url": "https://www.simcompanies.com/static/images/resources/steel-beams.png"
+    },
+    {
+      "id": 63,
+      "key": "stiletto_heel",
+      "label": "Tac\u00f3n",
+      "api_name": "Stiletto Heel",
+      "image_path": "images/resources/simmi-shoes.png",
+      "logo_file": "simmi-shoes.png",
+      "remote_url": "https://www.simcompanies.com/static/images/resources/simmi-shoes.png"
+    },
+    {
+      "id": 135,
+      "key": "sugar",
+      "label": "Az\u00facar",
+      "api_name": "Sugar",
+      "image_path": "images/resources/sugar.png",
+      "logo_file": "sugar.png",
+      "remote_url": "https://www.simcompanies.com/static/images/resources/sugar.png"
+    },
+    {
+      "id": 72,
+      "key": "sugarcane",
+      "label": "Ca\u00f1a de az\u00facar",
+      "api_name": "Sugarcane",
+      "image_path": "images/resources/sugarcane.png",
+      "logo_file": "sugarcane.png",
+      "remote_url": "https://www.simcompanies.com/static/images/resources/sugarcane.png"
+    },
+    {
+      "id": 25,
+      "key": "tablets",
+      "label": "Tabletas",
+      "api_name": "Tablets",
+      "image_path": "images/resources/tablets.png",
+      "logo_file": "tablets.png",
+      "remote_url": "https://www.simcompanies.com/static/images/resources/tablets.png"
+    },
+    {
+      "id": 28,
+      "key": "televisions",
+      "label": "Televisores",
+      "api_name": "Televisions",
+      "image_path": "images/resources/televisions.png",
+      "logo_file": "televisions.png",
+      "remote_url": "https://www.simcompanies.com/static/images/resources/televisions.png"
+    },
+    {
+      "id": 110,
+      "key": "tools",
+      "label": "Herramientas",
+      "api_name": "Tools",
+      "image_path": "images/resources/tools.png",
+      "logo_file": "tools.png",
+      "remote_url": "https://www.simcompanies.com/static/images/resources/tools.png"
+    },
+    {
+      "id": 13,
+      "key": "transport",
+      "label": "Transporte",
+      "api_name": "Transport",
+      "image_path": "images/resources/transport.png",
+      "logo_file": "transport.png",
+      "remote_url": "https://www.simcompanies.com/static/images/resources/transport.png"
+    },
+    {
+      "id": 150,
+      "key": "tree",
+      "label": "\u00c1rbol",
+      "api_name": "Tree",
+      "image_path": "images/resources/tree.png",
+      "logo_file": "tree.png",
+      "remote_url": "https://www.simcompanies.com/static/images/resources/tree.png"
+    },
+    {
+      "id": 57,
+      "key": "truck",
+      "label": "Cami\u00f3n",
+      "api_name": "Truck",
+      "image_path": "images/resources/truck.png",
+      "logo_file": "truck.png",
+      "remote_url": "https://www.simcompanies.com/static/images/resources/truck.png"
+    },
+    {
+      "id": 60,
+      "key": "underwear",
+      "label": "Ropa interior",
+      "api_name": "Underwear",
+      "image_path": "images/resources/underwear.png",
+      "logo_file": "underwear.png",
+      "remote_url": "https://www.simcompanies.com/static/images/resources/underwear.png"
+    },
+    {
+      "id": 111,
+      "key": "construction_units",
+      "label": "Unidades de construcci\u00f3n",
+      "api_name": "Construction units",
+      "image_path": "images/resources/construction-units.png",
+      "logo_file": "construction-units.png",
+      "remote_url": "https://www.simcompanies.com/static/images/resources/construction-units.png"
+    },
+    {
+      "id": 141,
+      "key": "vegetable_oil",
+      "label": "Aceite vegetal",
+      "api_name": "Vegetable oil",
+      "image_path": "images/resources/vegetable-oil.png",
+      "logo_file": "vegetable-oil.png",
+      "remote_url": "https://www.simcompanies.com/static/images/resources/vegetable-oil.png"
+    },
+    {
+      "id": 120,
+      "key": "vegetables",
+      "label": "Verduras",
+      "api_name": "Vegetables",
+      "image_path": "images/resources/vegetables.png",
+      "logo_file": "vegetables.png",
+      "remote_url": "https://www.simcompanies.com/static/images/resources/vegetables.png"
+    },
+    {
+      "id": 109,
+      "key": "windows",
+      "label": "Ventanas",
+      "api_name": "Windows",
+      "image_path": "images/resources/windows.png",
+      "logo_file": "windows.png",
+      "remote_url": "https://www.simcompanies.com/static/images/resources/windows.png"
+    },
+    {
+      "id": 78,
+      "key": "wing",
+      "label": "Ala",
+      "api_name": "Wing",
+      "image_path": "images/resources/wing.png",
+      "logo_file": "wing.png",
+      "remote_url": "https://www.simcompanies.com/static/images/resources/wing.png"
+    },
+    {
+      "id": 148,
+      "key": "witch_costume",
+      "label": "Disfraz de bruja",
+      "api_name": "Witch costume",
+      "image_path": "images/resources/witch-costume.png",
+      "logo_file": "witch-costume.png",
+      "remote_url": "https://www.simcompanies.com/static/images/resources/witch-costume.png"
+    },
+    {
+      "id": 106,
+      "key": "wood",
+      "label": "Madera",
+      "api_name": "Wood",
+      "image_path": "images/resources/wood.png",
+      "logo_file": "wood.png",
+      "remote_url": "https://www.simcompanies.com/static/images/resources/wood.png"
+    },
+    {
+      "id": 67,
+      "key": "xmas_crackers",
+      "label": "Sorpresas navide\u00f1as",
+      "api_name": "Xmas crackers",
+      "image_path": "images/resources/xmas-crackers.png",
+      "logo_file": "xmas-crackers.png",
+      "remote_url": "https://www.simcompanies.com/static/images/resources/xmas-crackers.png"
+    },
+    {
+      "id": 144,
+      "key": "xmas_ornament",
+      "label": "adorno de navidad",
+      "api_name": "Xmas ornament",
+      "image_path": "images/resources/xmas-ornament.png",
+      "logo_file": "xmas-ornament.png",
+      "remote_url": "https://www.simcompanies.com/static/images/resources/xmas-ornament.png"
+    }
+  ]
+}

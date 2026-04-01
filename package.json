@@ -1,0 +1,42 @@
+{
+  "name": "simmarket",
+  "version": "1.0.0",
+  "description": "Desktop app for monitoring SimCompanies market alerts locally.",
+  "main": "src/main/main.js",
+  "author": "Javi",
+  "license": "UNLICENSED",
+  "scripts": {
+    "check": "node scripts/check-project.js",
+    "start": "electron .",
+    "icon:mac": "bash scripts/build-mac-icon.sh",
+    "dist": "npm run icon:mac && electron-builder --publish never",
+    "dist:mac": "npm run icon:mac && electron-builder --mac dmg --publish never",
+    "dist:pkg": "npm run dist:mac && bash scripts/build-mac-installer.sh"
+  },
+  "devDependencies": {
+    "electron": "^31.0.0",
+    "electron-builder": "^24.13.3"
+  },
+  "build": {
+    "appId": "com.javi.simmarket",
+    "productName": "SimMarket",
+    "directories": {
+      "output": "dist"
+    },
+    "files": [
+      "src/**/*",
+      "package.json"
+    ],
+    "asar": true,
+    "mac": {
+      "target": [
+        "dmg"
+      ],
+      "icon": "build/SimMarket.icns",
+      "category": "public.app-category.finance",
+      "identity": null,
+      "hardenedRuntime": false,
+      "gatekeeperAssess": false
+    }
+  }
+}

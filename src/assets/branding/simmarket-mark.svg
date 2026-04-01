@@ -1,0 +1,90 @@
+<svg width="1024" height="1024" viewBox="0 0 1024 1024" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <radialGradient id="frameGlow" cx="0" cy="0" r="1" gradientUnits="userSpaceOnUse" gradientTransform="translate(510 330) rotate(90) scale(560 560)">
+      <stop stop-color="#494753"/>
+      <stop offset="0.62" stop-color="#282631"/>
+      <stop offset="1" stop-color="#13111A"/>
+    </radialGradient>
+    <linearGradient id="frameEdge" x1="205" y1="166" x2="826" y2="866" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#727080"/>
+      <stop offset="0.28" stop-color="#FFFFFF" stop-opacity="0.12"/>
+      <stop offset="1" stop-color="#0B0A10" stop-opacity="0.3"/>
+    </linearGradient>
+    <linearGradient id="goldFill" x1="240" y1="280" x2="720" y2="760" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#FFF5B6"/>
+      <stop offset="0.28" stop-color="#FDE487"/>
+      <stop offset="0.56" stop-color="#E6B94A"/>
+      <stop offset="1" stop-color="#B87113"/>
+    </linearGradient>
+    <linearGradient id="goldStroke" x1="296" y1="260" x2="682" y2="806" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#FFF7C8"/>
+      <stop offset="1" stop-color="#D79A2B"/>
+    </linearGradient>
+    <linearGradient id="greenFill" x1="238" y1="646" x2="828" y2="390" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#0E902E"/>
+      <stop offset="0.38" stop-color="#2ED04A"/>
+      <stop offset="0.72" stop-color="#17B542"/>
+      <stop offset="1" stop-color="#AFFC62"/>
+    </linearGradient>
+    <linearGradient id="greenRim" x1="312" y1="682" x2="810" y2="334" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#0A6E22"/>
+      <stop offset="1" stop-color="#FFF495"/>
+    </linearGradient>
+    <linearGradient id="arrowHead" x1="761" y1="281" x2="835" y2="340" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#FFF7B7"/>
+      <stop offset="0.65" stop-color="#FFD84C"/>
+      <stop offset="1" stop-color="#F2AF19"/>
+    </linearGradient>
+    <filter id="plateShadow" x="96" y="123" width="832" height="828" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB">
+      <feDropShadow dx="0" dy="34" stdDeviation="32" flood-color="#000000" flood-opacity="0.45"/>
+    </filter>
+    <filter id="goldShadow" x="176" y="228" width="676" height="520" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB">
+      <feDropShadow dx="0" dy="10" stdDeviation="12" flood-color="#000000" flood-opacity="0.35"/>
+    </filter>
+    <filter id="greenGlow" x="196" y="250" width="664" height="502" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB">
+      <feDropShadow dx="0" dy="8" stdDeviation="10" flood-color="#0FB739" flood-opacity="0.28"/>
+      <feDropShadow dx="0" dy="18" stdDeviation="16" flood-color="#0B0B0F" flood-opacity="0.35"/>
+    </filter>
+    <filter id="candleGlow" x="238" y="344" width="532" height="232" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB">
+      <feDropShadow dx="0" dy="0" stdDeviation="6" flood-color="#2CFF68" flood-opacity="0.22"/>
+    </filter>
+  </defs>
+
+  <g filter="url(#plateShadow)">
+    <rect x="160" y="164" width="704" height="704" rx="152" fill="url(#frameGlow)"/>
+    <rect x="160" y="164" width="704" height="704" rx="152" fill="#06070C" fill-opacity="0.16"/>
+    <rect x="160.5" y="164.5" width="703" height="703" rx="151.5" stroke="url(#frameEdge)" stroke-width="3"/>
+    <path d="M201 207C252 179 314 166 401 166H724C791 166 837 179 864 205C847 181 818 164 764 164H312C244 164 205 181 185 214C188 211 193 209 201 207Z" fill="#FFFFFF" fill-opacity="0.06"/>
+  </g>
+
+  <g filter="url(#goldShadow)">
+    <path d="M307 599C307 567 321 548 353 533L449 489C478 475 490 463 490 439C490 400 457 376 394 376C338 376 294 394 258 431V338C297 297 356 272 432 272C541 272 607 329 607 413C607 473 576 513 509 545L417 588C392 600 381 613 381 635C381 669 411 690 466 690C528 690 575 667 619 626V712C575 749 515 770 438 770C356 770 307 704 307 599Z" fill="url(#goldFill)" stroke="url(#goldStroke)" stroke-width="8" stroke-linejoin="round"/>
+    <path d="M562 286H679L789 734H671L651 625H554L533 734H416L527 286H562ZM625 532L603 414L579 532H625Z" fill="url(#goldFill)" stroke="url(#goldStroke)" stroke-width="8" stroke-linejoin="round"/>
+  </g>
+
+  <g filter="url(#candleGlow)">
+    <g stroke="#3AFF6E" stroke-width="7" stroke-linecap="round">
+      <path d="M289 553V497"/>
+      <path d="M334 542V485"/>
+      <path d="M381 530V479"/>
+      <path d="M640 497V442"/>
+      <path d="M689 477V420"/>
+      <path d="M736 457V404"/>
+    </g>
+    <g fill="#26DB4D">
+      <rect x="274" y="516" width="30" height="37" rx="8"/>
+      <rect x="319" y="506" width="30" height="36" rx="8"/>
+      <rect x="366" y="497" width="30" height="33" rx="8"/>
+      <rect x="625" y="462" width="30" height="35" rx="8"/>
+      <rect x="674" y="441" width="30" height="36" rx="8"/>
+      <rect x="721" y="421" width="30" height="36" rx="8"/>
+    </g>
+  </g>
+
+  <g filter="url(#greenGlow)">
+    <path d="M216 611C312 593 400 564 476 516C551 469 616 398 743 278L777 308C671 459 609 525 513 582C433 630 339 659 216 667V611Z" fill="url(#greenFill)"/>
+    <path d="M762 263L836 285L779 345L762 263Z" fill="url(#arrowHead)"/>
+    <path d="M236 645C333 641 427 618 510 573C602 523 671 449 758 306" stroke="url(#greenRim)" stroke-width="26" stroke-linecap="round"/>
+    <path d="M239 628C334 620 421 596 499 553C591 501 663 434 743 307" stroke="#E9F78F" stroke-opacity="0.72" stroke-width="8" stroke-linecap="round"/>
+  </g>
+</svg>

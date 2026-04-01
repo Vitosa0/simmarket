@@ -1,0 +1,216 @@
+<!DOCTYPE html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>SimMarket</title>
+    <link rel="icon" type="image/png" href="../assets/branding/simmarket-mark-1024.png?v=2" />
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <div id="splashOverlay" class="splash-overlay" aria-hidden="true">
+      <div class="splash-content">
+        <img class="splash-logo" src="../assets/branding/simmarket-mark-1024.png?v=2" alt="SimMarket" />
+        <div class="splash-title">SimMarket</div>
+        <div class="splash-progress">
+          <div id="splashProgressFill" class="splash-progress-fill"></div>
+        </div>
+      </div>
+    </div>
+    <div class="app-shell">
+      <header class="header">
+        <div class="header-brand">
+          <img class="brand-mark" src="../assets/branding/simmarket-mark-1024.png?v=2" alt="SimMarket" />
+          <div class="brand-copy">
+            <div class="brand-name">SimMarket</div>
+          <h1>Registro de Mercado</h1>
+          </div>
+        </div>
+        <div class="header-side">
+          <div class="view-switcher">
+            <button id="tab-mercado" class="view-tab active" type="button">Mercado</button>
+            <button id="tab-calculadora" class="view-tab" type="button">Calculadora</button>
+          </div>
+          <div id="marketToolbar" class="header-actions">
+            <button id="scanNowButton" class="action-btn action-btn-secondary" type="button">Escanear mercado</button>
+            <button id="saveButton" class="save-btn" type="button">Guardar cambios</button>
+            <button id="resetButton" class="action-btn action-btn-secondary" type="button">Descartar</button>
+            <button id="scanToggleButton" class="action-btn action-btn-danger" type="button">Parar escaneo</button>
+          </div>
+        </div>
+        <div class="stats-bar">
+          <div class="stat-pill">Monitor <span id="headerMonitorStat">Sin datos</span></div>
+          <div class="stat-pill">Alertas <span id="headerAlertsStat">0</span></div>
+          <div class="stat-pill">En zona <span id="headerOpportunityStat">0</span></div>
+          <div class="stat-pill">Última revisión <span id="headerScanStat">-</span></div>
+          <div id="draftStatPill" class="stat-pill">Estado <span>Guardado</span></div>
+          <button id="themeToggleButton" class="theme-toggle" type="button" aria-label="Cambiar tema" title="Cambiar tema">
+            <span id="themeToggleIcon" class="theme-toggle-icon" aria-hidden="true"></span>
+          </button>
+        </div>
+      </header>
+
+      <div id="view-mercado" class="layout view-panel active">
+        <aside class="form-panel">
+          <section class="panel-block">
+            <div class="section-label">Lectura actual</div>
+            <div id="selectedRuntime" class="summary-card"></div>
+          </section>
+
+          <section class="panel-block">
+            <div class="section-label">Editar alerta</div>
+            <div id="editorContainer" class="editor-shell"></div>
+          </section>
+
+          <section class="panel-block">
+            <div class="section-label">Canales de aviso</div>
+            <div class="channels-stack">
+              <label class="toggle-card">
+                <div>
+                  <strong>Notificación en esta PC</strong>
+                  <small>La opción más simple para ver avisos locales.</small>
+                </div>
+                <input id="channelDesktop" type="checkbox" />
+              </label>
+
+              <div class="input-group">
+                <label for="channelDiscord">Discord webhook</label>
+                <input id="channelDiscord" class="styled-input" type="text" placeholder="https://discord.com/api/webhooks/..." />
+              </div>
+
+              <div class="input-group">
+                <label for="channelTelegramToken">Telegram bot token</label>
+                <input id="channelTelegramToken" class="styled-input" type="text" placeholder="123456:ABC..." />
+              </div>
+
+              <div class="input-group">
+                <label for="channelTelegramChat">Telegram chat id</label>
+                <input id="channelTelegramChat" class="styled-input" type="text" placeholder="-100..." />
+              </div>
+            </div>
+          </section>
+        </aside>
+
+        <main class="list-panel">
+          <section class="panel-block">
+            <div class="section-label">Mercado vigilado</div>
+            <div class="filters-row">
+              <div class="search-wrap">
+                <span class="search-icon">&#9906;</span>
+                <input id="searchInput" type="text" placeholder="Buscar por nombre o activo" />
+              </div>
+              <button class="filter-btn active" data-filter="all" type="button">Todas</button>
+              <button class="filter-btn" data-filter="buy" type="button">Compra</button>
+              <button class="filter-btn" data-filter="sell" type="button">Venta</button>
+              <button class="filter-btn" data-filter="match" type="button">En zona</button>
+              <button class="filter-btn" data-filter="disabled" type="button">Pausadas</button>
+              <button id="addAlertButton" class="filter-btn filter-btn-strong" type="button">Nueva alerta</button>
+            </div>
+            <div id="alertsList" class="contacts-list"></div>
+          </section>
+
+          <section class="panel-block">
+            <div class="section-label">Actividad reciente</div>
+            <div id="eventsFeed" class="events-feed"></div>
+          </section>
+        </main>
+      </div>
+
+      <div id="view-calculadora" class="layout view-panel calc-layout">
+        <section class="calc-panel form">
+          <div class="section-label">Parámetros de compra</div>
+
+          <div class="input-group">
+            <label for="calc-buy-price">Costo por unidad</label>
+            <input id="calc-buy-price" class="styled-input no-spinner" type="number" min="0" step="0.001" />
+          </div>
+
+          <div class="input-group">
+            <label for="calc-qty">Cantidad <span class="label-note">unidades</span></label>
+            <input id="calc-qty" class="styled-input no-spinner" type="number" min="1" step="1" />
+          </div>
+
+          <div class="calc-inline-row calc-transport-row">
+            <div class="input-group">
+              <label for="calc-transport-price">Transporte <span class="label-note">precio unitario</span></label>
+              <input id="calc-transport-price" class="styled-input no-spinner" type="number" min="0" step="0.001" />
+            </div>
+            <div class="input-group">
+              <label for="calc-transport-units">Unidades/u</label>
+              <div class="calc-selector">
+                <select id="calc-transport-units">
+                  <option value="0">0</option>
+                  <option value="0.1">0.1</option>
+                  <option value="0.2">0.2</option>
+                  <option value="0.5">0.5</option>
+                  <option value="1">1</option>
+                  <option value="2">2</option>
+                  <option value="5">5</option>
+                  <option value="10">10</option>
+                  <option value="1000">1000</option>
+                </select>
+              </div>
+            </div>
+          </div>
+
+          <div class="section-label">Verificador de precio</div>
+
+          <div class="input-group">
+            <label for="calc-sell-check">Precio al que pensás vender <span class="label-note">por unidad</span></label>
+            <input id="calc-sell-check" class="styled-input no-spinner" type="number" min="0" step="0.001" />
+          </div>
+        </section>
+
+        <section class="calc-panel">
+          <div id="calc-empty-state" class="calc-empty">
+            <div class="empty-icon">⟳</div>
+            <p>Ingresá el precio de compra<br />para ver los cálculos</p>
+          </div>
+
+          <div id="calc-main-results" class="calc-results">
+            <div class="calc-card animate-in">
+              <div class="calc-card-title">Precio mínimo de venta (breakeven)</div>
+              <div id="calc-breakeven-price" class="calc-price">—</div>
+              <div class="calc-detail">
+                <span>Costo base <b id="calc-d-cost">—</b></span>
+                <span>Fee 4% <b id="calc-d-fee">—</b></span>
+                <span>Transporte/u <b id="calc-d-freight">—</b></span>
+              </div>
+            </div>
+
+            <div class="calc-summary animate-in">
+              <div class="calc-summary-item">
+                <div class="calc-summary-label">Inversión total</div>
+                <div id="calc-s-total" class="calc-summary-value">—</div>
+              </div>
+              <div class="calc-summary-item">
+                <div class="calc-summary-label">Fee total</div>
+                <div id="calc-s-fee" class="calc-summary-value">—</div>
+              </div>
+              <div class="calc-summary-item">
+                <div class="calc-summary-label">Transporte total</div>
+                <div id="calc-s-freight" class="calc-summary-value">—</div>
+              </div>
+            </div>
+
+            <div>
+              <div class="section-label calc-section-spacer">Objetivos de ganancia</div>
+              <div id="calc-targets-grid" class="calc-grid"></div>
+            </div>
+
+            <div id="calc-checker-section" class="calc-checker animate-in">
+              <div class="section-label">Resultado de tu precio objetivo</div>
+              <div class="calc-checker-row">
+                <div id="calc-verdict" class="calc-verdict">Ingresá un precio</div>
+                <div id="calc-verdict-detail" class="calc-verdict-detail"></div>
+              </div>
+            </div>
+          </div>
+        </section>
+      </div>
+    </div>
+
+    <div id="statusMessage" class="sr-only" aria-live="polite"></div>
+    <script src="./app.js"></script>
+  </body>
+</html>
