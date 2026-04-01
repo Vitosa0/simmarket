@@ -9,9 +9,11 @@
     "check": "node scripts/check-project.js",
     "start": "electron .",
     "icon:mac": "bash scripts/build-mac-icon.sh",
+    "icon:win": "node scripts/build-win-icon.js",
     "dist": "npm run icon:mac && electron-builder --publish never",
     "dist:mac": "npm run icon:mac && electron-builder --mac dmg --publish never",
-    "dist:pkg": "npm run dist:mac && bash scripts/build-mac-installer.sh"
+    "dist:pkg": "npm run dist:mac && bash scripts/build-mac-installer.sh",
+    "dist:win": "npm run icon:win && electron-builder --win nsis --x64 --publish never"
   },
   "devDependencies": {
     "electron": "^31.0.0",
@@ -37,6 +39,26 @@
       "identity": null,
       "hardenedRuntime": false,
       "gatekeeperAssess": false
+    },
+    "win": {
+      "target": [
+        "nsis"
+      ],
+      "icon": "src/assets/branding/simmarket-mark.ico"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "allowElevation": true,
+      "perMachine": false,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "SimMarket",
+      "artifactName": "SimMarket-Installer-${version}-x64.${ext}",
+      "deleteAppDataOnUninstall": true,
+      "installerIcon": "src/assets/branding/simmarket-mark.ico",
+      "uninstallerIcon": "src/assets/branding/simmarket-mark.ico",
+      "installerHeaderIcon": "src/assets/branding/simmarket-mark.ico"
     }
   }
 }
