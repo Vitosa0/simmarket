@@ -149,13 +149,18 @@ body.splash-active {
   overflow: hidden;
 }
 
+body.intro-active {
+  overflow: hidden;
+}
+
 .app-shell {
   min-height: 100vh;
   opacity: 1;
   transition: opacity 0.35s ease;
 }
 
-body.splash-active .app-shell {
+body.splash-active .app-shell,
+body.intro-active .app-shell {
   opacity: 0;
   pointer-events: none;
 }
@@ -223,6 +228,303 @@ body[data-theme="light"] .splash-progress {
   border-radius: inherit;
   background: linear-gradient(90deg, rgba(244, 213, 116, 0.75) 0%, rgba(244, 213, 116, 1) 100%);
   transition: width 0.14s ease-out;
+}
+
+.vito-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 9998;
+  overflow: hidden;
+  background: linear-gradient(180deg, #070707 0%, #030303 100%);
+  opacity: 1;
+  visibility: visible;
+  transition: opacity 0.45s ease, visibility 0.45s ease;
+}
+
+.vito-overlay.hidden {
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+}
+
+.vito-shell {
+  position: relative;
+  min-height: 100vh;
+  isolation: isolate;
+  display: grid;
+  place-items: center;
+  padding: 40px;
+}
+
+.vito-bg-stage,
+.vito-bg-stage::before,
+.vito-bg-stage::after {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.vito-bg-stage {
+  overflow: hidden;
+}
+
+.vito-bg-stage::before {
+  content: "";
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.03), transparent 8%, transparent 90%, rgba(255, 255, 255, 0.015)),
+    radial-gradient(circle at 50% 38%, rgba(214, 164, 78, 0.038) 0%, rgba(214, 164, 78, 0.014) 20%, transparent 38%),
+    radial-gradient(circle at 50% 60%, rgba(255, 255, 255, 0.016) 0%, transparent 42%),
+    linear-gradient(180deg, #090909 0%, #020202 100%);
+}
+
+.vito-bg-stage::after {
+  content: "";
+  background: radial-gradient(circle at 50% 52%, transparent 0%, transparent 46%, rgba(0, 0, 0, 0.58) 100%);
+}
+
+.vito-bg-column {
+  position: absolute;
+  top: -14%;
+  width: 33vw;
+  min-width: 260px;
+  height: 134vh;
+  background: linear-gradient(180deg, rgba(0, 0, 0, 0.74), rgba(0, 0, 0, 0.2) 30%, rgba(0, 0, 0, 0.6) 100%);
+  filter: blur(18px);
+  opacity: 0.82;
+}
+
+.vito-bg-column.left {
+  left: -11vw;
+  transform: skewX(-12deg);
+}
+
+.vito-bg-column.right {
+  right: -11vw;
+  transform: skewX(12deg);
+}
+
+.vito-bg-orb {
+  position: absolute;
+  left: 50%;
+  top: 45%;
+  width: min(52vw, 720px);
+  aspect-ratio: 1;
+  border-radius: 50%;
+  transform: translate(-50%, -50%);
+  background: radial-gradient(circle, rgba(214, 164, 78, 0.06) 0%, rgba(214, 164, 78, 0.022) 24%, rgba(214, 164, 78, 0.008) 42%, transparent 66%);
+  filter: blur(14px);
+  opacity: 0.9;
+}
+
+.vito-bg-floor {
+  position: absolute;
+  left: 50%;
+  bottom: -16vh;
+  width: min(1200px, 110vw);
+  height: 34vh;
+  transform: translateX(-50%);
+  border-radius: 50%;
+  background: radial-gradient(ellipse at center, rgba(214, 164, 78, 0.07) 0%, rgba(214, 164, 78, 0.02) 28%, transparent 64%);
+  filter: blur(32px);
+  opacity: 0.8;
+}
+
+.vito-bg-noise {
+  position: absolute;
+  inset: 0;
+  background-image:
+    linear-gradient(rgba(255, 255, 255, 0.01) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.008) 1px, transparent 1px);
+  background-size: 100% 4px, 4px 100%;
+  opacity: 0.02;
+  mix-blend-mode: screen;
+}
+
+.vito-particles {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  overflow: hidden;
+}
+
+.vito-particle {
+  position: absolute;
+  width: 2px;
+  height: 2px;
+  border-radius: 999px;
+  background: rgba(243, 210, 138, 0.95);
+  box-shadow: 0 0 12px rgba(243, 210, 138, 0.55);
+  opacity: 0;
+  animation: vitoParticleFloat linear infinite;
+}
+
+.vito-sequence {
+  position: relative;
+  z-index: 1;
+  width: min(720px, 100%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 18px;
+}
+
+.vito-logo-wrap {
+  position: relative;
+  width: min(420px, 74vw);
+  aspect-ratio: 1;
+  display: grid;
+  place-items: center;
+  opacity: 0;
+  transform: translateY(0) scale(1);
+  filter: blur(12px);
+  animation: vitoCrestReveal 0.95s cubic-bezier(0.16, 1, 0.3, 1) 0.18s forwards;
+}
+
+.vito-logo-halo {
+  position: absolute;
+  inset: 20%;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(243, 210, 138, 0.34) 0%, rgba(214, 164, 78, 0.22) 30%, rgba(214, 164, 78, 0.09) 48%, transparent 70%);
+  filter: blur(24px);
+  opacity: 0;
+  transform: scale(0.7);
+  animation: vitoHaloCoreReveal 0.7s ease 0.48s forwards;
+  pointer-events: none;
+}
+
+.vito-logo-ring {
+  position: absolute;
+  inset: 20%;
+  border-radius: 50%;
+  border: 2px solid rgba(214, 164, 78, 0.62);
+  box-shadow:
+    0 0 18px rgba(214, 164, 78, 0.32),
+    0 0 54px rgba(214, 164, 78, 0.24),
+    0 0 92px rgba(214, 164, 78, 0.18),
+    inset 0 0 18px rgba(243, 210, 138, 0.16);
+  opacity: 0;
+  transform: scale(0.74);
+  animation: vitoHaloRingReveal 0.65s ease 0.58s forwards;
+  pointer-events: none;
+  mix-blend-mode: screen;
+}
+
+.vito-logo {
+  position: relative;
+  z-index: 1;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  filter: drop-shadow(0 24px 42px rgba(0, 0, 0, 0.42));
+}
+
+.vito-brand-block {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+}
+
+.vito-brand-name {
+  font-family: "Cormorant Garamond", "Times New Roman", serif;
+  font-size: clamp(38px, 6.8vw, 72px);
+  font-weight: 500;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: #ffffff;
+  opacity: 0;
+  transform: translateY(18px);
+  text-shadow: 0 0 24px rgba(255, 255, 255, 0.08);
+  animation: vitoFadeUp 0.52s ease 1.05s forwards;
+}
+
+.vito-credit-stack {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  opacity: 0;
+  transform: translateY(12px);
+  animation: vitoFadeUp 0.54s ease 1.32s forwards;
+}
+
+.vito-credit-line-primary {
+  font-size: 14px;
+  color: rgba(247, 242, 231, 0.76);
+  letter-spacing: 0.12em;
+}
+
+.vito-credit-line-secondary {
+  font-size: 13px;
+  color: rgba(247, 242, 231, 0.48);
+  letter-spacing: 0.08em;
+  font-style: italic;
+}
+
+@keyframes vitoFadeUp {
+  0% {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes vitoCrestReveal {
+  0% {
+    opacity: 0;
+    transform: translateY(0) scale(1);
+    filter: blur(12px);
+  }
+  50% {
+    opacity: 0.9;
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+    filter: blur(0);
+  }
+}
+
+@keyframes vitoHaloCoreReveal {
+  0% {
+    opacity: 0;
+    transform: scale(0.72);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes vitoHaloRingReveal {
+  0% {
+    opacity: 0;
+    transform: scale(0.76);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes vitoParticleFloat {
+  0% {
+    opacity: 0;
+    transform: translate3d(0, 14px, 0) scale(0.6);
+  }
+  12% {
+    opacity: 0.8;
+  }
+  88% {
+    opacity: 0.28;
+  }
+  100% {
+    opacity: 0;
+    transform: translate3d(var(--drift-x), calc(-1 * var(--travel-y)), 0) scale(1.2);
+  }
 }
 
 .header {
@@ -754,6 +1056,12 @@ body[data-theme="light"] .splash-progress {
   background: var(--input-focus-bg);
 }
 
+textarea.styled-input {
+  resize: vertical;
+  min-height: 92px;
+  line-height: 1.6;
+}
+
 .search-wrap {
   flex: 1;
   min-width: 220px;
@@ -1048,6 +1356,80 @@ body[data-theme="light"] .splash-progress {
   border-color: var(--mini-btn-danger-border);
 }
 
+.register-stats {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.register-count {
+  font-size: 11px;
+  color: var(--text-dim);
+  line-height: 1.6;
+}
+
+.register-contact-card {
+  gap: 10px;
+}
+
+.register-card-notes {
+  margin-top: 6px;
+}
+
+.trust-options {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 6px;
+}
+
+.trust-opt {
+  background: var(--panel-soft);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  color: var(--text-dim);
+  font-family: "Montserrat", sans-serif;
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  padding: 8px 6px;
+  cursor: pointer;
+  transition: border-color 0.2s ease, color 0.2s ease, background 0.2s ease;
+}
+
+.trust-opt:hover,
+.trust-opt.selected {
+  border-color: var(--border-strong);
+  color: var(--text);
+}
+
+.trust-opt.alto,
+.badge.trust-alto {
+  background: var(--success-bg);
+  color: var(--success-text);
+  border-color: var(--success-border);
+}
+
+.trust-opt.medio,
+.badge.trust-medio {
+  background: var(--warn-bg);
+  color: var(--warn-text);
+  border-color: var(--warn-border);
+}
+
+.trust-opt.bajo,
+.badge.trust-bajo {
+  background: var(--danger-bg);
+  color: var(--danger-text);
+  border-color: var(--danger-border);
+}
+
+.trust-opt.neutro,
+.badge.trust-neutro {
+  background: var(--neutral-bg);
+  color: var(--neutral-text);
+  border-color: var(--neutral-border);
+}
+
 .hidden {
   display: none;
 }
@@ -1287,6 +1669,10 @@ body[data-theme="light"] .splash-progress {
   .calc-inline-row,
   .calc-transport-row {
     grid-template-columns: 1fr;
+  }
+
+  .trust-options {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   .calc-summary {

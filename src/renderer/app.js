@@ -1,8 +1,17 @@
 const VIEW_STORAGE_KEY = "simco-desktop-view";
 const CALC_STORAGE_KEY = "simco-desktop-calculator";
 const THEME_STORAGE_KEY = "simco-desktop-theme";
+const CONTACTS_STORAGE_KEY = "simco-desktop-contacts";
 const CALC_TARGET_PCTS = [2, 5, 10, 15, 20, 25, 30, 50];
+const CONTACT_TYPE_OPTIONS = ["Proveedor", "Cliente", "Aliado", "Competidor"];
+const CONTACT_TRUST_OPTIONS = [
+  { value: "Alto", tone: "alto" },
+  { value: "Medio", tone: "medio" },
+  { value: "Bajo", tone: "bajo" },
+  { value: "Neutro", tone: "neutro" }
+];
 const SPLASH_TOTAL_MS = 6000;
+const VITO_INTRO_TOTAL_MS = 4000;
 const SPLASH_PROGRESS_SEGMENTS = [
   { start: 0, end: 270, from: 0, to: 4, power: 0.72 },
   { start: 270, end: 683, from: 4, to: 13, power: 1.45 },
@@ -37,6 +46,14 @@ const state = {
   resourceSearch: "",
   resourceSelectorOpen: false,
   resourceActiveGroup: null,
+  conditionSelectorOpen: false,
+  contacts: loadContacts(),
+  contactSearch: "",
+  contactTypeFilter: "todos",
+  contactDraft: emptyContactDraft(),
+  contactSelectorOpen: false,
+  contactActiveGroup: null,
+  contactResourceSearch: "",
   resourceManualMode: false,
   activeView: localStorage.getItem(VIEW_STORAGE_KEY) || "mercado",
   theme: localStorage.getItem(THEME_STORAGE_KEY) || "dark",
@@ -47,6 +64,8 @@ const state = {
 };
 
 const byId = (id) => document.getElementById(id);
+
+const wait = (ms) => new Promise((resolve) => window.setTimeout(resolve, ms));
 
 function loadCalculatorState() {
   try {
@@ -66,6 +85,42 @@ function loadCalculatorState() {
       transportUnits: "0",
       sellCheck: ""
     };
+  }
+}
+
+function emptyContactDraft() {
+  return {
+    name: "",
+    type: "Proveedor",
+    resourceId: "",
+    perception: "",
+    notes: "",
+    trust: "Medio"
+  };
+}
+
+function normalizeContactRecord(contact) {
+  return {
+    id: contact.id || `contact-${Date.now()}-${Math.round(Math.random() * 1000)}`,
+    name: String(contact.name || "").trim(),
+    type: CONTACT_TYPE_OPTIONS.includes(contact.type) ? contact.type : "Proveedor",
+    resourceId: contact.resourceId === "" || contact.resourceId === null || contact.resourceId === undefined
+      ? ""
+      : Number(contact.resourceId),
+    perception: String(contact.perception || "").trim(),
+    notes: String(contact.notes || "").trim(),
+    trust: CONTACT_TRUST_OPTIONS.some((option) => option.value === contact.trust) ? contact.trust : "Medio",
+    createdAt: contact.createdAt || new Date().toISOString()
+  };
+}
+
+function loadContacts() {
+  try {
+    const parsed = JSON.parse(localStorage.getItem(CONTACTS_STORAGE_KEY) || "[]");
+    if (!Array.isArray(parsed)) return [];
+    return parsed.map(normalizeContactRecord).filter((contact) => contact.name);
+  } catch (error) {
+    return [];
   }
 }
 
@@ -128,6 +183,17 @@ function formatCompactReading(raw) {
   return `${datePart} · ${timePart}`;
 }
 
+function formatContactDate(raw) {
+  if (!raw) return "-";
+  const date = new Date(raw);
+  if (Number.isNaN(date.getTime())) return raw;
+  return date.toLocaleDateString("es-AR", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric"
+  });
+}
+
 function formatHeaderTime(raw) {
   if (!raw) return "-";
   const date = new Date(raw);
@@ -186,6 +252,10 @@ async function callDesktop(method, payload) {
   return window.simcoDesktop[method](payload);
 }
 
+function persistContacts() {
+  localStorage.setItem(CONTACTS_STORAGE_KEY, JSON.stringify(state.contacts));
+}
+
 function splashProgressForElapsed(elapsedMs) {
   if (elapsedMs <= 0) return 0;
   if (elapsedMs >= SPLASH_TOTAL_MS) return 100;
@@ -222,6 +292,43 @@ async function runSplashScreen() {
 
   fill.style.width = "100%";
   overlay.classList.add("hidden");
+}
+
+function buildVitoParticles() {
+  const particles = byId("vitoParticles");
+  if (!particles) return;
+  particles.innerHTML = "";
+  for (let index = 0; index < 30; index += 1) {
+    const particle = document.createElement("span");
+    particle.className = "vito-particle";
+    particle.style.left = `${28 + Math.random() * 44}%`;
+    particle.style.top = `${56 + Math.random() * 24}%`;
+    particle.style.setProperty("--drift-x", `${(Math.random() - 0.5) * 42}px`);
+    particle.style.setProperty("--travel-y", `${220 + Math.random() * 260}px`);
+    particle.style.animationDuration = `${1.05 + Math.random() * 0.95}s`;
+    particle.style.animationDelay = `${Math.random() * 0.75}s`;
+    particles.appendChild(particle);
+  }
+}
+
+async function runVitoIntro() {
+  const overlay = byId("vitoOverlay");
+  if (!overlay) {
+    document.body.classList.remove("splash-active");
+    return;
+  }
+
+  buildVitoParticles();
+  document.body.classList.add("intro-active");
+  overlay.classList.remove("hidden");
+  await wait(VITO_INTRO_TOTAL_MS);
+  overlay.classList.add("hidden");
+  await wait(450);
+
+  const particles = byId("vitoParticles");
+  if (particles) particles.innerHTML = "";
+
+  document.body.classList.remove("intro-active");
   document.body.classList.remove("splash-active");
 }
 
@@ -271,7 +378,7 @@ function resourceGroups() {
   return Array.from(groups.entries()).map(([name, items]) => ({ name, items }));
 }
 
-function filteredResourceGroups(query = state.resourceSearch) {
+function filteredGroupsByQuery(query = "") {
   const normalized = normalizeSearch(query);
   return resourceGroups().flatMap((entry) => {
     const matchesByName = !normalized || normalizeSearch(entry.name).includes(normalized);
@@ -289,12 +396,20 @@ function filteredResourceGroups(query = state.resourceSearch) {
   });
 }
 
-function filteredResourcesInActiveGroup(query = state.resourceSearch) {
-  if (!state.resourceActiveGroup) return [];
-  const items = resourceCatalog().filter((item) => item.group === state.resourceActiveGroup);
+function filteredResourcesForGroup(group, query = "") {
+  if (!group) return [];
+  const items = resourceCatalog().filter((item) => item.group === group);
   const normalized = normalizeSearch(query);
   if (!normalized) return items;
   return items.filter((item) => resourceSearchTokens(item).includes(normalized));
+}
+
+function filteredResourceGroups(query = state.resourceSearch) {
+  return filteredGroupsByQuery(query);
+}
+
+function filteredResourcesInActiveGroup(query = state.resourceSearch) {
+  return filteredResourcesForGroup(state.resourceActiveGroup, query);
 }
 
 function resourceCrumbsMarkup() {
@@ -329,6 +444,34 @@ function avatarMarkup(item, fallback = "A") {
     return `<div class="avatar"><img src="${escapeHtml(logoUrl)}" alt="${escapeHtml(item.resourceName || item.label || fallback)}" /></div>`;
   }
   return `<div class="avatar">${escapeHtml((item.resourceName || item.label || fallback).slice(0, 1))}</div>`;
+}
+
+function letterAvatarMarkup(label, fallback = "C") {
+  const safeLabel = String(label || "").trim();
+  const letter = safeLabel ? safeLabel.charAt(0).toUpperCase() : fallback;
+  return `<div class="avatar">${escapeHtml(letter)}</div>`;
+}
+
+function viewMeta(view = state.activeView) {
+  if (view === "calculadora") {
+    return {
+      id: "calculadora",
+      title: "CALCULADORA DE COSTOS",
+      toolbarVisible: false
+    };
+  }
+  if (view === "registro") {
+    return {
+      id: "registro",
+      title: "REGISTRO DE CONTACTOS",
+      toolbarVisible: false
+    };
+  }
+  return {
+    id: "mercado",
+    title: "ALERTAS DE MERCADO",
+    toolbarVisible: true
+  };
 }
 
 function inferActionKey(alert) {
@@ -367,7 +510,7 @@ function editableAlert(alert) {
     label: alert.label,
     resourceId: alert.resourceId,
     quality: alert.quality,
-    condition: alert.condition,
+    condition: editorConditionValue(alert.condition),
     targetPrice: alert.targetPrice,
     targetPriceMax: alert.targetPriceMax ?? "",
     enabled: Boolean(alert.enabled),
@@ -391,6 +534,7 @@ function syncDraftFromDashboard(dashboard) {
     state.selectedAlertId = state.draft.alerts[0]?.id || null;
   }
   resetResourceSelectorState();
+  resetConditionSelectorState();
   state.resourceManualMode = false;
   setDirty(false);
 }
@@ -462,16 +606,17 @@ async function persistDraft(showSuccessMessage = true) {
 }
 
 function renderActiveView() {
-  const isCalculator = state.activeView === "calculadora";
-  byId("view-mercado").classList.toggle("active", !isCalculator);
-  byId("view-calculadora").classList.toggle("active", isCalculator);
-  byId("tab-mercado").classList.toggle("active", !isCalculator);
-  byId("tab-calculadora").classList.toggle("active", isCalculator);
-  byId("marketToolbar").style.display = isCalculator ? "none" : "";
+  const active = viewMeta();
+  ["mercado", "calculadora", "registro"].forEach((view) => {
+    byId(`view-${view}`)?.classList.toggle("active", active.id === view);
+    byId(`tab-${view}`)?.classList.toggle("active", active.id === view);
+  });
+  byId("marketToolbar").style.display = active.toolbarVisible ? "" : "none";
+  byId("viewTitle").textContent = active.title;
 }
 
 function switchView(view) {
-  state.activeView = view === "calculadora" ? "calculadora" : "mercado";
+  state.activeView = ["mercado", "calculadora", "registro"].includes(view) ? view : "mercado";
   localStorage.setItem(VIEW_STORAGE_KEY, state.activeView);
   renderActiveView();
 }
@@ -536,6 +681,63 @@ function resourceSelectionSummary(alert) {
   };
 }
 
+function editorConditionValue(value) {
+  if (value === "<=") return "<";
+  if (value === ">=") return ">";
+  if (value === "between") return "between";
+  if (value === "<" || value === ">") return value;
+  return "<";
+}
+
+function conditionOptionMeta(condition) {
+  const normalized = editorConditionValue(condition);
+  if (normalized === ">") {
+    return {
+      value: ">",
+      title: "Mayor que"
+    };
+  }
+  if (normalized === "between") {
+    return {
+      value: "between",
+      title: "Entre dos precios"
+    };
+  }
+  return {
+    value: "<",
+    title: "Menor que"
+  };
+}
+
+function conditionSelectionSummary(alert) {
+  const meta = conditionOptionMeta(alert.condition);
+  return {
+    title: meta.title
+  };
+}
+
+function conditionSelectorOptionsMarkup(alert) {
+  const currentValue = editorConditionValue(alert.condition);
+  const options = ["<", ">", "between"].filter((value) => value !== currentValue);
+  if (!options.length) {
+    return `<div class="selector-empty">No hay otras opciones disponibles.</div>`;
+  }
+  return options.map((value) => {
+    const meta = conditionOptionMeta(value);
+    return `
+      <button class="selector-option" type="button" data-action="select-condition" data-condition="${escapeHtml(value)}">
+        <div class="selector-option-main">
+          <span>${escapeHtml(meta.title)}</span>
+        </div>
+      </button>
+    `;
+  }).join("");
+}
+
+function resetConditionSelectorState() {
+  state.conditionSelectorOpen = false;
+}
+
 function resourceSelectorOptionsMarkup(alert) {
   if (!state.resourceActiveGroup) {
     const groups = filteredResourceGroups();
@@ -586,8 +788,9 @@ function resourceSelectorOptionsMarkup(alert) {
 function editorMarkup(alert) {
   if (!alert) return `<div class="empty-card">Selecciona una alerta para editarla.</div>`;
   const merged = mergedAlert(alert);
-  const targetMaxClass = alert.condition === "between" ? "" : "hidden";
+  const targetMaxClass = editorConditionValue(alert.condition) === "between" ? "" : "hidden";
   const selectorSummary = resourceSelectionSummary(alert);
+  const conditionSummary = conditionSelectionSummary(alert);
   const activeGroupItems = filteredResourcesInActiveGroup();
   const visibleGroupCount = filteredResourceGroups().length;
   const selectorCountLabel = state.resourceActiveGroup
@@ -624,7 +827,7 @@ function editorMarkup(alert) {
           <button type="button" class="selector-summary" data-action="toggle-resource-selector">
             <div class="selector-summary-main">
               <div class="selector-title">${escapeHtml(selectorSummary.title)}</div>
-              <div class="selector-subtitle">${escapeHtml(selectorSummary.subtitle)}</div>
+              ${selectorSummary.subtitle ? `<div class="selector-subtitle">${escapeHtml(selectorSummary.subtitle)}</div>` : ""}
             </div>
             <div class="selector-chevron">${state.resourceSelectorOpen ? "▲" : "▼"}</div>
           </button>
@@ -646,15 +849,18 @@ function editorMarkup(alert) {
 
       <div class="form-row">
         <div class="input-group">
-          <label for="editorCondition">Tipo de alerta</label>
-          <select id="editorCondition" class="styled-select" data-field="condition">
-            <option value="<=" ${alert.condition === "<=" ? "selected" : ""}>Compra cuando baja a</option>
-            <option value=">=" ${alert.condition === ">=" ? "selected" : ""}>Venta cuando sube a</option>
-            <option value="<" ${alert.condition === "<" ? "selected" : ""}>Menor que</option>
-            <option value=">" ${alert.condition === ">" ? "selected" : ""}>Mayor que</option>
-            <option value="==" ${alert.condition === "==" ? "selected" : ""}>Igual a</option>
-            <option value="between" ${alert.condition === "between" ? "selected" : ""}>Entre dos precios</option>
-          </select>
+          <label>Tipo de alerta</label>
+          <div class="hierarchy-selector${state.conditionSelectorOpen ? " open" : ""}" id="editorConditionSelector">
+            <button type="button" class="selector-summary" data-action="toggle-condition-selector">
+              <div class="selector-summary-main">
+                <div class="selector-title">${escapeHtml(conditionSummary.title)}</div>
+              </div>
+              <div class="selector-chevron">${state.conditionSelectorOpen ? "▲" : "▼"}</div>
+            </button>
+            <div class="selector-panel">
+              <div class="selector-list">${conditionSelectorOptionsMarkup(alert)}</div>
+            </div>
+          </div>
         </div>
         <div class="input-group">
           <label for="editorTarget">Precio gatillo</label>
@@ -782,6 +988,391 @@ function renderFilterButtons() {
   });
 }
 
+function resetContactSelectorState({ keepOpen = false } = {}) {
+  state.contactSelectorOpen = keepOpen;
+  state.contactActiveGroup = null;
+  state.contactResourceSearch = "";
+}
+
+function filteredContactGroups(query = state.contactResourceSearch) {
+  return filteredGroupsByQuery(query);
+}
+
+function filteredContactResourcesInActiveGroup(query = state.contactResourceSearch) {
+  return filteredResourcesForGroup(state.contactActiveGroup, query);
+}
+
+function contactSelectionSummary() {
+  const selectedItem = resourceEntry(state.contactDraft.resourceId);
+  if (selectedItem) {
+    return {
+      title: selectedItem.label,
+      subtitle: `${selectedItem.group} · ${selectedItem.apiName} · ID ${selectedItem.id}`
+    };
+  }
+  return {
+    title: "Seleccionar producto",
+    subtitle: "Elegí rubro y activo"
+  };
+}
+
+function contactCrumbsMarkup() {
+  if (!state.contactActiveGroup) {
+    return `<span class="selector-tag">Rubros</span>`;
+  }
+  return [
+    `<span class="selector-tag">Rubro</span>`,
+    `<span class="selector-tag">${escapeHtml(state.contactActiveGroup)}</span>`,
+    `<span class="selector-tag">Activos</span>`
+  ].join("");
+}
+
+function focusContactSelectorSearch() {
+  window.requestAnimationFrame(() => {
+    const input = byId("contactResourceSearch");
+    if (!input) return;
+    input.focus();
+    const end = input.value.length;
+    input.setSelectionRange(end, end);
+  });
+}
+
+function contactSelectorOptionsMarkup() {
+  if (!state.contactActiveGroup) {
+    const groups = filteredContactGroups();
+    if (!groups.length) {
+      return `<div class="selector-empty">No hay rubros que coincidan con la búsqueda.</div>`;
+    }
+    const selectedGroup = resourceEntry(state.contactDraft.resourceId)?.group || "";
+    const normalizedQuery = normalizeSearch(state.contactResourceSearch);
+    return groups.map((entry) => {
+      const active = entry.name === selectedGroup;
+      let helper = `${entry.items.length} activos`;
+      if (normalizedQuery) {
+        helper = normalizeSearch(entry.name).includes(normalizedQuery) && entry.matchedItems.length === entry.items.length
+          ? `${entry.items.length} activos`
+          : `${entry.visibleCount} coincidencia${entry.visibleCount === 1 ? "" : "s"}`;
+      }
+      return `
+        <button class="selector-option${active ? " active" : ""}" type="button" data-contact-action="open-group" data-resource-group="${escapeHtml(entry.name)}">
+          <div class="selector-option-main">
+            ${avatarMarkup({ resourceName: entry.name, logoUrl: entry.items[0]?.logoUrl }, "R")}
+            <span>${escapeHtml(entry.name)}</span>
+          </div>
+          <small>${escapeHtml(helper)}</small>
+        </button>
+      `;
+    }).join("");
+  }
+
+  const items = filteredContactResourcesInActiveGroup();
+  if (!items.length) {
+    return `<div class="selector-empty">No hay activos que coincidan con la búsqueda.</div>`;
+  }
+  return items.map((item) => {
+    const active = Number(item.id) === Number(state.contactDraft.resourceId);
+    return `
+      <button class="selector-option${active ? " active" : ""}" type="button" data-contact-action="select-resource" data-resource-id="${item.id}">
+        <div class="selector-option-main">
+          ${avatarMarkup({ resourceId: item.id, resourceName: item.label, logoUrl: item.logoUrl }, "A")}
+          <span>${escapeHtml(item.label)}</span>
+        </div>
+        <small>${escapeHtml(item.apiName)} · ID ${item.id}</small>
+      </button>
+    `;
+  }).join("");
+}
+
+function contactTrustClass(trust) {
+  const match = CONTACT_TRUST_OPTIONS.find((option) => option.value === trust);
+  return match ? `trust-${match.tone}` : "trust-medio";
+}
+
+function contactEditorMarkup() {
+  const draft = state.contactDraft;
+  const selectorSummary = contactSelectionSummary();
+  const activeGroupItems = filteredContactResourcesInActiveGroup();
+  const visibleGroupCount = filteredContactGroups().length;
+  const selectorCountLabel = state.contactActiveGroup
+    ? `${activeGroupItems.length} activos visibles`
+    : `${visibleGroupCount} rubros visibles`;
+  const selectorSearchPlaceholder = state.contactActiveGroup
+    ? "Buscar activo por nombre o ID"
+    : "Buscar rubro o activo";
+  return `
+    <div class="editor-card">
+      <div class="summary-top">
+        ${letterAvatarMarkup(draft.name || "C", "C")}
+        <div class="summary-title">
+          <div class="summary-name">${escapeHtml(draft.name || "Nuevo contacto")}</div>
+          <div class="summary-meta">${escapeHtml(draft.type)}${draft.resourceId ? ` · ${escapeHtml(resourceLabel(draft.resourceId))}` : ""}</div>
+        </div>
+        <span class="badge ${contactTrustClass(draft.trust)}">${escapeHtml(draft.trust)}</span>
+      </div>
+
+      <div class="input-group">
+        <label for="contactName">Nombre del contacto</label>
+        <input id="contactName" class="styled-input" data-contact-field="name" type="text" value="${escapeHtml(draft.name)}" placeholder="Ingrese el nombre de la empresa" />
+      </div>
+
+      <div class="input-group">
+        <label for="contactType">Tipo de contacto</label>
+        <select id="contactType" class="styled-select" data-contact-field="type">
+          ${CONTACT_TYPE_OPTIONS.map((option) => `
+            <option value="${escapeHtml(option)}" ${draft.type === option ? "selected" : ""}>${escapeHtml(option)}</option>
+          `).join("")}
+        </select>
+      </div>
+
+      <div class="input-group">
+        <label>Producto / rubro</label>
+        <div class="hierarchy-selector${state.contactSelectorOpen ? " open" : ""}" id="contactResourceSelector">
+          <button type="button" class="selector-summary" data-contact-action="toggle-selector">
+            <div class="selector-summary-main">
+              <div class="selector-title">${escapeHtml(selectorSummary.title)}</div>
+              <div class="selector-subtitle">${escapeHtml(selectorSummary.subtitle)}</div>
+            </div>
+            <div class="selector-chevron">${state.contactSelectorOpen ? "▲" : "▼"}</div>
+          </button>
+          <div class="selector-panel">
+            <input id="contactResourceSearch" class="selector-search" data-contact-field="resource-search" type="text" value="${escapeHtml(state.contactResourceSearch)}" placeholder="${escapeHtml(selectorSearchPlaceholder)}" />
+            <div class="selector-crumbs">${contactCrumbsMarkup()}<span class="selector-tag">${escapeHtml(selectorCountLabel)}</span></div>
+            <div class="selector-actions">
+              ${state.contactActiveGroup ? '<button type="button" class="selector-action-btn" data-contact-action="back-groups">Volver a rubros</button>' : ""}
+            </div>
+            <div class="selector-list">${contactSelectorOptionsMarkup()}</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="input-group">
+        <label for="contactPerception">Percepción actual</label>
+        <textarea id="contactPerception" class="styled-input" data-contact-field="perception" placeholder="Cómo ves hoy a este contacto, qué ofrece o qué prioridad tiene">${escapeHtml(draft.perception)}</textarea>
+      </div>
+
+      <div class="input-group">
+        <label for="contactNotes">Notas privadas</label>
+        <textarea id="contactNotes" class="styled-input" data-contact-field="notes" placeholder="Acá podés dejar condiciones, detalles de trato o próximos pasos">${escapeHtml(draft.notes)}</textarea>
+      </div>
+
+      <div class="input-group">
+        <label>Confianza</label>
+        <div class="trust-options">
+          ${CONTACT_TRUST_OPTIONS.map((option) => `
+            <button class="trust-opt ${escapeHtml(option.tone)}${draft.trust === option.value ? " selected" : ""}" type="button" data-contact-action="select-trust" data-trust="${escapeHtml(option.value)}">${escapeHtml(option.value)}</button>
+          `).join("")}
+        </div>
+      </div>
+
+      <div class="editor-actions">
+        <button class="save-btn" type="button" data-contact-action="save-contact">Guardar contacto</button>
+      </div>
+    </div>
+  `;
+}
+
+function filteredContacts() {
+  const query = normalizeSearch(state.contactSearch);
+  return state.contacts.filter((contact) => {
+    const typeMatch = state.contactTypeFilter === "todos" || contact.type === state.contactTypeFilter;
+    if (!typeMatch) return false;
+    if (!query) return true;
+    return normalizeSearch([
+      contact.name,
+      contact.type,
+      resourceLabel(contact.resourceId),
+      contact.perception,
+      contact.notes,
+      contact.trust
+    ].join(" ")).includes(query);
+  });
+}
+
+function contactCardMarkup(contact) {
+  const metaParts = [contact.type];
+  if (contact.resourceId !== "" && contact.resourceId !== null && contact.resourceId !== undefined) {
+    metaParts.push(resourceLabel(contact.resourceId));
+  }
+  const notesMarkup = contact.notes
+    ? `<div class="card-notes register-card-notes">${escapeHtml(contact.notes)}</div>`
+    : "";
+  return `
+    <article class="contact-card register-contact-card" data-contact-id="${escapeHtml(contact.id)}">
+      <div class="card-top">
+        ${letterAvatarMarkup(contact.name, "C")}
+        <div class="card-title">
+          <div class="contact-name">${escapeHtml(contact.name)}</div>
+          <div class="contact-meta">${escapeHtml(metaParts.join(" · "))}</div>
+        </div>
+        <span class="badge ${contactTrustClass(contact.trust)}">${escapeHtml(contact.trust)}</span>
+      </div>
+      <div class="card-perception">${escapeHtml(contact.perception || "Sin observaciones cargadas todavía.")}</div>
+      ${notesMarkup}
+      <div class="card-tags">
+        <span class="tag">Registrado ${escapeHtml(formatContactDate(contact.createdAt))}</span>
+        <button class="mini-btn mini-btn-danger" type="button" data-contact-action="delete-contact" data-contact-id="${escapeHtml(contact.id)}">Eliminar</button>
+      </div>
+    </article>
+  `;
+}
+
+function renderContactFilterButtons() {
+  document.querySelectorAll("[data-contact-filter]").forEach((button) => {
+    button.classList.toggle("active", button.dataset.contactFilter === state.contactTypeFilter);
+  });
+}
+
+function renderContactStats() {
+  const container = byId("contactStats");
+  if (!container) return;
+  const total = state.contacts.length;
+  const providers = state.contacts.filter((contact) => contact.type === "Proveedor").length;
+  const trustHigh = state.contacts.filter((contact) => contact.trust === "Alto").length;
+  container.innerHTML = `
+    <div class="stat-pill">Total <span>${total}</span></div>
+    <div class="stat-pill">Proveedores <span>${providers}</span></div>
+    <div class="stat-pill">Confianza alta <span>${trustHigh}</span></div>
+  `;
+}
+
+function renderContactEditor() {
+  const container = byId("contactEditorContainer");
+  if (!container) return;
+  container.innerHTML = contactEditorMarkup();
+}
+
+function renderContactList() {
+  const container = byId("contactsRegisterList");
+  const countInfo = byId("contactCountInfo");
+  if (!container || !countInfo) return;
+  const filtered = filteredContacts();
+  countInfo.textContent = filtered.length < state.contacts.length
+    ? `${filtered.length} de ${state.contacts.length} contactos`
+    : `${filtered.length} contacto${filtered.length === 1 ? "" : "s"}`;
+  container.innerHTML = filtered.length
+    ? filtered.map(contactCardMarkup).join("")
+    : `<div class="empty-card">${state.contacts.length ? "No se encontraron contactos con el filtro actual." : "Aún no hay contactos registrados."}</div>`;
+}
+
+function renderContactView() {
+  renderContactStats();
+  renderContactEditor();
+  renderContactFilterButtons();
+  renderContactList();
+}
+
+function saveContact() {
+  const draft = {
+    ...state.contactDraft,
+    name: state.contactDraft.name.trim(),
+    perception: state.contactDraft.perception.trim(),
+    notes: state.contactDraft.notes.trim()
+  };
+  if (!draft.name) {
+    showToast("Necesitas un nombre para guardar el contacto");
+    return;
+  }
+  state.contacts.unshift(normalizeContactRecord(draft));
+  persistContacts();
+  state.contactDraft = emptyContactDraft();
+  resetContactSelectorState();
+  renderContactView();
+  showToast("Contacto guardado");
+}
+
+function deleteContact(contactId) {
+  state.contacts = state.contacts.filter((contact) => contact.id !== contactId);
+  persistContacts();
+  renderContactView();
+  showToast("Contacto eliminado");
+}
+
+function handleContactMutation(event) {
+  const target = event.target;
+  if (!(target instanceof HTMLElement)) return;
+
+  const actionTarget = target.closest("[data-contact-action]");
+  if (actionTarget?.dataset.contactAction === "toggle-selector") {
+    event.preventDefault();
+    event.stopPropagation();
+    state.contactSelectorOpen = !state.contactSelectorOpen;
+    renderContactEditor();
+    if (state.contactSelectorOpen) {
+      focusContactSelectorSearch();
+    } else {
+      resetContactSelectorState();
+      renderContactEditor();
+    }
+    return;
+  }
+
+  if (actionTarget?.dataset.contactAction === "back-groups") {
+    event.preventDefault();
+    event.stopPropagation();
+    state.contactActiveGroup = null;
+    state.contactResourceSearch = "";
+    renderContactEditor();
+    focusContactSelectorSearch();
+    return;
+  }
+
+  if (actionTarget?.dataset.contactAction === "open-group") {
+    event.preventDefault();
+    event.stopPropagation();
+    state.contactActiveGroup = actionTarget.dataset.resourceGroup || null;
+    state.contactResourceSearch = "";
+    renderContactEditor();
+    focusContactSelectorSearch();
+    return;
+  }
+
+  if (actionTarget?.dataset.contactAction === "select-resource") {
+    event.preventDefault();
+    event.stopPropagation();
+    state.contactDraft.resourceId = Number(actionTarget.dataset.resourceId);
+    resetContactSelectorState();
+    renderContactEditor();
+    return;
+  }
+
+  if (actionTarget?.dataset.contactAction === "select-trust") {
+    event.preventDefault();
+    event.stopPropagation();
+    state.contactDraft.trust = actionTarget.dataset.trust || "Medio";
+    renderContactEditor();
+    return;
+  }
+
+  if (actionTarget?.dataset.contactAction === "save-contact") {
+    event.preventDefault();
+    saveContact();
+    return;
+  }
+
+  if (actionTarget?.dataset.contactAction === "delete-contact") {
+    event.preventDefault();
+    const contactId = actionTarget.dataset.contactId;
+    if (contactId) {
+      deleteContact(contactId);
+    }
+    return;
+  }
+
+  if (event.type === "click") {
+    return;
+  }
+
+  const field = target.dataset.contactField;
+  if (!field) return;
+  if (field === "resource-search") {
+    state.contactResourceSearch = target.value;
+    renderContactEditor();
+    focusContactSelectorSearch();
+    return;
+  }
+  state.contactDraft[field] = target.value;
+}
+
 function renderAll() {
   ensureSelectedAlert();
   renderActiveView();
@@ -795,6 +1386,7 @@ function renderAll() {
   renderEvents();
   syncCalculatorInputs();
   recalculateCalculator();
+  renderContactView();
 }
 
 function currentAlertIndex() {
@@ -806,7 +1398,7 @@ function updateEditorDecoration() {
   if (!alert) return;
   const maxGroup = byId("editorTargetMaxGroup");
   if (maxGroup) {
-    maxGroup.classList.toggle("hidden", alert.condition !== "between");
+    maxGroup.classList.toggle("hidden", editorConditionValue(alert.condition) !== "between");
   }
 }
 
@@ -821,6 +1413,7 @@ function handleEditorMutation(event) {
     event.preventDefault();
     event.stopPropagation();
     state.resourceSelectorOpen = !state.resourceSelectorOpen;
+    state.conditionSelectorOpen = false;
     renderEditor();
     if (state.resourceSelectorOpen) {
       focusResourceSearch();
@@ -828,6 +1421,15 @@ function handleEditorMutation(event) {
       resetResourceSelectorState();
       renderEditor();
     }
+    return;
+  }
+
+  if (actionTarget?.dataset.action === "toggle-condition-selector") {
+    event.preventDefault();
+    event.stopPropagation();
+    state.conditionSelectorOpen = !state.conditionSelectorOpen;
+    state.resourceSelectorOpen = false;
+    renderEditor();
     return;
   }
 
@@ -856,6 +1458,19 @@ function handleEditorMutation(event) {
     event.stopPropagation();
     alert.resourceId = Number(actionTarget.dataset.resourceId);
     resetResourceSelectorState();
+    resetConditionSelectorState();
+    setDirty(true);
+    renderSelectedRuntime();
+    renderEditor();
+    renderAlertList();
+    return;
+  }
+
+  if (actionTarget?.dataset.action === "select-condition") {
+    event.preventDefault();
+    event.stopPropagation();
+    alert.condition = actionTarget.dataset.condition || "<";
+    resetConditionSelectorState();
     setDirty(true);
     renderSelectedRuntime();
     renderEditor();
@@ -975,7 +1590,7 @@ function addAlert() {
     label: "Nueva alerta",
     resourceId: 2,
     quality: 0,
-    condition: "<=",
+    condition: "<",
     targetPrice: 0.37,
     targetPriceMax: "",
     enabled: true,
@@ -984,6 +1599,7 @@ function addAlert() {
   });
   state.selectedAlertId = state.draft.alerts[0].id;
   resetResourceSelectorState();
+  resetConditionSelectorState();
   setDirty(true);
   renderAll();
 }
@@ -1139,6 +1755,7 @@ function bindStaticUi() {
   });
   byId("tab-mercado").addEventListener("click", () => switchView("mercado"));
   byId("tab-calculadora").addEventListener("click", () => switchView("calculadora"));
+  byId("tab-registro").addEventListener("click", () => switchView("registro"));
   byId("scanNowButton").addEventListener("click", scanNow);
   byId("scanToggleButton").addEventListener("click", toggleScanEnabled);
   byId("saveButton").addEventListener("click", saveConfig);
@@ -1174,13 +1791,27 @@ function bindStaticUi() {
   byId("editorContainer").addEventListener("click", handleEditorMutation);
 
   document.addEventListener("click", (event) => {
-    if (!state.resourceSelectorOpen) return;
     const target = event.target;
     if (!(target instanceof HTMLElement)) return;
-    const selector = byId("editorResourceSelector");
-    if (selector && !selector.contains(target)) {
+    const resourceSelector = byId("editorResourceSelector");
+    const conditionSelector = byId("editorConditionSelector");
+    const contactSelector = byId("contactResourceSelector");
+    let shouldRender = false;
+    if (state.resourceSelectorOpen && resourceSelector && !resourceSelector.contains(target)) {
       resetResourceSelectorState();
+      shouldRender = true;
+    }
+    if (state.conditionSelectorOpen && conditionSelector && !conditionSelector.contains(target)) {
+      resetConditionSelectorState();
+      shouldRender = true;
+    }
+    if (state.contactSelectorOpen && contactSelector && !contactSelector.contains(target)) {
+      resetContactSelectorState();
+      shouldRender = true;
+    }
+    if (shouldRender) {
       renderEditor();
+      renderContactEditor();
     }
   });
 
@@ -1197,6 +1828,24 @@ function bindStaticUi() {
     element.addEventListener("input", handleChannelsChange);
     element.addEventListener("change", handleChannelsChange);
   });
+
+  byId("contactSearchInput").addEventListener("input", (event) => {
+    state.contactSearch = event.target.value;
+    renderContactList();
+  });
+
+  document.querySelectorAll("[data-contact-filter]").forEach((button) => {
+    button.addEventListener("click", () => {
+      state.contactTypeFilter = button.dataset.contactFilter || "todos";
+      renderContactFilterButtons();
+      renderContactList();
+    });
+  });
+
+  byId("contactEditorContainer").addEventListener("input", handleContactMutation);
+  byId("contactEditorContainer").addEventListener("change", handleContactMutation);
+  byId("contactEditorContainer").addEventListener("click", handleContactMutation);
+  byId("contactsRegisterList").addEventListener("click", handleContactMutation);
 
   [
     ["calc-buy-price", "buyPrice"],
@@ -1223,6 +1872,7 @@ async function boot() {
   recalculateCalculator();
   const dashboardPromise = loadDashboard({ quiet: true });
   await Promise.all([dashboardPromise, runSplashScreen()]);
+  await runVitoIntro();
   startAutoRefresh();
 }
 

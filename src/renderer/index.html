@@ -17,19 +17,48 @@
         </div>
       </div>
     </div>
+    <div id="vitoOverlay" class="vito-overlay hidden" aria-hidden="true">
+      <main class="vito-shell" aria-label="Secuencia de marca Vito S.A.">
+        <div class="vito-bg-stage" aria-hidden="true">
+          <div class="vito-bg-column left"></div>
+          <div class="vito-bg-column right"></div>
+          <div class="vito-bg-orb"></div>
+          <div class="vito-bg-floor"></div>
+          <div class="vito-bg-noise"></div>
+        </div>
+        <div id="vitoParticles" class="vito-particles" aria-hidden="true"></div>
+
+        <section class="vito-sequence">
+          <div class="vito-logo-wrap">
+            <div class="vito-logo-halo"></div>
+            <div class="vito-logo-ring"></div>
+            <img class="vito-logo" src="../assets/branding/vito-sa-mark-1024.png?v=1" alt="Logo Vito S.A." />
+          </div>
+
+          <div class="vito-brand-block">
+            <h1 class="vito-brand-name">Vito S.A.</h1>
+            <div class="vito-credit-stack">
+              <div class="vito-credit-line-primary">Crafted by Vito S.A. © 2026</div>
+              <div class="vito-credit-line-secondary">with my friend Codex</div>
+            </div>
+          </div>
+        </section>
+      </main>
+    </div>
     <div class="app-shell">
       <header class="header">
         <div class="header-brand">
           <img class="brand-mark" src="../assets/branding/simmarket-mark-1024.png?v=2" alt="SimMarket" />
           <div class="brand-copy">
             <div class="brand-name">SimMarket</div>
-          <h1>Registro de Mercado</h1>
+            <h1 id="viewTitle">ALERTAS DE MERCADO</h1>
           </div>
         </div>
         <div class="header-side">
           <div class="view-switcher">
             <button id="tab-mercado" class="view-tab active" type="button">Mercado</button>
             <button id="tab-calculadora" class="view-tab" type="button">Calculadora</button>
+            <button id="tab-registro" class="view-tab" type="button">Registro</button>
           </div>
           <div id="marketToolbar" class="header-actions">
             <button id="scanNowButton" class="action-btn action-btn-secondary" type="button">Escanear mercado</button>
@@ -207,6 +236,34 @@
             </div>
           </div>
         </section>
+      </div>
+
+      <div id="view-registro" class="layout view-panel">
+        <aside class="form-panel">
+          <section class="panel-block">
+            <div class="section-label">Nuevo contacto</div>
+            <div id="contactStats" class="register-stats"></div>
+            <div id="contactEditorContainer" class="editor-shell"></div>
+          </section>
+        </aside>
+
+        <main class="list-panel">
+          <section class="panel-block">
+            <div class="section-label">Archivo de contactos</div>
+            <div class="filters-row">
+              <div class="search-wrap">
+                <span class="search-icon">&#9906;</span>
+                <input id="contactSearchInput" type="text" placeholder="Buscar contacto, producto o nota" />
+              </div>
+              <button class="filter-btn active" data-contact-filter="todos" type="button">Todos</button>
+              <button class="filter-btn" data-contact-filter="Proveedor" type="button">Proveedor</button>
+              <button class="filter-btn" data-contact-filter="Cliente" type="button">Cliente</button>
+              <button class="filter-btn" data-contact-filter="Aliado" type="button">Aliado</button>
+            </div>
+            <div id="contactCountInfo" class="register-count"></div>
+            <div id="contactsRegisterList" class="contacts-list"></div>
+          </section>
+        </main>
       </div>
     </div>
 

@@ -2,6 +2,7 @@
 set -euo pipefail
 
 CONSOLE_USER="$(stat -f %Su /dev/console 2>/dev/null || true)"
+APP_TARGET="/Applications/SimMarket.app"
 
 if [ -n "${CONSOLE_USER:-}" ] && [ "$CONSOLE_USER" != "root" ]; then
   USER_HOME="$(dscl . -read "/Users/$CONSOLE_USER" NFSHomeDirectory 2>/dev/null | awk '{print $2}')"
@@ -9,16 +10,22 @@ if [ -n "${CONSOLE_USER:-}" ] && [ "$CONSOLE_USER" != "root" ]; then
   if [ -n "${USER_HOME:-}" ] && [ -d "$USER_HOME" ]; then
     DATA_DIR="$USER_HOME/Library/Application Support/simmarket"
     DESKTOP_LINK="$USER_HOME/Desktop/SimMarket.app"
+    UNINSTALL_SCRIPT="/Applications/Desinstalar SimMarket.command"
 
     mkdir -p "$DATA_DIR/runtime"
     chown -R "$CONSOLE_USER":staff "$DATA_DIR" 2>/dev/null || true
+    chown "$CONSOLE_USER":staff "$UNINSTALL_SCRIPT" 2>/dev/null || true
+    chmod +x "$UNINSTALL_SCRIPT" 2>/dev/null || true
 
     if [ -L "$DESKTOP_LINK" ]; then
-      rm -f "$DESKTOP_LINK"
+      CURRENT_TARGET="$(readlink "$DESKTOP_LINK" 2>/dev/null || true)"
+      if [ "$CURRENT_TARGET" != "$APP_TARGET" ]; then
+        rm -f "$DESKTOP_LINK" 2>/dev/null || true
+      fi
     fi
 
     if [ ! -e "$DESKTOP_LINK" ]; then
-      ln -s "/Applications/SimMarket.app" "$DESKTOP_LINK" 2>/dev/null || true
+      ln -s "$APP_TARGET" "$DESKTOP_LINK" 2>/dev/null || true
       chown -h "$CONSOLE_USER":staff "$DESKTOP_LINK" 2>/dev/null || true
     fi
   fi

@@ -252,6 +252,10 @@ function createWindow() {
     height: 940,
     minWidth: 1220,
     minHeight: 780,
+    center: true,
+    show: false,
+    fullscreen: true,
+    simpleFullscreen: false,
     backgroundColor: "#000000",
     ...(fs.existsSync(APP_ICON_PATH) ? { icon: APP_ICON_PATH } : {}),
     webPreferences: {
@@ -262,6 +266,12 @@ function createWindow() {
   });
 
   mainWindow.loadFile(path.join(__dirname, "..", "renderer", "index.html"));
+
+  mainWindow.once("ready-to-show", () => {
+    mainWindow.setSimpleFullScreen(false);
+    mainWindow.setFullScreen(true);
+    mainWindow.show();
+  });
 }
 
 function normalizeIncomingConfig(payload) {
