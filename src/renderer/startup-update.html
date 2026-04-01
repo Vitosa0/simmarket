@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>SimMarket</title>
+    <style>
+      :root {
+        --bg: #121212;
+        --bg-soft: #171717;
+        --line: #242424;
+        --text: #f3f3f3;
+        --text-soft: #7c7c7c;
+        --text-faint: #474747;
+        --gold: #c9a84c;
+      }
+
+      * {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+      }
+
+      html,
+      body {
+        width: 100%;
+        height: 100%;
+        overflow: hidden;
+        background: linear-gradient(180deg, var(--bg) 0%, var(--bg-soft) 100%);
+        color: var(--text);
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Inter, sans-serif;
+      }
+
+      body {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 28px 30px 24px;
+      }
+
+      .startup-shell {
+        width: 100%;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 22px;
+        text-align: center;
+      }
+
+      .startup-brand-wrap {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 14px;
+      }
+
+      .startup-logo-slot {
+        width: 64px;
+        height: 64px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+
+      .startup-logo {
+        width: 64px;
+        height: 64px;
+        object-fit: contain;
+        display: block;
+      }
+
+      .startup-brand {
+        font-family: Georgia, "Times New Roman", serif;
+        font-size: 26px;
+        font-weight: 700;
+        color: var(--gold);
+        letter-spacing: 0.08em;
+      }
+
+      .startup-status-block {
+        width: 100%;
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+      }
+
+      .startup-message {
+        min-height: 16px;
+        font-size: 11px;
+        letter-spacing: 0.05em;
+        color: var(--text-soft);
+      }
+
+      .startup-message.is-success {
+        color: var(--gold);
+      }
+
+      .startup-progress-track {
+        width: 100%;
+        height: 1.5px;
+        background: var(--line);
+        border-radius: 999px;
+        overflow: hidden;
+      }
+
+      .startup-progress-bar {
+        width: 0%;
+        height: 100%;
+        border-radius: inherit;
+        background: var(--gold);
+        transition: width 0.12s linear, background 0.2s ease;
+      }
+
+      .startup-footer {
+        font-size: 10px;
+        color: var(--text-faint);
+        letter-spacing: 0.06em;
+      }
+    </style>
+  </head>
+  <body>
+    <main class="startup-shell" aria-label="Buscando actualizaciones">
+      <div class="startup-brand-wrap">
+        <div class="startup-logo-slot" aria-hidden="true">
+          <img class="startup-logo" src="../assets/branding/simmarket-mark-1024.png?v=4" alt="SimMarket" />
+        </div>
+        <div class="startup-brand">SimMarket</div>
+      </div>
+
+      <div class="startup-status-block">
+        <div id="message" class="startup-message">Iniciando...</div>
+        <div class="startup-progress-track">
+          <div id="progressBar" class="startup-progress-bar"></div>
+        </div>
+      </div>
+
+      <div id="version" class="startup-footer">v1.0.1</div>
+    </main>
+
+    <script>
+      const VERSION = new URLSearchParams(window.location.search).get("version") || "1.0.1";
+      const TOTAL_MS = 3000;
+      const TEXT_PHASE_MS = 1500;
+      const PROGRESS_PHASE_MS = 1500;
+      const FINAL_MESSAGE = "Listo para abrir.";
+      const lines = [
+        "Iniciando proceso...",
+        "Leyendo configuración...",
+        "Inicializando storage...",
+        "Cargando catálogo de recursos...",
+        "Verificando grupos de activos...",
+        "Conectando con SimcoTools...",
+        "Resolviendo endpoint...",
+        "Consultando versión remota...",
+        "Comparando versión local...",
+        "Preparando SimMarket..."
+      ];
+
+      const message = document.getElementById("message");
+      const progressBar = document.getElementById("progressBar");
+      const version = document.getElementById("version");
+      const platform = window.simcoDesktop?.platform || "unknown";
+      let liveUpdateState = null;
+
+      version.textContent = `v${VERSION.replace(/^v/i, "")}`;
+
+      const start = performance.now();
+
+      function renderFromLiveUpdateState() {
+        if (platform !== "win32" || !liveUpdateState) return false;
+
+        if (liveUpdateState.status === "available" || liveUpdateState.status === "downloading") {
+          const progress = Math.max(4, Math.min(100, Number(liveUpdateState.progress || 0)));
+          message.textContent = progress >= 100
+            ? "Terminando descarga..."
+            : `Descargando update... ${Math.round(progress)}%`;
+          message.classList.remove("is-success");
+          progressBar.style.width = `${progress}%`;
+          return true;
+        }
+
+        if (liveUpdateState.status === "downloaded" || liveUpdateState.status === "installing") {
+          message.textContent = "Instalando update...";
+          message.classList.add("is-success");
+          progressBar.style.width = "100%";
+          return true;
+        }
+
+        return false;
+      }
+
+      function tick(now) {
+        if (renderFromLiveUpdateState()) {
+          requestAnimationFrame(tick);
+          return;
+        }
+        const elapsed = Math.min(TOTAL_MS, now - start);
+        const progress = Math.min(1, elapsed / PROGRESS_PHASE_MS);
+        if (elapsed >= TEXT_PHASE_MS) {
+          message.textContent = FINAL_MESSAGE;
+        } else {
+          const lineProgress = elapsed / TEXT_PHASE_MS;
+          const lineIndex = Math.min(lines.length - 1, Math.floor(lineProgress * lines.length));
+          message.textContent = lines[lineIndex];
+        }
+        message.classList.toggle("is-success", elapsed >= TEXT_PHASE_MS);
+        progressBar.style.width = `${Math.max(3, progress * 100)}%`;
+        if (elapsed < TOTAL_MS) {
+          requestAnimationFrame(tick);
+        }
+      }
+
+      if (window.simcoDesktop?.getUpdateState) {
+        window.simcoDesktop.getUpdateState().then((payload) => {
+          liveUpdateState = payload || null;
+        }).catch(() => {});
+      }
+
+      if (window.simcoDesktop?.onUpdateState) {
+        window.simcoDesktop.onUpdateState((payload) => {
+          liveUpdateState = payload || null;
+        });
+      }
+
+      requestAnimationFrame(tick);
+    </script>
+  </body>
+</html>

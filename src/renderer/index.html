@@ -63,6 +63,7 @@
           </div>
           <div id="marketToolbar" class="header-actions">
             <button id="scanNowButton" class="action-btn action-btn-secondary" type="button">Escanear mercado</button>
+            <button id="checkUpdatesButton" class="action-btn action-btn-secondary" type="button">Buscar updates</button>
             <button id="saveButton" class="save-btn" type="button">Guardar cambios</button>
             <button id="resetButton" class="action-btn action-btn-secondary" type="button">Descartar</button>
             <button id="scanToggleButton" class="action-btn action-btn-danger" type="button">Parar escaneo</button>
@@ -250,21 +251,80 @@
 
         <main class="list-panel">
           <section class="panel-block">
-            <div class="section-label">Archivo de contactos</div>
+            <div class="section-label">
+              Archivo de contactos
+              <span id="contactCountLabel" class="note-count">0 registros</span>
+            </div>
             <div class="filters-row">
               <div class="search-wrap">
                 <span class="search-icon">&#9906;</span>
-                <input id="contactSearchInput" type="text" placeholder="Buscar contacto, producto o nota" />
+                <input id="contactSearchInput" type="text" placeholder="Buscar contacto..." />
               </div>
-              <button class="filter-btn active" data-contact-filter="todos" type="button">Todos</button>
-              <button class="filter-btn" data-contact-filter="Proveedor" type="button">Proveedor</button>
-              <button class="filter-btn" data-contact-filter="Cliente" type="button">Cliente</button>
-              <button class="filter-btn" data-contact-filter="Aliado" type="button">Aliado</button>
             </div>
-            <div id="contactCountInfo" class="register-count"></div>
+            <div id="contactTypeFilters" class="filters-row"></div>
+            <div id="contactTrustFilters" class="filters-row"></div>
+            <div id="contactRubroFilters" class="filters-row"></div>
+            <div id="contactCountInfo" class="results-info"></div>
             <div id="contactsRegisterList" class="contacts-list"></div>
           </section>
         </main>
+      </div>
+    </div>
+
+    <div id="historyModal" class="modal-backdrop">
+      <div class="modal-card modal-wide">
+        <h2 id="historyModalTitle">Historial del contacto</h2>
+        <p id="historyModalSubtitle">Pegá una conversación o cargá una interacción manual. Cada entrada queda guardada dentro del contacto y puede editarse agregando nuevas interacciones cuando quieras.</p>
+        <div class="history-layout">
+          <div class="history-column">
+            <div class="history-block">
+              <div class="history-block-title">Nueva interacción</div>
+              <div class="input-group">
+                <label for="historyDateInput">Fecha</label>
+                <input id="historyDateInput" class="styled-input" type="text" placeholder="Ej: 21 days ago o 29 de mar de 2026" />
+              </div>
+              <div class="input-group modal-stack-gap">
+                <label for="historyNoteInput">Nota</label>
+                <textarea id="historyNoteInput" class="styled-input modal-note-input" placeholder="Escriba sus apreciaciones"></textarea>
+              </div>
+              <div class="input-group modal-stack-gap">
+                <label for="historyConversationInput">Pegar conversación</label>
+                <textarea id="historyConversationInput" class="styled-input modal-chat-input" placeholder="Pegá el chat copiado tal como sale del juego y se separará en mensajes."></textarea>
+              </div>
+              <div class="modal-actions">
+                <button type="button" class="ghost-btn" data-contact-action="clear-history-form">Limpiar</button>
+                <button type="button" class="save-btn modal-save-btn" data-contact-action="save-history-entry">Guardar interacción</button>
+              </div>
+            </div>
+          </div>
+          <div class="history-column">
+            <div class="history-block history-block-fill">
+              <div class="history-block-title">Historial guardado</div>
+              <div id="historyList" class="history-list"></div>
+            </div>
+          </div>
+        </div>
+        <div class="modal-actions">
+          <button type="button" class="ghost-btn" data-contact-action="close-history-modal">Cerrar</button>
+        </div>
+      </div>
+    </div>
+
+    <div id="updateModal" class="modal-backdrop">
+      <div class="modal-card">
+        <h2 id="updateModalTitle">Buscando updates</h2>
+        <p id="updateModalBody">Estamos consultando GitHub para ver si hay una versión más nueva.</p>
+        <div id="updateModalMeta" class="results-info"></div>
+        <div id="updateProgressWrap" class="update-progress hidden">
+          <div class="update-progress-bar">
+            <div id="updateProgressFill" class="update-progress-fill"></div>
+          </div>
+          <div id="updateProgressLabel" class="update-progress-label">0%</div>
+        </div>
+        <div class="modal-actions">
+          <button id="updateDismissButton" type="button" class="ghost-btn">Ahora no</button>
+          <button id="updatePrimaryButton" type="button" class="save-btn modal-save-btn">Descargar</button>
+        </div>
       </div>
     </div>
 

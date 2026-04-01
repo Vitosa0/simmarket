@@ -3,7 +3,23 @@ const CALC_STORAGE_KEY = "simco-desktop-calculator";
 const THEME_STORAGE_KEY = "simco-desktop-theme";
 const CONTACTS_STORAGE_KEY = "simco-desktop-contacts";
 const CALC_TARGET_PCTS = [2, 5, 10, 15, 20, 25, 30, 50];
-const CONTACT_TYPE_OPTIONS = ["Proveedor", "Cliente", "Aliado", "Competidor"];
+const VARIOS_LABEL = "Varios";
+const CONTACT_TYPE_OPTIONS = ["Proveedor", "Cliente", "Desconocido", "Social", "Socio"];
+const CONTACT_TYPE_FILTER_OPTIONS = [
+  { value: "todos", label: "Todos" },
+  { value: "Proveedor", label: "Proveedores" },
+  { value: "Cliente", label: "Clientes" },
+  { value: "Desconocido", label: "Desconocidos" },
+  { value: "Social", label: "Social" },
+  { value: "Socio", label: "Socios" }
+];
+const CONTACT_TRUST_FILTER_OPTIONS = [
+  { value: "todos", label: "Toda confianza" },
+  { value: "Alto", label: "Alta" },
+  { value: "Medio", label: "Media" },
+  { value: "Bajo", label: "Baja" },
+  { value: "Neutro", label: "Neutro" }
+];
 const CONTACT_TRUST_OPTIONS = [
   { value: "Alto", tone: "alto" },
   { value: "Medio", tone: "medio" },
@@ -11,7 +27,7 @@ const CONTACT_TRUST_OPTIONS = [
   { value: "Neutro", tone: "neutro" }
 ];
 const SPLASH_TOTAL_MS = 6000;
-const VITO_INTRO_TOTAL_MS = 4000;
+const VITO_INTRO_TOTAL_MS = 3000;
 const SPLASH_PROGRESS_SEGMENTS = [
   { start: 0, end: 270, from: 0, to: 4, power: 0.72 },
   { start: 270, end: 683, from: 4, to: 13, power: 1.45 },
@@ -50,15 +66,39 @@ const state = {
   contacts: loadContacts(),
   contactSearch: "",
   contactTypeFilter: "todos",
+  contactTrustFilter: "todos",
+  contactRubroFilter: "todos",
   contactDraft: emptyContactDraft(),
   contactSelectorOpen: false,
+  contactTypeSelectorOpen: false,
   contactActiveGroup: null,
   contactResourceSearch: "",
+  contactSelectedRubros: {},
+  currentHistoryContactId: null,
   resourceManualMode: false,
   platform: window.simcoDesktop?.platform || "unknown",
   activeView: localStorage.getItem(VIEW_STORAGE_KEY) || "mercado",
   theme: localStorage.getItem(THEME_STORAGE_KEY) || "dark",
   calculator: loadCalculatorState(),
+  updates: {
+    platform: window.simcoDesktop?.platform || "unknown",
+    strategy: "manual",
+    currentVersion: "1.0.1",
+    status: "idle",
+    checking: false,
+    available: false,
+    downloading: false,
+    downloaded: false,
+    progress: 0,
+    latestVersion: "",
+    releaseName: "",
+    releaseNotes: "",
+    publishedAt: "",
+    downloadUrl: "",
+    lastCheckedAt: "",
+    error: "",
+    promptVisible: false
+  },
   dirty: false,
   refreshTimer: null,
   toastTimer: null
@@ -93,14 +133,90 @@ function emptyContactDraft() {
   return {
     name: "",
     type: "Proveedor",
-    resourceId: "",
     perception: "",
     notes: "",
     trust: "Medio"
   };
 }
 
+function uniqueList(values) {
+  return [...new Set((Array.isArray(values) ? values : []).map((value) => String(value || "").trim()).filter(Boolean))];
+}
+
+function normalizeContactHistory(contact) {
+  if (!Array.isArray(contact.history)) return [];
+  return contact.history.map((entry, index) => ({
+    id: entry.id || `history-${Date.now()}-${index}`,
+    date: String(entry.date || contact.date || "").trim(),
+    summary: String(entry.summary || "Interacción guardada").trim(),
+    note: String(entry.note || "").trim(),
+    messages: Array.isArray(entry.messages)
+      ? entry.messages
+        .filter((message) => message && message.text)
+        .map((message) => ({
+          speaker: message.speaker === "me" ? "me" : "contact",
+          text: String(message.text || "").trim(),
+          time: String(message.time || "").trim()
+        }))
+      : []
+  })).filter((entry) => entry.summary || entry.note || entry.messages.length);
+}
+
+function normalizeContactSelections(contact) {
+  if (Array.isArray(contact.selections) && contact.selections.length) {
+    return contact.selections
+      .filter((selection) => selection && selection.rubro)
+      .map((selection) => ({
+        rubro: String(selection.rubro || "").trim(),
+        products: uniqueList(selection.products)
+      }))
+      .filter((selection) => selection.rubro && selection.rubro !== VARIOS_LABEL);
+  }
+
+  if (Array.isArray(contact.rubros) && contact.rubros.length) {
+    return uniqueList(contact.rubros)
+      .filter((rubro) => rubro !== VARIOS_LABEL)
+      .map((rubro) => ({
+        rubro,
+        products: []
+      }));
+  }
+
+  if (contact.resourceId !== "" && contact.resourceId !== null && contact.resourceId !== undefined) {
+    const match = resourceEntry(contact.resourceId);
+    if (match) {
+      return [{
+        rubro: match.group || VARIOS_LABEL,
+        products: [match.label]
+      }];
+    }
+  }
+
+  if (contact.rubro && contact.rubro !== VARIOS_LABEL) {
+    return [{
+      rubro: String(contact.rubro || "").trim(),
+      products: uniqueList(contact.products)
+    }];
+  }
+
+  return [];
+}
+
+function buildContactProductDisplay(selections) {
+  if (!selections.length) return VARIOS_LABEL;
+  return selections.map((selection) => {
+    if (!selection.products.length) {
+      return `${selection.rubro} · ${VARIOS_LABEL}`;
+    }
+    return `${selection.rubro} · ${selection.products.join(", ")}`;
+  }).join(" | ");
+}
+
 function normalizeContactRecord(contact) {
+  const selections = normalizeContactSelections(contact);
+  const rubros = selections.length ? selections.map((selection) => selection.rubro) : [VARIOS_LABEL];
+  const products = selections.flatMap((selection) => selection.products);
+  const createdAt = contact.createdAt || new Date().toISOString();
   return {
     id: contact.id || `contact-${Date.now()}-${Math.round(Math.random() * 1000)}`,
     name: String(contact.name || "").trim(),
@@ -108,10 +224,17 @@ function normalizeContactRecord(contact) {
     resourceId: contact.resourceId === "" || contact.resourceId === null || contact.resourceId === undefined
       ? ""
       : Number(contact.resourceId),
+    rubro: rubros[0] || VARIOS_LABEL,
+    rubros,
+    selections,
+    products,
+    productDisplay: String(contact.productDisplay || contact.product || buildContactProductDisplay(selections)).trim() || VARIOS_LABEL,
     perception: String(contact.perception || "").trim(),
     notes: String(contact.notes || "").trim(),
+    history: normalizeContactHistory(contact),
     trust: CONTACT_TRUST_OPTIONS.some((option) => option.value === contact.trust) ? contact.trust : "Medio",
-    createdAt: contact.createdAt || new Date().toISOString()
+    date: String(contact.date || formatContactDate(createdAt)).trim(),
+    createdAt
   };
 }
 
@@ -559,6 +682,10 @@ function editableAlert(alert) {
 
 function syncDraftFromDashboard(dashboard) {
   state.dashboard = dashboard;
+  state.updates = {
+    ...state.updates,
+    ...(dashboard.updates || {})
+  };
   state.draft = {
     alerts: clone((dashboard.alerts || []).map(editableAlert)),
     channels: clone(dashboard.config?.channels || {}),
@@ -664,6 +791,7 @@ function renderHeader() {
   byId("headerOpportunityStat").textContent = String(dashboard.summary?.matchedAlerts || 0);
   byId("headerScanStat").textContent = formatHeaderTime(dashboard.scan?.scannedAt);
   renderScanToggleButton();
+  renderUpdateButton();
 }
 
 function renderScanToggleButton() {
@@ -673,6 +801,100 @@ function renderScanToggleButton() {
   button.textContent = scanEnabled ? "Parar escaneo" : "Iniciar escaneo";
   button.classList.toggle("action-btn-danger", scanEnabled);
   button.classList.toggle("action-btn-success", !scanEnabled);
+}
+
+function updateButtonLabel() {
+  const updates = state.updates;
+  if (updates.checking) return "Buscando update";
+  if (updates.downloaded) return "Instalar update";
+  if (updates.downloading) return `Descargando ${Math.round(updates.progress || 0)}%`;
+  if (updates.available) return updates.platform === "win32" ? "Ver descarga" : "Descargar update";
+  return "Buscar updates";
+}
+
+function renderUpdateButton() {
+  const button = byId("checkUpdatesButton");
+  if (!button) return;
+  const updates = state.updates;
+  button.textContent = updateButtonLabel();
+  button.disabled = Boolean(updates.checking || updates.downloading);
+  button.classList.toggle("action-btn-success", Boolean(updates.downloaded));
+  button.classList.toggle("filter-btn-strong", Boolean(updates.available && !updates.downloaded && !updates.downloading));
+}
+
+function updateModalTitle() {
+  const updates = state.updates;
+  if (updates.error) return "No se pudo revisar updates";
+  if (updates.downloaded) return "Update lista para instalar";
+  if (updates.downloading) return "Descargando update";
+  if (updates.available) return "Hay una update disponible";
+  if (updates.checking) return "Buscando updates";
+  return "SimMarket actualizado";
+}
+
+function updateModalBody() {
+  const updates = state.updates;
+  if (updates.error) return updates.error;
+  if (updates.downloaded) {
+    return `SimMarket ${updates.latestVersion || ""} ya está descargada y lista para instalar.`;
+  }
+  if (updates.downloading) {
+    return `Se está descargando SimMarket ${updates.latestVersion || ""}. Cuando termine vas a poder instalarla.`;
+  }
+  if (updates.available) {
+    if (updates.platform === "win32") {
+      return `Se detectó SimMarket ${updates.latestVersion || ""} y Windows va a descargarla automáticamente.`;
+    }
+    return `Se detectó SimMarket ${updates.latestVersion || ""}. Si querés, abrimos la descarga oficial desde GitHub.`;
+  }
+  if (updates.checking) {
+    return "Estamos consultando GitHub para ver si hay una versión más nueva.";
+  }
+  return `Ya estás en la última versión disponible (${updates.currentVersion || "actual"}).`;
+}
+
+function updatePrimaryButtonLabel() {
+  const updates = state.updates;
+  if (updates.error) return "Cerrar";
+  if (updates.downloaded) return updates.platform === "win32" ? "Instalar ahora" : "Cerrar";
+  if (updates.available) return updates.platform === "win32" ? "Descargando..." : "Descargar";
+  return "Cerrar";
+}
+
+function renderUpdateModal() {
+  const modal = byId("updateModal");
+  const title = byId("updateModalTitle");
+  const body = byId("updateModalBody");
+  const meta = byId("updateModalMeta");
+  const progressWrap = byId("updateProgressWrap");
+  const progressFill = byId("updateProgressFill");
+  const progressLabel = byId("updateProgressLabel");
+  const primary = byId("updatePrimaryButton");
+  const dismiss = byId("updateDismissButton");
+  if (!modal || !title || !body || !meta || !primary || !dismiss) return;
+
+  const updates = state.updates;
+  const shouldShow = Boolean(updates.promptVisible);
+  modal.classList.toggle("visible", shouldShow);
+  if (!shouldShow) return;
+
+  title.textContent = updateModalTitle();
+  body.textContent = updateModalBody();
+
+  const metaBits = [];
+  if (updates.currentVersion) metaBits.push(`Actual ${updates.currentVersion}`);
+  if (updates.latestVersion) metaBits.push(`Nueva ${updates.latestVersion}`);
+  if (updates.lastCheckedAt) metaBits.push(`Revisado ${formatCompactReading(updates.lastCheckedAt)}`);
+  meta.textContent = metaBits.join(" · ");
+
+  const showProgress = Boolean(updates.downloading || updates.downloaded);
+  progressWrap.classList.toggle("hidden", !showProgress);
+  progressFill.style.width = `${Math.max(0, Math.min(100, Number(updates.progress || 0)))}%`;
+  progressLabel.textContent = updates.downloaded ? "100%" : `${Math.round(updates.progress || 0)}%`;
+
+  primary.textContent = updatePrimaryButtonLabel();
+  primary.disabled = Boolean((updates.platform === "win32" && updates.downloading) || (!updates.downloaded && !updates.available && !updates.error));
+  dismiss.textContent = updates.downloaded && updates.platform === "win32" ? "Más tarde" : "Ahora no";
 }
 
 function renderSelectedRuntime() {
@@ -1029,26 +1251,132 @@ function resetContactSelectorState({ keepOpen = false } = {}) {
   state.contactResourceSearch = "";
 }
 
-function filteredContactGroups(query = state.contactResourceSearch) {
-  return filteredGroupsByQuery(query);
+function contactTrustClass(trust) {
+  const match = CONTACT_TRUST_OPTIONS.find((option) => option.value === trust);
+  return match ? `trust-${match.tone}` : "trust-medio";
 }
 
-function filteredContactResourcesInActiveGroup(query = state.contactResourceSearch) {
-  return filteredResourcesForGroup(state.contactActiveGroup, query);
+function contactHierarchyGroups() {
+  return resourceGroups().map((entry) => ({
+    name: entry.name,
+    products: uniqueList(entry.items.map((item) => item.label))
+  }));
+}
+
+function contactProductsForGroup(group) {
+  return contactHierarchyGroups().find((entry) => entry.name === group)?.products || [];
+}
+
+function getContactHierarchySelection() {
+  const selections = Object.entries(state.contactSelectedRubros)
+    .filter(([, products]) => Array.isArray(products))
+    .map(([rubro, products]) => ({
+      rubro,
+      products: uniqueList(products)
+    }));
+  const rubros = selections.map((selection) => selection.rubro);
+  return {
+    rubro: rubros[0] || VARIOS_LABEL,
+    rubros: rubros.length ? rubros : [VARIOS_LABEL],
+    selections,
+    products: selections.flatMap((selection) => selection.products),
+    productDisplay: buildContactProductDisplay(selections)
+  };
+}
+
+function contactResolvedSelections(contact) {
+  if (Array.isArray(contact.selections) && contact.selections.length) {
+    return contact.selections;
+  }
+  if (contact.resourceId !== "" && contact.resourceId !== null && contact.resourceId !== undefined) {
+    const match = resourceEntry(contact.resourceId);
+    if (match) {
+      return [{
+        rubro: match.group || VARIOS_LABEL,
+        products: [match.label]
+      }];
+    }
+  }
+  return [];
+}
+
+function contactResolvedRubros(contact) {
+  const selections = contactResolvedSelections(contact);
+  if (selections.length) {
+    return selections.map((selection) => selection.rubro);
+  }
+  return Array.isArray(contact.rubros) && contact.rubros.length ? contact.rubros : [contact.rubro || VARIOS_LABEL];
+}
+
+function contactResolvedProducts(contact) {
+  const selections = contactResolvedSelections(contact);
+  if (selections.length) {
+    return selections.flatMap((selection) => selection.products);
+  }
+  return Array.isArray(contact.products) ? contact.products : [];
+}
+
+function contactResolvedProductDisplay(contact) {
+  const selections = contactResolvedSelections(contact);
+  if (selections.length) {
+    return buildContactProductDisplay(selections);
+  }
+  if (contact.productDisplay && contact.productDisplay !== VARIOS_LABEL) {
+    return contact.productDisplay;
+  }
+  if (contact.resourceId !== "" && contact.resourceId !== null && contact.resourceId !== undefined) {
+    const match = resourceEntry(contact.resourceId);
+    if (match) {
+      return `${match.group} · ${match.label}`;
+    }
+  }
+  return contact.productDisplay || contact.product || VARIOS_LABEL;
+}
+
+function resetContactHierarchySelection() {
+  state.contactSelectedRubros = {};
+  state.contactActiveGroup = null;
+  state.contactResourceSearch = "";
+  state.contactSelectorOpen = false;
+}
+
+function clearContactHierarchySelection(keepOpen = false) {
+  state.contactSelectedRubros = {};
+  state.contactActiveGroup = null;
+  state.contactResourceSearch = "";
+  state.contactSelectorOpen = keepOpen;
+}
+
+function contactSelectionTagsMarkup() {
+  const selection = getContactHierarchySelection();
+  if (!selection.selections.length) {
+    return `<span class="selector-tag">${VARIOS_LABEL}</span>`;
+  }
+  return selection.selections.map((item) => {
+    if (!item.products.length) {
+      return `<span class="selector-tag">${escapeHtml(`${item.rubro} · ${VARIOS_LABEL}`)}</span>`;
+    }
+    return [
+      `<span class="selector-tag">${escapeHtml(item.rubro)}</span>`,
+      ...item.products.map((product) => `<span class="selector-tag">${escapeHtml(product)}</span>`)
+    ].join("");
+  }).join("");
 }
 
 function contactSelectionSummary() {
-  const selectedItem = resourceEntry(state.contactDraft.resourceId);
-  if (selectedItem) {
-    return {
-      title: selectedItem.label,
-      subtitle: `${selectedItem.group} · ${selectedItem.apiName} · ID ${selectedItem.id}`
-    };
-  }
+  const selection = getContactHierarchySelection();
+  const rubroCount = selection.selections.length;
+  const productCount = selection.selections.reduce((total, item) => total + item.products.length, 0);
   return {
-    title: "Seleccionar producto",
-    subtitle: "Elegí rubro y activo"
+    title: selection.productDisplay,
+    subtitle: rubroCount === 0
+      ? "Sin selección específica"
+      : `${rubroCount} rubro${rubroCount === 1 ? "" : "s"} · ${productCount ? `${productCount} producto${productCount === 1 ? "" : "s"}` : VARIOS_LABEL}`
   };
+}
+
+function contactTypeSelectionSummary() {
+  return { title: state.contactDraft.type };
 }
 
 function contactCrumbsMarkup() {
@@ -1058,7 +1386,7 @@ function contactCrumbsMarkup() {
   return [
     `<span class="selector-tag">Rubro</span>`,
     `<span class="selector-tag">${escapeHtml(state.contactActiveGroup)}</span>`,
-    `<span class="selector-tag">Activos</span>`
+    `<span class="selector-tag">Productos</span>`
   ].join("");
 }
 
@@ -1072,75 +1400,98 @@ function focusContactSelectorSearch() {
   });
 }
 
+function contactTypeOptionsMarkup() {
+  const options = CONTACT_TYPE_OPTIONS.filter((option) => option !== state.contactDraft.type);
+  if (!options.length) {
+    return `<div class="selector-empty">No hay otras opciones disponibles.</div>`;
+  }
+  return options.map((option) => `
+    <button class="selector-option" type="button" data-contact-action="select-type" data-contact-type="${escapeHtml(option)}">
+      <div class="selector-option-main">
+        <span>${escapeHtml(option)}</span>
+      </div>
+    </button>
+  `).join("");
+}
+
 function contactSelectorOptionsMarkup() {
+  const normalizedQuery = normalizeSearch(state.contactResourceSearch);
+
   if (!state.contactActiveGroup) {
-    const groups = filteredContactGroups();
-    if (!groups.length) {
+    const options = [];
+    if (!normalizedQuery || normalizeSearch(VARIOS_LABEL).includes(normalizedQuery)) {
+      options.push({
+        rubro: VARIOS_LABEL,
+        helper: "General",
+        active: !Object.keys(state.contactSelectedRubros).length
+      });
+    }
+
+    contactHierarchyGroups().forEach((entry) => {
+      const matchesByName = !normalizedQuery || normalizeSearch(entry.name).includes(normalizedQuery);
+      const matchedProducts = !normalizedQuery
+        ? entry.products
+        : entry.products.filter((product) => normalizeSearch([entry.name, product].join(" ")).includes(normalizedQuery));
+      if (!normalizedQuery || matchesByName || matchedProducts.length) {
+        options.push({
+          rubro: entry.name,
+          helper: state.contactSelectedRubros[entry.name] ? "Seleccionado" : `${entry.products.length} productos`,
+          active: Boolean(state.contactSelectedRubros[entry.name])
+        });
+      }
+    });
+
+    if (!options.length) {
       return `<div class="selector-empty">No hay rubros que coincidan con la búsqueda.</div>`;
     }
-    const selectedGroup = resourceEntry(state.contactDraft.resourceId)?.group || "";
-    const normalizedQuery = normalizeSearch(state.contactResourceSearch);
-    return groups.map((entry) => {
-      const active = entry.name === selectedGroup;
-      let helper = `${entry.items.length} activos`;
-      if (normalizedQuery) {
-        helper = normalizeSearch(entry.name).includes(normalizedQuery) && entry.matchedItems.length === entry.items.length
-          ? `${entry.items.length} activos`
-          : `${entry.visibleCount} coincidencia${entry.visibleCount === 1 ? "" : "s"}`;
-      }
-      return `
-        <button class="selector-option${active ? " active" : ""}" type="button" data-contact-action="open-group" data-resource-group="${escapeHtml(entry.name)}">
-          <div class="selector-option-main">
-            ${avatarMarkup({ resourceName: entry.name, logoUrl: entry.items[0]?.logoUrl }, "R")}
-            <span>${escapeHtml(entry.name)}</span>
-          </div>
-          <small>${escapeHtml(helper)}</small>
-        </button>
-      `;
-    }).join("");
+
+    return options.map((option) => `
+      <button class="selector-option${option.active ? " active" : ""}" type="button" data-contact-action="open-group" data-resource-group="${escapeHtml(option.rubro)}">
+        <div class="selector-option-main">
+          <span>${escapeHtml(option.rubro)}</span>
+        </div>
+        <small>${escapeHtml(option.helper)}</small>
+      </button>
+    `).join("");
   }
 
-  const items = filteredContactResourcesInActiveGroup();
-  if (!items.length) {
-    return `<div class="selector-empty">No hay activos que coincidan con la búsqueda.</div>`;
+  const activeProducts = state.contactSelectedRubros[state.contactActiveGroup] || [];
+  const products = [VARIOS_LABEL, ...contactProductsForGroup(state.contactActiveGroup)]
+    .filter((product) => !normalizedQuery || normalizeSearch(product).includes(normalizedQuery));
+
+  if (!products.length) {
+    return `<div class="selector-empty">No hay productos que coincidan con la búsqueda.</div>`;
   }
-  return items.map((item) => {
-    const active = Number(item.id) === Number(state.contactDraft.resourceId);
+
+  return products.map((product) => {
+    const active = product === VARIOS_LABEL ? activeProducts.length === 0 : activeProducts.includes(product);
+    const label = product === VARIOS_LABEL ? "Todos los productos del rubro" : "Producto";
     return `
-      <button class="selector-option${active ? " active" : ""}" type="button" data-contact-action="select-resource" data-resource-id="${item.id}">
+      <button class="selector-option${active ? " active" : ""}" type="button" data-contact-action="select-product" data-product-name="${escapeHtml(product)}">
         <div class="selector-option-main">
-          ${avatarMarkup({ resourceId: item.id, resourceName: item.label, logoUrl: item.logoUrl }, "A")}
-          <span>${escapeHtml(item.label)}</span>
+          <span>${escapeHtml(product)}</span>
         </div>
-        <small>${escapeHtml(item.apiName)} · ID ${item.id}</small>
+        <small>${escapeHtml(label)}</small>
       </button>
     `;
   }).join("");
 }
 
-function contactTrustClass(trust) {
-  const match = CONTACT_TRUST_OPTIONS.find((option) => option.value === trust);
-  return match ? `trust-${match.tone}` : "trust-medio";
+function latestContactHistory(contact) {
+  return Array.isArray(contact.history) && contact.history.length ? contact.history[0] : null;
 }
 
 function contactEditorMarkup() {
   const draft = state.contactDraft;
   const selectorSummary = contactSelectionSummary();
-  const activeGroupItems = filteredContactResourcesInActiveGroup();
-  const visibleGroupCount = filteredContactGroups().length;
-  const selectorCountLabel = state.contactActiveGroup
-    ? `${activeGroupItems.length} activos visibles`
-    : `${visibleGroupCount} rubros visibles`;
-  const selectorSearchPlaceholder = state.contactActiveGroup
-    ? "Buscar activo por nombre o ID"
-    : "Buscar rubro o activo";
+  const typeSummary = contactTypeSelectionSummary();
   return `
     <div class="editor-card">
       <div class="summary-top">
         ${letterAvatarMarkup(draft.name || "C", "C")}
         <div class="summary-title">
           <div class="summary-name">${escapeHtml(draft.name || "Nuevo contacto")}</div>
-          <div class="summary-meta">${escapeHtml(draft.type)}${draft.resourceId ? ` · ${escapeHtml(resourceLabel(draft.resourceId))}` : ""}</div>
+          <div class="summary-meta">${escapeHtml(draft.type)} · ${escapeHtml(selectorSummary.title)}</div>
         </div>
         <span class="badge ${contactTrustClass(draft.trust)}">${escapeHtml(draft.trust)}</span>
       </div>
@@ -1151,16 +1502,22 @@ function contactEditorMarkup() {
       </div>
 
       <div class="input-group">
-        <label for="contactType">Tipo de contacto</label>
-        <select id="contactType" class="styled-select" data-contact-field="type">
-          ${CONTACT_TYPE_OPTIONS.map((option) => `
-            <option value="${escapeHtml(option)}" ${draft.type === option ? "selected" : ""}>${escapeHtml(option)}</option>
-          `).join("")}
-        </select>
+        <label>Tipo de contacto</label>
+        <div class="hierarchy-selector${state.contactTypeSelectorOpen ? " open" : ""}" id="contactTypeSelector">
+          <button type="button" class="selector-summary" data-contact-action="toggle-type-selector">
+            <div class="selector-summary-main">
+              <div class="selector-title">${escapeHtml(typeSummary.title)}</div>
+            </div>
+            <div class="selector-chevron">${state.contactTypeSelectorOpen ? "▲" : "▼"}</div>
+          </button>
+          <div class="selector-panel">
+            <div class="selector-list">${contactTypeOptionsMarkup()}</div>
+          </div>
+        </div>
       </div>
 
       <div class="input-group">
-        <label>Producto / rubro</label>
+        <label>Producto / Rubro</label>
         <div class="hierarchy-selector${state.contactSelectorOpen ? " open" : ""}" id="contactResourceSelector">
           <button type="button" class="selector-summary" data-contact-action="toggle-selector">
             <div class="selector-summary-main">
@@ -1169,11 +1526,14 @@ function contactEditorMarkup() {
             </div>
             <div class="selector-chevron">${state.contactSelectorOpen ? "▲" : "▼"}</div>
           </button>
+          <div class="selector-tags">${contactSelectionTagsMarkup()}</div>
           <div class="selector-panel">
-            <input id="contactResourceSearch" class="selector-search" data-contact-field="resource-search" type="text" value="${escapeHtml(state.contactResourceSearch)}" placeholder="${escapeHtml(selectorSearchPlaceholder)}" />
-            <div class="selector-crumbs">${contactCrumbsMarkup()}<span class="selector-tag">${escapeHtml(selectorCountLabel)}</span></div>
+            <input id="contactResourceSearch" class="selector-search" data-contact-field="resource-search" type="text" value="${escapeHtml(state.contactResourceSearch)}" placeholder="Buscar rubro o producto..." />
+            <div class="selector-crumbs">${contactCrumbsMarkup()}</div>
             <div class="selector-actions">
-              ${state.contactActiveGroup ? '<button type="button" class="selector-action-btn" data-contact-action="back-groups">Volver a rubros</button>' : ""}
+              <button type="button" class="selector-action-btn" data-contact-action="clear-selection">${VARIOS_LABEL}</button>
+              ${state.contactActiveGroup ? '<button type="button" class="selector-action-btn" data-contact-action="back-groups">Agregar rubro</button>' : ""}
+              ${state.contactActiveGroup ? '<button type="button" class="selector-action-btn" data-contact-action="remove-rubro">Quitar rubro</button>' : ""}
             </div>
             <div class="selector-list">${contactSelectorOptionsMarkup()}</div>
           </div>
@@ -1181,17 +1541,17 @@ function contactEditorMarkup() {
       </div>
 
       <div class="input-group">
-        <label for="contactPerception">Percepción actual</label>
-        <textarea id="contactPerception" class="styled-input" data-contact-field="perception" placeholder="Cómo ves hoy a este contacto, qué ofrece o qué prioridad tiene">${escapeHtml(draft.perception)}</textarea>
+        <label for="contactPerception">Percepción</label>
+        <textarea id="contactPerception" class="styled-input" data-contact-field="perception" placeholder="Describa a la empresa">${escapeHtml(draft.perception)}</textarea>
       </div>
 
       <div class="input-group">
-        <label for="contactNotes">Notas privadas</label>
-        <textarea id="contactNotes" class="styled-input" data-contact-field="notes" placeholder="Acá podés dejar condiciones, detalles de trato o próximos pasos">${escapeHtml(draft.notes)}</textarea>
+        <label for="contactNotes">Notas adicionales</label>
+        <textarea id="contactNotes" class="styled-input" data-contact-field="notes" placeholder="Precios acordados, condiciones, detalles importantes...">${escapeHtml(draft.notes)}</textarea>
       </div>
 
       <div class="input-group">
-        <label>Confianza</label>
+        <label>Nivel de confianza</label>
         <div class="trust-options">
           ${CONTACT_TRUST_OPTIONS.map((option) => `
             <button class="trust-opt ${escapeHtml(option.tone)}${draft.trust === option.value ? " selected" : ""}" type="button" data-contact-action="select-trust" data-trust="${escapeHtml(option.value)}">${escapeHtml(option.value)}</button>
@@ -1210,26 +1570,44 @@ function filteredContacts() {
   const query = normalizeSearch(state.contactSearch);
   return state.contacts.filter((contact) => {
     const typeMatch = state.contactTypeFilter === "todos" || contact.type === state.contactTypeFilter;
-    if (!typeMatch) return false;
+    const trustMatch = state.contactTrustFilter === "todos" || contact.trust === state.contactTrustFilter;
+    const rubros = contactResolvedRubros(contact);
+    const matchRubro = state.contactRubroFilter === "todos" || rubros.includes(state.contactRubroFilter);
+    if (!typeMatch || !trustMatch || !matchRubro) return false;
     if (!query) return true;
-    return normalizeSearch([
+    const searchable = [
       contact.name,
       contact.type,
-      resourceLabel(contact.resourceId),
+      ...rubros,
+      contactResolvedProductDisplay(contact),
+      ...contactResolvedProducts(contact),
       contact.perception,
       contact.notes,
-      contact.trust
-    ].join(" ")).includes(query);
+      ...(contact.history || []).map((entry) => [
+        entry.summary,
+        entry.note,
+        ...(entry.messages || []).map((message) => message.text)
+      ].join(" "))
+    ].filter(Boolean).join(" ");
+    return normalizeSearch(searchable).includes(query);
   });
 }
 
 function contactCardMarkup(contact) {
-  const metaParts = [contact.type];
-  if (contact.resourceId !== "" && contact.resourceId !== null && contact.resourceId !== undefined) {
-    metaParts.push(resourceLabel(contact.resourceId));
-  }
   const notesMarkup = contact.notes
-    ? `<div class="card-notes register-card-notes">${escapeHtml(contact.notes)}</div>`
+    ? `<div class="card-notes register-card-notes"><div class="card-notes-label">Notas</div>${escapeHtml(contact.notes)}</div>`
+    : "";
+  const latestHistory = latestContactHistory(contact);
+  const historyMarkup = latestHistory
+    ? `
+      <div class="history-preview">
+        <div class="history-preview-head">
+          <div class="history-preview-title">Última interacción</div>
+          <div class="history-preview-date">${escapeHtml(latestHistory.date || "")}</div>
+        </div>
+        <div class="history-preview-body">${escapeHtml(latestHistory.summary || "")}</div>
+      </div>
+    `
     : "";
   return `
     <article class="contact-card register-contact-card" data-contact-id="${escapeHtml(contact.id)}">
@@ -1237,32 +1615,68 @@ function contactCardMarkup(contact) {
         ${letterAvatarMarkup(contact.name, "C")}
         <div class="card-title">
           <div class="contact-name">${escapeHtml(contact.name)}</div>
-          <div class="contact-meta">${escapeHtml(metaParts.join(" · "))}</div>
+          <div class="contact-meta">${escapeHtml([contact.type, contactResolvedProductDisplay(contact)].join(" · "))}</div>
         </div>
         <span class="badge ${contactTrustClass(contact.trust)}">${escapeHtml(contact.trust)}</span>
       </div>
+      <hr class="card-divider" />
       <div class="card-perception">${escapeHtml(contact.perception || "Sin observaciones cargadas todavía.")}</div>
       ${notesMarkup}
-      <div class="card-tags">
-        <span class="tag">Registrado ${escapeHtml(formatContactDate(contact.createdAt))}</span>
-        <button class="mini-btn mini-btn-danger" type="button" data-contact-action="delete-contact" data-contact-id="${escapeHtml(contact.id)}">Eliminar</button>
+      ${historyMarkup}
+      <div class="card-footer">
+        <span class="card-date">Registrado: ${escapeHtml(contact.date || formatContactDate(contact.createdAt))}</span>
+        <div class="card-actions">
+          <button class="manage-btn" type="button" data-contact-action="open-history" data-contact-id="${escapeHtml(contact.id)}">Historial${contact.history?.length ? ` (${contact.history.length})` : ""}</button>
+          <button class="delete-btn" type="button" data-contact-action="delete-contact" data-contact-id="${escapeHtml(contact.id)}">Eliminar</button>
+        </div>
       </div>
     </article>
   `;
 }
 
-function renderContactFilterButtons() {
-  document.querySelectorAll("[data-contact-filter]").forEach((button) => {
-    button.classList.toggle("active", button.dataset.contactFilter === state.contactTypeFilter);
-  });
+function renderContactTypeFilters() {
+  const container = byId("contactTypeFilters");
+  if (!container) return;
+  container.innerHTML = CONTACT_TYPE_FILTER_OPTIONS.map((option) => `
+    <button class="filter-btn${state.contactTypeFilter === option.value ? " active" : ""}" data-contact-filter-group="type" data-contact-filter="${escapeHtml(option.value)}" type="button">${escapeHtml(option.label)}</button>
+  `).join("");
+}
+
+function renderContactTrustFilters() {
+  const container = byId("contactTrustFilters");
+  if (!container) return;
+  container.innerHTML = CONTACT_TRUST_FILTER_OPTIONS.map((option) => `
+    <button class="filter-btn${state.contactTrustFilter === option.value ? " active" : ""}" data-contact-filter-group="trust" data-contact-filter="${escapeHtml(option.value)}" type="button">${escapeHtml(option.label)}</button>
+  `).join("");
+}
+
+function renderContactRubroFilters() {
+  const container = byId("contactRubroFilters");
+  if (!container) return;
+  const options = ["todos", ...contactHierarchyGroups().map((entry) => entry.name), VARIOS_LABEL];
+  const uniqueOptions = uniqueList(options);
+  container.innerHTML = uniqueOptions.map((option) => {
+    const label = option === "todos" ? "Todos los rubros" : option;
+    return `<button class="filter-btn${state.contactRubroFilter === option ? " active" : ""}" data-contact-filter-group="rubro" data-contact-filter="${escapeHtml(option)}" type="button">${escapeHtml(label)}</button>`;
+  }).join("");
+}
+
+function renderContactFilters() {
+  renderContactTypeFilters();
+  renderContactTrustFilters();
+  renderContactRubroFilters();
 }
 
 function renderContactStats() {
   const container = byId("contactStats");
+  const countLabel = byId("contactCountLabel");
   if (!container) return;
   const total = state.contacts.length;
   const providers = state.contacts.filter((contact) => contact.type === "Proveedor").length;
   const trustHigh = state.contacts.filter((contact) => contact.trust === "Alto").length;
+  if (countLabel) {
+    countLabel.textContent = `${total} registro${total === 1 ? "" : "s"}`;
+  }
   container.innerHTML = `
     <div class="stat-pill">Total <span>${total}</span></div>
     <div class="stat-pill">Proveedores <span>${providers}</span></div>
@@ -1281,19 +1695,242 @@ function renderContactList() {
   const countInfo = byId("contactCountInfo");
   if (!container || !countInfo) return;
   const filtered = filteredContacts();
-  countInfo.textContent = filtered.length < state.contacts.length
-    ? `${filtered.length} de ${state.contacts.length} contactos`
-    : `${filtered.length} contacto${filtered.length === 1 ? "" : "s"}`;
-  container.innerHTML = filtered.length
-    ? filtered.map(contactCardMarkup).join("")
-    : `<div class="empty-card">${state.contacts.length ? "No se encontraron contactos con el filtro actual." : "Aún no hay contactos registrados."}</div>`;
+
+  if (!state.contacts.length) {
+    countInfo.textContent = "";
+    container.innerHTML = `
+      <div class="empty-state">
+        <div class="empty-icon">◈</div>
+        <div class="empty-text">Aún no hay contactos registrados.</div>
+      </div>
+    `;
+    return;
+  }
+
+  if (!filtered.length) {
+    countInfo.textContent = "0 resultados";
+    container.innerHTML = `
+      <div class="empty-state">
+        <div class="empty-icon">◈</div>
+        <div class="empty-text">No se encontraron contactos<br>con los filtros actuales.</div>
+      </div>
+    `;
+    return;
+  }
+
+  countInfo.textContent = filtered.length < state.contacts.length ? `${filtered.length} de ${state.contacts.length} contactos` : "";
+  container.innerHTML = filtered.map(contactCardMarkup).join("");
+}
+
+function findContactById(contactId) {
+  return state.contacts.find((contact) => contact.id === contactId) || null;
+}
+
+function renderHistoryList() {
+  const list = byId("historyList");
+  const contact = state.currentHistoryContactId ? findContactById(state.currentHistoryContactId) : null;
+  if (!list) return;
+  if (!contact) {
+    list.innerHTML = "";
+    return;
+  }
+  if (!contact.history?.length) {
+    list.innerHTML = `<div class="selector-empty">Todavía no hay interacciones cargadas para este contacto.</div>`;
+    return;
+  }
+
+  list.innerHTML = contact.history.map((entry) => {
+    const chatMarkup = entry.messages?.length
+      ? `
+        <div class="history-chat">
+          ${entry.messages.map((message) => `
+            <div class="chat-message ${message.speaker}">
+              ${escapeHtml(message.text)}
+              ${message.time ? `<span class="chat-meta">${escapeHtml(message.speaker === "me" ? "Tu mensaje · " : "Mensaje recibido · ")}${escapeHtml(message.time)}</span>` : ""}
+            </div>
+          `).join("")}
+        </div>
+      `
+      : "";
+    return `
+      <div class="history-item">
+        <div class="history-item-head">
+          <div class="history-item-title">${escapeHtml(entry.summary)}</div>
+          <div class="history-item-date">${escapeHtml(entry.date)}</div>
+        </div>
+        ${entry.note ? `<div class="history-item-body">${escapeHtml(entry.note)}</div>` : ""}
+        ${chatMarkup}
+        <div class="history-item-meta">
+          <span class="history-tag">${entry.messages?.length ? `${entry.messages.length} mensaje${entry.messages.length === 1 ? "" : "s"}` : "Nota manual"}</span>
+          <button class="history-delete" type="button" data-contact-action="delete-history-entry" data-history-id="${escapeHtml(entry.id)}">Eliminar</button>
+        </div>
+      </div>
+    `;
+  }).join("");
+}
+
+function renderHistoryModal() {
+  const modal = byId("historyModal");
+  const title = byId("historyModalTitle");
+  const subtitle = byId("historyModalSubtitle");
+  if (!modal || !title || !subtitle) return;
+  const contact = state.currentHistoryContactId ? findContactById(state.currentHistoryContactId) : null;
+  modal.classList.toggle("visible", Boolean(contact));
+  if (!contact) return;
+  title.textContent = `Historial de ${contact.name}`;
+  subtitle.textContent = "Agregá nuevas interacciones sin tocar la ficha base del contacto. Podés pegar conversaciones completas y se convierten en burbujas legibles.";
+  renderHistoryList();
+}
+
+function clearHistoryForm() {
+  const dateInput = byId("historyDateInput");
+  const noteInput = byId("historyNoteInput");
+  const conversationInput = byId("historyConversationInput");
+  if (dateInput) dateInput.value = new Date().toLocaleDateString("es-AR", { day: "2-digit", month: "short", year: "numeric" });
+  if (noteInput) noteInput.value = "";
+  if (conversationInput) conversationInput.value = "";
+}
+
+function openHistoryModal(contactId) {
+  state.currentHistoryContactId = contactId;
+  clearHistoryForm();
+  renderHistoryModal();
+}
+
+function closeHistoryModal() {
+  state.currentHistoryContactId = null;
+  renderHistoryModal();
+}
+
+function buildHistorySummary(messages, note) {
+  if (messages?.length) {
+    const firstMessage = messages.find((message) => message.speaker === "contact") || messages[0];
+    return `${firstMessage.text.slice(0, 92)}${firstMessage.text.length > 92 ? "…" : ""}`;
+  }
+  if (note) {
+    return `${note.slice(0, 92)}${note.length > 92 ? "…" : ""}`;
+  }
+  return "";
+}
+
+function extractChatTimestamp(line) {
+  const normalized = String(line || "")
+    .trim()
+    .replace(/\s+/g, " ")
+    .replace(/días/gi, "dias");
+
+  const simpleMatch = normalized.match(/^(just now|today|yesterday|ayer)$/i);
+  if (simpleMatch) return simpleMatch[1];
+
+  const englishMatch = normalized.match(/((?:about\s+)?(\d+)\s+(minute|minutes|hour|hours|day|days|week|weeks|month|months|year|years)\s+ago)$/i);
+  if (englishMatch) {
+    const value = Number(englishMatch[2]);
+    const unit = englishMatch[3].toLowerCase();
+    if (unit.startsWith("year") && value > 5) return null;
+    return englishMatch[1];
+  }
+
+  const spanishMatch = normalized.match(/((?:hace\s+)(?:unos?\s+)?((?:\d+)|un|una)\s+(minuto|minutos|hora|horas|dia|dias|semana|semanas|mes|meses|año|años))$/i);
+  if (spanishMatch) {
+    const rawValue = spanishMatch[2].toLowerCase();
+    const value = rawValue === "un" || rawValue === "una" ? 1 : Number(rawValue);
+    const unit = spanishMatch[3].toLowerCase();
+    if ((unit === "año" || unit === "años") && value > 5) return null;
+    return spanishMatch[1];
+  }
+
+  return null;
+}
+
+function parseChatHeader(line) {
+  const normalizedLine = String(line || "").trim().replace(/\s+/g, " ");
+  const time = extractChatTimestamp(normalizedLine);
+  if (!time) return null;
+  const prefix = normalizedLine.slice(0, normalizedLine.length - time.length).trim();
+  return { speaker: prefix ? "contact" : "me", time };
+}
+
+function parseConversationText(text) {
+  const normalized = String(text || "").replace(/\r/g, "").trim();
+  if (!normalized) return [];
+  const lines = normalized.split("\n").map((line) => line.trim()).filter(Boolean);
+  const messages = [];
+  let index = 0;
+
+  while (index < lines.length) {
+    const header = parseChatHeader(lines[index]);
+    if (!header) {
+      index += 1;
+      continue;
+    }
+
+    index += 1;
+    const content = [];
+    while (index < lines.length && !parseChatHeader(lines[index])) {
+      content.push(lines[index]);
+      index += 1;
+    }
+
+    if (content.length) {
+      messages.push({
+        speaker: header.speaker,
+        time: header.time,
+        text: content.join("\n")
+      });
+    }
+  }
+
+  return messages;
+}
+
+function saveHistoryEntry() {
+  const contact = state.currentHistoryContactId ? findContactById(state.currentHistoryContactId) : null;
+  if (!contact) return;
+
+  const date = String(byId("historyDateInput")?.value || "").trim()
+    || new Date().toLocaleDateString("es-AR", { day: "2-digit", month: "short", year: "numeric" });
+  const note = String(byId("historyNoteInput")?.value || "").trim();
+  const conversationText = String(byId("historyConversationInput")?.value || "").trim();
+  const parsedMessages = conversationText ? parseConversationText(conversationText) : [];
+  const summary = buildHistorySummary(parsedMessages, note);
+
+  if (!summary && !note && !parsedMessages.length) {
+    showToast("Cargá un resumen, una nota o pegá una conversación antes de guardar");
+    return;
+  }
+
+  contact.history = contact.history || [];
+  contact.history.unshift({
+    id: `history-${Date.now()}`,
+    date,
+    summary: summary || "Interacción guardada",
+    note,
+    messages: parsedMessages
+  });
+
+  persistContacts();
+  renderContactList();
+  renderHistoryList();
+  clearHistoryForm();
+  showToast("Interacción guardada");
+}
+
+function deleteHistoryEntry(entryId) {
+  const contact = state.currentHistoryContactId ? findContactById(state.currentHistoryContactId) : null;
+  if (!contact) return;
+  contact.history = (contact.history || []).filter((entry) => entry.id !== entryId);
+  persistContacts();
+  renderContactList();
+  renderHistoryList();
+  showToast("Interacción eliminada");
 }
 
 function renderContactView() {
   renderContactStats();
   renderContactEditor();
-  renderContactFilterButtons();
+  renderContactFilters();
   renderContactList();
+  renderHistoryModal();
 }
 
 function saveContact() {
@@ -1303,20 +1940,31 @@ function saveContact() {
     perception: state.contactDraft.perception.trim(),
     notes: state.contactDraft.notes.trim()
   };
-  if (!draft.name) {
-    showToast("Necesitas un nombre para guardar el contacto");
+  if (!draft.name || !draft.perception) {
+    showToast("Completá el nombre y la percepción antes de guardar");
     return;
   }
-  state.contacts.unshift(normalizeContactRecord(draft));
+
+  const hierarchySelection = getContactHierarchySelection();
+  state.contacts.unshift(normalizeContactRecord({
+    ...draft,
+    ...hierarchySelection,
+    history: [],
+    date: new Date().toLocaleDateString("es-AR", { day: "2-digit", month: "short", year: "numeric" })
+  }));
   persistContacts();
   state.contactDraft = emptyContactDraft();
-  resetContactSelectorState();
+  state.contactTypeSelectorOpen = false;
+  clearContactHierarchySelection(false);
   renderContactView();
   showToast("Contacto guardado");
 }
 
 function deleteContact(contactId) {
   state.contacts = state.contacts.filter((contact) => contact.id !== contactId);
+  if (state.currentHistoryContactId === contactId) {
+    state.currentHistoryContactId = null;
+  }
   persistContacts();
   renderContactView();
   showToast("Contacto eliminado");
@@ -1331,6 +1979,7 @@ function handleContactMutation(event) {
     event.preventDefault();
     event.stopPropagation();
     state.contactSelectorOpen = !state.contactSelectorOpen;
+    state.contactTypeSelectorOpen = false;
     renderContactEditor();
     if (state.contactSelectorOpen) {
       focusContactSelectorSearch();
@@ -1338,6 +1987,33 @@ function handleContactMutation(event) {
       resetContactSelectorState();
       renderContactEditor();
     }
+    return;
+  }
+
+  if (actionTarget?.dataset.contactAction === "toggle-type-selector") {
+    event.preventDefault();
+    event.stopPropagation();
+    state.contactTypeSelectorOpen = !state.contactTypeSelectorOpen;
+    state.contactSelectorOpen = false;
+    renderContactEditor();
+    return;
+  }
+
+  if (actionTarget?.dataset.contactAction === "select-type") {
+    event.preventDefault();
+    event.stopPropagation();
+    state.contactDraft.type = actionTarget.dataset.contactType || "Proveedor";
+    state.contactTypeSelectorOpen = false;
+    renderContactEditor();
+    return;
+  }
+
+  if (actionTarget?.dataset.contactAction === "clear-selection") {
+    event.preventDefault();
+    event.stopPropagation();
+    clearContactHierarchySelection(true);
+    renderContactEditor();
+    focusContactSelectorSearch();
     return;
   }
 
@@ -1351,22 +2027,53 @@ function handleContactMutation(event) {
     return;
   }
 
+  if (actionTarget?.dataset.contactAction === "remove-rubro") {
+    event.preventDefault();
+    event.stopPropagation();
+    if (state.contactActiveGroup) {
+      delete state.contactSelectedRubros[state.contactActiveGroup];
+      state.contactActiveGroup = null;
+      state.contactResourceSearch = "";
+      renderContactEditor();
+    }
+    return;
+  }
+
   if (actionTarget?.dataset.contactAction === "open-group") {
     event.preventDefault();
     event.stopPropagation();
-    state.contactActiveGroup = actionTarget.dataset.resourceGroup || null;
+    const nextGroup = actionTarget.dataset.resourceGroup || null;
+    if (nextGroup === VARIOS_LABEL) {
+      clearContactHierarchySelection(false);
+      renderContactEditor();
+      return;
+    }
+    if (!state.contactSelectedRubros[nextGroup]) {
+      state.contactSelectedRubros[nextGroup] = [];
+    }
+    state.contactActiveGroup = nextGroup;
     state.contactResourceSearch = "";
     renderContactEditor();
     focusContactSelectorSearch();
     return;
   }
 
-  if (actionTarget?.dataset.contactAction === "select-resource") {
+  if (actionTarget?.dataset.contactAction === "select-product") {
     event.preventDefault();
     event.stopPropagation();
-    state.contactDraft.resourceId = Number(actionTarget.dataset.resourceId);
-    resetContactSelectorState();
+    const product = actionTarget.dataset.productName || "";
+    const group = state.contactActiveGroup;
+    if (!group) return;
+    const currentProducts = state.contactSelectedRubros[group] || [];
+    if (product === VARIOS_LABEL) {
+      state.contactSelectedRubros[group] = [];
+    } else if (currentProducts.includes(product)) {
+      state.contactSelectedRubros[group] = currentProducts.filter((item) => item !== product);
+    } else {
+      state.contactSelectedRubros[group] = [...currentProducts, product];
+    }
     renderContactEditor();
+    focusContactSelectorSearch();
     return;
   }
 
@@ -1393,6 +2100,42 @@ function handleContactMutation(event) {
     return;
   }
 
+  if (actionTarget?.dataset.contactAction === "open-history") {
+    event.preventDefault();
+    const contactId = actionTarget.dataset.contactId;
+    if (contactId) {
+      openHistoryModal(contactId);
+    }
+    return;
+  }
+
+  if (actionTarget?.dataset.contactAction === "close-history-modal") {
+    event.preventDefault();
+    closeHistoryModal();
+    return;
+  }
+
+  if (actionTarget?.dataset.contactAction === "clear-history-form") {
+    event.preventDefault();
+    clearHistoryForm();
+    return;
+  }
+
+  if (actionTarget?.dataset.contactAction === "save-history-entry") {
+    event.preventDefault();
+    saveHistoryEntry();
+    return;
+  }
+
+  if (actionTarget?.dataset.contactAction === "delete-history-entry") {
+    event.preventDefault();
+    const historyId = actionTarget.dataset.historyId;
+    if (historyId) {
+      deleteHistoryEntry(historyId);
+    }
+    return;
+  }
+
   if (event.type === "click") {
     return;
   }
@@ -1413,6 +2156,7 @@ function renderAll() {
   renderActiveView();
   renderThemeToggle();
   renderHeader();
+  renderUpdateModal();
   renderSelectedRuntime();
   renderEditor();
   renderChannels();
@@ -1615,6 +2359,56 @@ async function toggleScanEnabled() {
   }
 }
 
+async function checkForUpdates(manual = false) {
+  try {
+    const nextState = await callDesktop("checkForUpdates");
+    state.updates = {
+      ...state.updates,
+      ...(nextState || {})
+    };
+    renderHeader();
+    renderUpdateModal();
+    if (manual && state.updates.status === "up-to-date") {
+      showToast("Ya tenés la última versión");
+    }
+    if (manual && state.updates.status === "error") {
+      showToast(state.updates.error || "No se pudo revisar updates");
+    }
+  } catch (error) {
+    showToast(error.message);
+  }
+}
+
+async function runUpdatePrimaryAction() {
+  try {
+    const nextState = await callDesktop("runUpdatePrimaryAction");
+    state.updates = {
+      ...state.updates,
+      ...(nextState || {})
+    };
+    renderHeader();
+    renderUpdateModal();
+    if (state.updates.platform === "darwin" && state.updates.downloadUrl) {
+      showToast("Descarga abierta en GitHub");
+    }
+  } catch (error) {
+    showToast(error.message);
+  }
+}
+
+async function dismissUpdatePrompt() {
+  try {
+    const nextState = await callDesktop("dismissUpdatePrompt");
+    state.updates = {
+      ...state.updates,
+      ...(nextState || {})
+    };
+    renderUpdateModal();
+  } catch (error) {
+    showToast(error.message);
+  }
+}
+
 function newAlertId() {
   return `draft-${Date.now()}-${Math.round(Math.random() * 1000)}`;
 }
@@ -1670,8 +2464,13 @@ async function loadDashboard({ quiet = false } = {}) {
       renderAll();
     } else {
       state.dashboard = dashboard;
+      state.updates = {
+        ...state.updates,
+        ...(dashboard.updates || {})
+      };
       state.draft.config.scanEnabled = dashboard.config?.scanEnabled !== false;
       renderHeader();
+      renderUpdateModal();
       renderSelectedRuntime();
       renderAlertList();
       renderEvents();
@@ -1784,6 +2583,14 @@ function bindStaticUi() {
   window.simcoDesktop?.onAlertTriggered?.((payload) => {
     showLiveAlert(payload);
   });
+  window.simcoDesktop?.onUpdateState?.((payload) => {
+    state.updates = {
+      ...state.updates,
+      ...(payload || {})
+    };
+    renderHeader();
+    renderUpdateModal();
+  });
   byId("themeToggleButton").addEventListener("click", () => {
     applyTheme(state.theme === "light" ? "dark" : "light");
   });
@@ -1791,10 +2598,13 @@ function bindStaticUi() {
   byId("tab-calculadora").addEventListener("click", () => switchView("calculadora"));
   byId("tab-registro").addEventListener("click", () => switchView("registro"));
   byId("scanNowButton").addEventListener("click", scanNow);
+  byId("checkUpdatesButton").addEventListener("click", () => checkForUpdates(true));
   byId("scanToggleButton").addEventListener("click", toggleScanEnabled);
   byId("saveButton").addEventListener("click", saveConfig);
   byId("resetButton").addEventListener("click", discardDraft);
   byId("addAlertButton").addEventListener("click", addAlert);
+  byId("updatePrimaryButton").addEventListener("click", runUpdatePrimaryAction);
+  byId("updateDismissButton").addEventListener("click", dismissUpdatePrompt);
   byId("searchInput").addEventListener("input", (event) => {
     state.search = event.target.value;
     renderAlertList();
@@ -1830,6 +2640,7 @@ function bindStaticUi() {
     const resourceSelector = byId("editorResourceSelector");
     const conditionSelector = byId("editorConditionSelector");
     const contactSelector = byId("contactResourceSelector");
+    const contactTypeSelector = byId("contactTypeSelector");
     let shouldRender = false;
     if (state.resourceSelectorOpen && resourceSelector && !resourceSelector.contains(target)) {
       resetResourceSelectorState();
@@ -1842,6 +2653,38 @@ function bindStaticUi() {
     if (state.contactSelectorOpen && contactSelector && !contactSelector.contains(target)) {
       resetContactSelectorState();
       shouldRender = true;
+    }
+    if (state.contactTypeSelectorOpen && contactTypeSelector && !contactTypeSelector.contains(target)) {
+      state.contactTypeSelectorOpen = false;
+      shouldRender = true;
+    }
+    if (shouldRender) {
+      renderEditor();
+      renderContactEditor();
+    }
+  });
+
+  document.addEventListener("keydown", (event) => {
+    if (event.key !== "Escape") return;
+    let shouldRender = false;
+    if (state.resourceSelectorOpen) {
+      resetResourceSelectorState();
+      shouldRender = true;
+    }
+    if (state.conditionSelectorOpen) {
+      resetConditionSelectorState();
+      shouldRender = true;
+    }
+    if (state.contactSelectorOpen) {
+      resetContactSelectorState();
+      shouldRender = true;
+    }
+    if (state.contactTypeSelectorOpen) {
+      state.contactTypeSelectorOpen = false;
+      shouldRender = true;
+    }
+    if (state.currentHistoryContactId) {
+      closeHistoryModal();
     }
     if (shouldRender) {
       renderEditor();
@@ -1868,10 +2711,18 @@ function bindStaticUi() {
     renderContactList();
   });
 
-  document.querySelectorAll("[data-contact-filter]").forEach((button) => {
-    button.addEventListener("click", () => {
-      state.contactTypeFilter = button.dataset.contactFilter || "todos";
-      renderContactFilterButtons();
+  ["contactTypeFilters", "contactTrustFilters", "contactRubroFilters"].forEach((id) => {
+    byId(id).addEventListener("click", (event) => {
+      const target = event.target;
+      if (!(target instanceof HTMLElement)) return;
+      const button = target.closest("[data-contact-filter]");
+      if (!(button instanceof HTMLElement)) return;
+      const value = button.dataset.contactFilter || "todos";
+      const group = button.dataset.contactFilterGroup || "type";
+      if (group === "type") state.contactTypeFilter = value;
+      if (group === "trust") state.contactTrustFilter = value;
+      if (group === "rubro") state.contactRubroFilter = value;
+      renderContactFilters();
       renderContactList();
     });
   });
@@ -1880,6 +2731,22 @@ function bindStaticUi() {
   byId("contactEditorContainer").addEventListener("change", handleContactMutation);
   byId("contactEditorContainer").addEventListener("click", handleContactMutation);
   byId("contactsRegisterList").addEventListener("click", handleContactMutation);
+  byId("historyModal").addEventListener("click", (event) => {
+    const target = event.target;
+    if (!(target instanceof HTMLElement)) return;
+    if (target.id === "historyModal") {
+      closeHistoryModal();
+      return;
+    }
+    handleContactMutation(event);
+  });
+  byId("updateModal").addEventListener("click", (event) => {
+    const target = event.target;
+    if (!(target instanceof HTMLElement)) return;
+    if (target.id === "updateModal") {
+      dismissUpdatePrompt();
+    }
+  });
 
   [
     ["calc-buy-price", "buyPrice"],
@@ -1902,6 +2769,15 @@ async function boot() {
   document.body.dataset.platform = state.platform;
   applyTheme(state.theme);
   bindStaticUi();
+  try {
+    const updateState = await callDesktop("getUpdateState");
+    state.updates = {
+      ...state.updates,
+      ...(updateState || {})
+    };
+  } catch (error) {
+    // The desktop API is optional during development previews.
+  }
   renderActiveView();
   syncCalculatorInputs();
   recalculateCalculator();

@@ -1,6 +1,7 @@
 const fs = require("node:fs");
 const path = require("node:path");
 const { app, BrowserWindow, ipcMain, nativeImage, shell, Menu } = require("electron");
+const { autoUpdater } = require("electron-updater");
 const { RESOURCE_CATALOG, getResourceById } = require("./catalog");
 const { DEFAULT_CONFIG } = require("./defaults");
 const {
@@ -16,14 +17,44 @@ const {
 const { classifyRule, describeCondition, formatMarketNumber, normalizeRule, scanAlerts } = require("./monitor");
 
 let mainWindow = null;
+let startupWindow = null;
 let scanTimer = null;
 let scanInFlight = false;
 let discordAvatarData = null;
 const IS_WINDOWS = process.platform === "win32";
+const IS_MAC = process.platform === "darwin";
+const IS_DEV = !app.isPackaged;
+const UPDATE_REPO = {
+  owner: "Vitosa0",
+  repo: "simmarket"
+};
 const APP_ICON_PATH = process.platform === "win32"
   ? path.join(__dirname, "..", "assets", "branding", "simmarket-mark.ico")
   : path.join(__dirname, "..", "assets", "branding", "simmarket-mark-1024.png");
 const APP_ICON_PNG_PATH = path.join(__dirname, "..", "assets", "branding", "simmarket-mark-1024.png");
+let windowsUpdaterConfigured = false;
+let mainWindowReady = false;
+let startupSequenceDone = false;
+let windowsUpdatePromptVisible = true;
+let updateState = {
+  platform: process.platform,
+  strategy: IS_WINDOWS ? "windows-auto" : IS_MAC ? "mac-manual" : "unsupported",
+  currentVersion: app.getVersion(),
+  status: "idle",
+  checking: false,
+  available: false,
+  downloading: false,
+  downloaded: false,
+  progress: 0,
+  latestVersion: "",
+  releaseName: "",
+  releaseNotes: "",
+  publishedAt: "",
+  downloadUrl: "",
+  lastCheckedAt: "",
+  error: "",
+  promptVisible: false
+};
 
 if (IS_WINDOWS) {
   app.disableHardwareAcceleration();
@@ -32,6 +63,57 @@ if (IS_WINDOWS) {
 
 function dataPaths() {
   return appDataPaths();
+}
+
+function revealMainWindowIfReady() {
+  if (!mainWindow || mainWindow.isDestroyed() || !mainWindowReady || !startupSequenceDone) return;
+  if (IS_WINDOWS) {
+    mainWindow.maximize();
+    mainWindow.setFullScreen(true);
+  } else {
+    mainWindow.setSimpleFullScreen(false);
+    mainWindow.setFullScreen(true);
+  }
+  if (startupWindow && !startupWindow.isDestroyed()) {
+    startupWindow.close();
+    startupWindow = null;
+  }
+  mainWindow.show();
+}
+
+function createStartupWindow() {
+  if (startupWindow && !startupWindow.isDestroyed()) return startupWindow;
+  startupWindow = new BrowserWindow({
+    width: 430,
+    height: 248,
+    center: true,
+    frame: true,
+    transparent: false,
+    resizable: false,
+    minimizable: false,
+    maximizable: false,
+    fullscreenable: false,
+    skipTaskbar: true,
+    alwaysOnTop: true,
+    show: true,
+    autoHideMenuBar: true,
+    backgroundColor: "#0b0b0b",
+    ...(fs.existsSync(APP_ICON_PATH) ? { icon: APP_ICON_PATH } : {}),
+    webPreferences: {
+      preload: path.join(__dirname, "preload.js"),
+      contextIsolation: true,
+      nodeIntegration: false
+    }
+  });
+  startupWindow.loadFile(path.join(__dirname, "..", "renderer", "startup-update.html"), {
+    query: {
+      version: app.getVersion()
+    }
+  });
+  startupWindow.on("closed", () => {
+    startupWindow = null;
+  });
+  return startupWindow;
 }
 
 function isDiscordWebhookUrl(rawUrl) {
@@ -68,6 +150,347 @@ async function configureDiscordWebhookBranding(webhookUrl) {
   if (!response.ok) {
     throw new Error(`Discord branding ${response.status}`);
   }
+}
+
+function sendUpdateState() {
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    mainWindow.webContents.send("updates:state", updateState);
+  }
+  if (startupWindow && !startupWindow.isDestroyed()) {
+    startupWindow.webContents.send("updates:state", updateState);
+  }
+}
+
+function patchUpdateState(patch) {
+  updateState = {
+    ...updateState,
+    ...patch
+  };
+  sendUpdateState();
+  return updateState;
+}
+
+function normalizeVersion(rawVersion) {
+  return String(rawVersion || "").trim().replace(/^v/i, "");
+}
+
+function compareVersions(left, right) {
+  const leftParts = normalizeVersion(left).split(".").map((part) => Number(part.replace(/[^\d].*$/, "")) || 0);
+  const rightParts = normalizeVersion(right).split(".").map((part) => Number(part.replace(/[^\d].*$/, "")) || 0);
+  const length = Math.max(leftParts.length, rightParts.length);
+  for (let index = 0; index < length; index += 1) {
+    const diff = (leftParts[index] || 0) - (rightParts[index] || 0);
+    if (diff !== 0) return diff;
+  }
+  return 0;
+}
+
+function releaseAssetForMac(release) {
+  const assets = Array.isArray(release?.assets) ? release.assets : [];
+  const preferredSuffix = process.arch === "arm64" ? "arm64.pkg" : "x64.pkg";
+  return assets.find((asset) => asset.name?.endsWith(preferredSuffix))
+    || assets.find((asset) => asset.name?.endsWith(".pkg"))
+    || assets.find((asset) => asset.name?.endsWith(".dmg"))
+    || null;
+}
+
+async function fetchLatestRelease() {
+  const response = await fetch(`https://api.github.com/repos/${UPDATE_REPO.owner}/${UPDATE_REPO.repo}/releases/latest`, {
+    headers: {
+      Accept: "application/vnd.github+json",
+      "User-Agent": "SimMarket"
+    }
+  });
+  if (!response.ok) {
+    throw new Error(`GitHub release ${response.status}`);
+  }
+  return response.json();
+}
+
+async function checkMacUpdates({ showPrompt = true } = {}) {
+  patchUpdateState({
+    status: "checking",
+    checking: true,
+    error: "",
+    promptVisible: false
+  });
+
+  try {
+    const release = await fetchLatestRelease();
+    const latestVersion = normalizeVersion(release.tag_name || release.name || "");
+    const hasUpdate = compareVersions(latestVersion, app.getVersion()) > 0;
+    const asset = releaseAssetForMac(release);
+    const nextState = {
+      checking: false,
+      available: hasUpdate && Boolean(asset?.browser_download_url),
+      downloading: false,
+      downloaded: false,
+      progress: 0,
+      latestVersion,
+      releaseName: String(release.name || release.tag_name || "").trim(),
+      releaseNotes: String(release.body || "").trim(),
+      publishedAt: String(release.published_at || "").trim(),
+      downloadUrl: asset?.browser_download_url || "",
+      lastCheckedAt: new Date().toISOString(),
+      error: "",
+      promptVisible: hasUpdate && showPrompt
+    };
+    nextState.status = nextState.available ? "available" : "up-to-date";
+    return patchUpdateState(nextState);
+  } catch (error) {
+    return patchUpdateState({
+      status: "error",
+      checking: false,
+      available: false,
+      downloading: false,
+      downloaded: false,
+      progress: 0,
+      lastCheckedAt: new Date().toISOString(),
+      error: error.message,
+      promptVisible: false
+    });
+  }
+}
+
+function configureWindowsUpdater() {
+  if (!IS_WINDOWS || IS_DEV || windowsUpdaterConfigured) return;
+  windowsUpdaterConfigured = true;
+  autoUpdater.autoDownload = true;
+  autoUpdater.autoInstallOnAppQuit = true;
+
+  autoUpdater.on("checking-for-update", () => {
+    patchUpdateState({
+      status: "checking",
+      checking: true,
+      available: false,
+      downloading: false,
+      downloaded: false,
+      progress: 0,
+      error: "",
+      promptVisible: false
+    });
+  });
+
+  autoUpdater.on("update-available", (info) => {
+    patchUpdateState({
+      status: "available",
+      checking: false,
+      available: true,
+      downloading: true,
+      downloaded: false,
+      progress: 0,
+      latestVersion: normalizeVersion(info?.version || ""),
+      releaseName: String(info?.releaseName || info?.version || "").trim(),
+      releaseNotes: typeof info?.releaseNotes === "string" ? info.releaseNotes : "",
+      publishedAt: String(info?.releaseDate || "").trim(),
+      lastCheckedAt: new Date().toISOString(),
+      error: "",
+      promptVisible: windowsUpdatePromptVisible
+    });
+  });
+
+  autoUpdater.on("download-progress", (progress) => {
+    patchUpdateState({
+      status: "downloading",
+      checking: false,
+      available: true,
+      downloading: true,
+      downloaded: false,
+      progress: Number(progress?.percent || 0),
+      promptVisible: windowsUpdatePromptVisible
+    });
+  });
+
+  autoUpdater.on("update-downloaded", (info) => {
+    patchUpdateState({
+      status: "downloaded",
+      checking: false,
+      available: true,
+      downloading: false,
+      downloaded: true,
+      progress: 100,
+      latestVersion: normalizeVersion(info?.version || updateState.latestVersion),
+      releaseName: String(info?.releaseName || info?.version || updateState.releaseName || "").trim(),
+      releaseNotes: typeof info?.releaseNotes === "string" ? info.releaseNotes : updateState.releaseNotes,
+      publishedAt: String(info?.releaseDate || updateState.publishedAt || "").trim(),
+      lastCheckedAt: new Date().toISOString(),
+      error: "",
+      promptVisible: windowsUpdatePromptVisible
+    });
+  });
+
+  autoUpdater.on("update-not-available", (info) => {
+    patchUpdateState({
+      status: "up-to-date",
+      checking: false,
+      available: false,
+      downloading: false,
+      downloaded: false,
+      progress: 0,
+      latestVersion: normalizeVersion(info?.version || updateState.currentVersion),
+      releaseName: "",
+      releaseNotes: "",
+      publishedAt: "",
+      lastCheckedAt: new Date().toISOString(),
+      error: "",
+      promptVisible: false
+    });
+  });
+
+  autoUpdater.on("error", (error) => {
+    patchUpdateState({
+      status: "error",
+      checking: false,
+      downloading: false,
+      downloaded: false,
+      progress: 0,
+      lastCheckedAt: new Date().toISOString(),
+      error: error.message,
+      promptVisible: false
+    });
+  });
+}
+
+async function checkForUpdates({ showPrompt = true } = {}) {
+  if (IS_WINDOWS) {
+    if (IS_DEV) {
+      return patchUpdateState({
+        status: "idle",
+        checking: false,
+        available: false,
+        downloading: false,
+        downloaded: false,
+        progress: 0,
+        lastCheckedAt: new Date().toISOString(),
+        error: "",
+        promptVisible: false
+      });
+    }
+    windowsUpdatePromptVisible = showPrompt;
+    configureWindowsUpdater();
+    await autoUpdater.checkForUpdates();
+    return updateState;
+  }
+
+  if (IS_MAC) {
+    return checkMacUpdates({ showPrompt });
+  }
+
+  return patchUpdateState({
+    status: "unsupported",
+    checking: false,
+    promptVisible: false
+  });
+}
+
+async function runUpdatePrimaryAction() {
+  if (IS_WINDOWS) {
+    if (updateState.downloaded) {
+      autoUpdater.quitAndInstall();
+      return { ok: true };
+    }
+    if (updateState.available && !updateState.downloading) {
+      await autoUpdater.downloadUpdate();
+    }
+    return updateState;
+  }
+
+  if (IS_MAC && updateState.downloadUrl) {
+    await shell.openExternal(updateState.downloadUrl);
+    return patchUpdateState({
+      promptVisible: false,
+      status: "available"
+    });
+  }
+
+  return updateState;
+}
+
+function wait(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+async function waitForWindowsStartupState() {
+  const startedAt = Date.now();
+  const timeoutMs = 1000 * 60 * 15;
+  while ((Date.now() - startedAt) < timeoutMs) {
+    if (["up-to-date", "error", "downloaded"].includes(updateState.status)) {
+      return updateState.status;
+    }
+    await wait(120);
+  }
+  return updateState.status;
+}
+
+async function runStartupSequence() {
+  createStartupWindow();
+  const minVisibleMs = 3000;
+  const maxWaitMs = 3000;
+  const startedAt = Date.now();
+  if (IS_WINDOWS && !IS_DEV) {
+    try {
+      await checkForUpdates({ showPrompt: false });
+      const outcome = await waitForWindowsStartupState();
+      const elapsed = Date.now() - startedAt;
+      if (elapsed < minVisibleMs) {
+        await wait(minVisibleMs - elapsed);
+      }
+      if (outcome === "downloaded") {
+        patchUpdateState({
+          status: "installing",
+          checking: false,
+          available: true,
+          downloading: false,
+          downloaded: true,
+          progress: 100,
+          promptVisible: false
+        });
+        await wait(900);
+        autoUpdater.quitAndInstall(false, true);
+        return;
+      }
+    } catch (error) {
+      patchUpdateState({
+        status: "error",
+        checking: false,
+        available: false,
+        downloading: false,
+        downloaded: false,
+        progress: 0,
+        lastCheckedAt: new Date().toISOString(),
+        error: error.message,
+        promptVisible: false
+      });
+      const elapsed = Date.now() - startedAt;
+      if (elapsed < minVisibleMs) {
+        await wait(minVisibleMs - elapsed);
+      }
+    }
+    windowsUpdatePromptVisible = true;
+    if (!mainWindow || mainWindow.isDestroyed()) {
+      createWindow();
+    }
+    startupSequenceDone = true;
+    revealMainWindowIfReady();
+    return;
+  }
+  try {
+    await Promise.race([
+      checkForUpdates({ showPrompt: true }),
+      new Promise((resolve) => setTimeout(resolve, maxWaitMs))
+    ]);
+  } catch (error) {
+    // Startup should continue even if update lookup fails.
+  }
+  const elapsed = Date.now() - startedAt;
+  if (elapsed < minVisibleMs) {
+    await new Promise((resolve) => setTimeout(resolve, minVisibleMs - elapsed));
+  }
+  if (!mainWindow || mainWindow.isDestroyed()) {
+    createWindow();
+  }
+  startupSequenceDone = true;
+  revealMainWindowIfReady();
 }
 
 function buildConfigSnapshot(config) {
@@ -246,6 +669,7 @@ function buildDashboard(liveResults = {}, scanErrors = [], scannedAt = null) {
     alerts,
     events,
     resourceCatalog: RESOURCE_CATALOG,
+    updates: updateState,
     scan: {
       scannedAt,
       scannedLocal: isoLocal(scannedAt),
@@ -303,6 +727,7 @@ function restartScheduler() {
 }
 
 function createWindow() {
+  mainWindowReady = false;
   mainWindow = new BrowserWindow({
     width: 1460,
     height: 940,
@@ -332,14 +757,8 @@ function createWindow() {
   mainWindow.loadFile(path.join(__dirname, "..", "renderer", "index.html"));
 
   mainWindow.once("ready-to-show", () => {
-    if (IS_WINDOWS) {
-      mainWindow.setFullScreen(false);
-      mainWindow.maximize();
-    } else {
-      mainWindow.setSimpleFullScreen(false);
-      mainWindow.setFullScreen(true);
-    }
-    mainWindow.show();
+    mainWindowReady = true;
+    revealMainWindowIfReady();
   });
 }
 
@@ -365,7 +784,8 @@ app.whenReady().then(() => {
   if (process.platform === "darwin" && fs.existsSync(APP_ICON_PATH)) {
     app.dock.setIcon(nativeImage.createFromPath(APP_ICON_PATH));
   }
-  createWindow();
+  createStartupWindow();
+  configureWindowsUpdater();
   restartScheduler();
   const initialConfig = buildConfigSnapshot(loadConfig(dataPaths()));
   if (initialConfig.channels?.discordWebhookUrl) {
@@ -383,6 +803,10 @@ app.whenReady().then(() => {
   }
 
   ipcMain.handle("dashboard:get", async () => buildDashboard());
+  ipcMain.handle("updates:get-state", async () => updateState);
+  ipcMain.handle("updates:check", async () => checkForUpdates({ showPrompt: true }));
+  ipcMain.handle("updates:primary-action", async () => runUpdatePrimaryAction());
+  ipcMain.handle("updates:dismiss", async () => patchUpdateState({ promptVisible: false }));
 
   ipcMain.handle("config:save", async (_event, payload) => {
     const paths = dataPaths();
@@ -429,10 +853,24 @@ app.whenReady().then(() => {
     await shell.openPath(dataPaths().baseDir);
     return true;
   });
+  runStartupSequence().catch(() => {
+    if (!mainWindow || mainWindow.isDestroyed()) {
+      createWindow();
+    }
+    startupSequenceDone = true;
+    revealMainWindowIfReady();
+  });
 
   app.on("activate", () => {
     if (BrowserWindow.getAllWindows().length === 0) {
-      createWindow();
+      startupSequenceDone = false;
+      runStartupSequence().catch(() => {
+        if (!mainWindow || mainWindow.isDestroyed()) {
+          createWindow();
+        }
+        startupSequenceDone = true;
+        revealMainWindowIfReady();
+      });
     }
   });
 });
