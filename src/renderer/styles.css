@@ -165,6 +165,129 @@ body.intro-active .app-shell {
   pointer-events: none;
 }
 
+.live-alert-stack {
+  position: fixed;
+  top: 26px;
+  right: 28px;
+  z-index: 9997;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  pointer-events: none;
+}
+
+.live-alert-card {
+  width: min(360px, calc(100vw - 40px));
+  padding: 14px 16px;
+  border: 1px solid var(--border-strong);
+  background: color-mix(in srgb, var(--panel) 92%, #000 8%);
+  box-shadow: 0 16px 36px rgba(0, 0, 0, 0.28);
+  backdrop-filter: blur(16px);
+  border-radius: 18px;
+  opacity: 0;
+  transform: translateY(-10px) scale(0.98);
+  animation: liveAlertIn 0.24s ease forwards;
+}
+
+.live-alert-card.is-buy {
+  border-color: var(--success-border);
+}
+
+.live-alert-card.is-sell {
+  border-color: var(--danger-border);
+}
+
+.live-alert-card.is-market {
+  border-color: var(--warn-border);
+}
+
+.live-alert-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 8px;
+}
+
+.live-alert-title {
+  font-size: 12px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--text-soft);
+}
+
+.live-alert-pill {
+  padding: 4px 9px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  font-size: 10px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--text-dim);
+}
+
+.live-alert-card.is-buy .live-alert-pill {
+  border-color: var(--success-border);
+  color: var(--success-text);
+  background: var(--success-bg);
+}
+
+.live-alert-card.is-sell .live-alert-pill {
+  border-color: var(--danger-border);
+  color: var(--danger-text);
+  background: var(--danger-bg);
+}
+
+.live-alert-card.is-market .live-alert-pill {
+  border-color: var(--warn-border);
+  color: var(--warn-text);
+  background: var(--warn-bg);
+}
+
+.live-alert-body {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.live-alert-label {
+  font-size: 18px;
+  letter-spacing: 0.04em;
+  color: var(--text);
+}
+
+.live-alert-copy {
+  font-size: 13px;
+  line-height: 1.45;
+  color: var(--text-soft);
+}
+
+.live-alert-card.is-leaving {
+  animation: liveAlertOut 0.22s ease forwards;
+}
+
+@keyframes liveAlertIn {
+  from {
+    opacity: 0;
+    transform: translateY(-10px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes liveAlertOut {
+  from {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+  to {
+    opacity: 0;
+    transform: translateY(-8px) scale(0.98);
+  }
+}
+
 .splash-overlay {
   position: fixed;
   inset: 0;
