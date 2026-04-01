@@ -18,7 +18,9 @@ const { classifyRule, describeCondition, formatMarketNumber, normalizeRule, scan
 let mainWindow = null;
 let scanTimer = null;
 let scanInFlight = false;
-const APP_ICON_PATH = path.join(__dirname, "..", "assets", "branding", "simmarket-mark-1024.png");
+const APP_ICON_PATH = process.platform === "win32"
+  ? path.join(__dirname, "..", "assets", "branding", "simmarket-mark.ico")
+  : path.join(__dirname, "..", "assets", "branding", "simmarket-mark-1024.png");
 
 function dataPaths() {
   return appDataPaths();

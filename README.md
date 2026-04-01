@@ -9,26 +9,26 @@ Repositorio oficial:
 
 - Alertas de mercado con escaneo manual y automático
 - Selector completo de `142` activos agrupados por rubro
-- Notificaciones locales en macOS
+- Notificaciones locales en macOS y Windows
 - Envío de alertas por Discord y Telegram
 - Calculadora de costos 
 - Registro interno de contactos
 - Instalador `.pkg` para macOS Apple Silicon
+- Instalador `.exe` para Windows x64
 - Desinstalador incluido en la instalación
 
 ## Requisitos
 
 - macOS Apple Silicon (`arm64`)
+- Windows 10/11 (`x64`)
 - Node.js `20+`
 - npm
 
 ## Instalación para usar la app
 
-Descargá el archivo:
+macOS:
 
 - `SimMarket-Installer-1.0.0-arm64.pkg`
-
-Después:
 
 1. Abrí el installer.
 2. Instalá `SimMarket.app` en `/Applications`.
@@ -36,11 +36,21 @@ Después:
 4. Para desinstalar, queda disponible:
    - `/Applications/Desinstalar SimMarket.command`
 
+Windows:
+
+- `SimMarket-Installer-1.0.0-x64.exe`
+
+1. Abrí el installer.
+2. Elegí la carpeta de instalación o usá la sugerida.
+3. El instalador crea accesos de escritorio y menú inicio.
+4. Para desinstalar, usá `Agregar o quitar programas` o el desinstalador incluido por el installer.
+
 ## Qué guarda localmente
 
 La app crea y usa esta carpeta:
 
 - `~/Library/Application Support/simmarket`
+- `%APPDATA%/simmarket`
 
 Ahí se guardan, según el uso:
 
@@ -63,6 +73,7 @@ npm start
 ```bash
 npm run dist:mac
 npm run dist:pkg
+npm run dist:win
 ```
 
 Scripts auxiliares:
@@ -70,6 +81,7 @@ Scripts auxiliares:
 - `run_simmarket.command`
 - `build_simmarket_dmg.command`
 - `build_simmarket_pkg.command`
+- `build_simmarket_win.command`
 
 ## Validación del proyecto
 
@@ -101,14 +113,20 @@ Artefactos principales:
 
 - `SimMarket.app`
 - `SimMarket-Installer-<version>-arm64.pkg`
+- `SimMarket-Installer-<version>-x64.exe`
 - `SimMarket-<version>-arm64.dmg`
 
 ## Estado actual
 
 - El repo público ya está online en GitHub
 - El instalador incluye desinstalador
-- Los builds actuales están sin firma ni notarización de Apple
+- Ya existe build de Windows x64
+- Los builds actuales están sin firma ni notarización de Apple ni firma de código en Windows
 
 ## Nota sobre macOS
 
 Como la app todavía no está firmada ni notarizada, otras Macs pueden mostrar advertencias de seguridad al instalar o abrir la app por primera vez.
+
+## Nota sobre Windows
+
+Como el instalador de Windows todavía no está firmado con certificado de código, Windows puede mostrar advertencias de SmartScreen según el equipo y la reputación del archivo.
