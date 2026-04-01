@@ -245,6 +245,43 @@ function showToast(message) {
   }, 1800);
 }
 
+function liveAlertTone(payload) {
+  const title = String(payload?.title || "").toLowerCase();
+  if (title.includes("compra")) return "buy";
+  if (title.includes("venta")) return "sell";
+  return "market";
+}
+
+function liveAlertToneLabel(tone) {
+  if (tone === "buy") return "Compra";
+  if (tone === "sell") return "Venta";
+  return "Mercado";
+}
+
+function showLiveAlert(payload) {
+  const stack = byId("liveAlertStack");
+  if (!stack || !payload?.title) return;
+  const tone = liveAlertTone(payload);
+  const card = document.createElement("article");
+  card.className = `live-alert-card is-${tone}`;
+  card.innerHTML = `
+    <div class="live-alert-top">
+      <div class="live-alert-title">${escapeHtml(payload.title)}</div>
+      <div class="live-alert-pill">${escapeHtml(liveAlertToneLabel(tone))}</div>
+    </div>
+    <div class="live-alert-body">
+      <div class="live-alert-label">${escapeHtml(payload.label || payload.resourceName || "Alerta")}</div>
+      <div class="live-alert-copy">${escapeHtml(payload.body || "")}</div>
+    </div>
+  `;
+  stack.prepend(card);
+  const leave = () => {
+    card.classList.add("is-leaving");
+    window.setTimeout(() => card.remove(), 220);
+  };
+  window.setTimeout(leave, 5400);
+}
+
 async function callDesktop(method, payload) {
   if (!window.simcoDesktop?.[method]) {
     throw new Error("La API de escritorio no está disponible.");
@@ -580,9 +617,6 @@ function mergedAlert(alert) {
 }
 
 function draftPayload() {
-  if (!state.draft.alerts.length) {
-    throw new Error("Necesitas al menos una alerta.");
-  }
   return {
     realmId: Number(state.draft.config.realmId || 0),
     pollSeconds: Number(state.draft.config.pollSeconds || 180),
@@ -1605,10 +1639,6 @@ function addAlert() {
 }
 
 function removeSelectedAlert() {
-  if (state.draft.alerts.length <= 1) {
-    showToast("Necesitas al menos una alerta");
-    return;
-  }
   const index = currentAlertIndex();
   if (index === -1) return;
   state.draft.alerts.splice(index, 1);
@@ -1634,7 +1664,7 @@ async function deleteEvent(eventId) {
 async function loadDashboard({ quiet = false } = {}) {
   try {
     const dashboard = await callDesktop("getDashboard");
-    if (!state.dirty || !state.draft.alerts.length) {
+    if (!state.dirty) {
       syncDraftFromDashboard(dashboard);
       renderAll();
     } else {
@@ -1750,6 +1780,9 @@ function recalculateCalculator() {
 }
 
 function bindStaticUi() {
+  window.simcoDesktop?.onAlertTriggered?.((payload) => {
+    showLiveAlert(payload);
+  });
   byId("themeToggleButton").addEventListener("click", () => {
     applyTheme(state.theme === "light" ? "dark" : "light");
   });

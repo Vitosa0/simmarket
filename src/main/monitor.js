@@ -157,7 +157,8 @@ function sendDesktopNotification(title, body) {
   new Notification({
     title,
     body,
-    silent: false
+    silent: false,
+    ...(process.platform === "darwin" ? { sound: "default" } : {})
   }).show();
 }
 
@@ -201,7 +202,7 @@ async function notifyChannels(channels, title, body) {
   }
 }
 
-async function scanAlerts({ config, state, appendEvent }) {
+async function scanAlerts({ config, state, appendEvent, onTrigger, triggerNotifications = true }) {
   const normalizedAlerts = config.alerts.map((rule, index) => normalizeRule(rule, index + 1));
   const realmId = Number(config.realmId || 0);
   const channels = config.channels || {};
@@ -264,7 +265,20 @@ async function scanAlerts({ config, state, appendEvent }) {
         if (matched && shouldNotify) {
           const title = buildNotificationTitle(rule);
           const body = buildNotificationBody(rule, resourceName, price);
-          await notifyChannels(channels, title, body);
+          if (triggerNotifications) {
+            await notifyChannels(channels, title, body);
+          }
+          if (triggerNotifications && typeof onTrigger === "function") {
+            onTrigger({
+              alertId: rule.id,
+              label: rule.label,
+              title,
+              body,
+              resourceName,
+              quality: rule.quality,
+              price
+            });
+          }
           appendEvent({
             time: isoNow(),
             type: "trigger",

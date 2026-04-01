@@ -224,7 +224,18 @@ async function runScan(triggerNotifications = true) {
       config,
       state,
       appendEvent: append,
-      triggerNotifications
+      triggerNotifications,
+      onTrigger: (payload) => {
+        if (mainWindow && !mainWindow.isDestroyed()) {
+          mainWindow.webContents.send("alert:triggered", payload);
+        }
+        if (config.channels?.desktop) {
+          shell.beep();
+          if (process.platform === "darwin" && app.dock) {
+            app.dock.bounce("informational");
+          }
+        }
+      }
     });
     saveState(paths, state);
     return buildDashboard(result.results, result.errors, result.scannedAt);
