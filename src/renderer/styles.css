@@ -71,6 +71,18 @@
   --theme-toggle-bg: var(--panel);
   --theme-toggle-border: var(--border);
   --theme-toggle-color: var(--text-soft);
+  --vito-overlay-bg: #0b0b0b;
+  --vito-stage-sheen: rgba(255, 255, 255, 0.028);
+  --vito-stage-core-glow: rgba(214, 164, 78, 0.05);
+  --vito-stage-soft-glow: rgba(255, 255, 255, 0.014);
+  --vito-stage-vignette: rgba(0, 0, 0, 0.52);
+  --vito-column-dark: rgba(0, 0, 0, 0.36);
+  --vito-column-soft: rgba(0, 0, 0, 0.08);
+  --vito-floor-glow: rgba(214, 164, 78, 0.085);
+  --vito-orb-glow: rgba(214, 164, 78, 0.065);
+  --vito-orb-soft: rgba(214, 164, 78, 0.02);
+  --vito-noise-a: rgba(255, 255, 255, 0.01);
+  --vito-noise-b: rgba(255, 255, 255, 0.008);
 }
 
 body[data-theme="light"] {
@@ -130,6 +142,18 @@ body[data-theme="light"] {
   --theme-toggle-bg: #f7f1e8;
   --theme-toggle-border: #d8d0c5;
   --theme-toggle-color: #5d544a;
+  --vito-overlay-bg: #e8e2d8;
+  --vito-stage-sheen: rgba(31, 27, 23, 0.036);
+  --vito-stage-core-glow: rgba(182, 138, 30, 0.085);
+  --vito-stage-soft-glow: rgba(31, 27, 23, 0.022);
+  --vito-stage-vignette: rgba(123, 110, 91, 0.16);
+  --vito-column-dark: rgba(188, 178, 164, 0.34);
+  --vito-column-soft: rgba(244, 238, 230, 0.1);
+  --vito-floor-glow: rgba(182, 138, 30, 0.11);
+  --vito-orb-glow: rgba(182, 138, 30, 0.09);
+  --vito-orb-soft: rgba(182, 138, 30, 0.03);
+  --vito-noise-a: rgba(31, 27, 23, 0.018);
+  --vito-noise-b: rgba(31, 27, 23, 0.012);
 }
 
 html,
@@ -187,6 +211,11 @@ body.intro-active .app-shell {
   opacity: 0;
   transform: translateY(-10px) scale(0.98);
   animation: liveAlertIn 0.24s ease forwards;
+}
+
+body[data-platform="win32"] .live-alert-card {
+  backdrop-filter: none;
+  background: var(--panel);
 }
 
 .live-alert-card.is-buy {
@@ -358,7 +387,7 @@ body[data-theme="light"] .splash-progress {
   inset: 0;
   z-index: 9998;
   overflow: hidden;
-  background: linear-gradient(180deg, #070707 0%, #030303 100%);
+  background: var(--vito-overlay-bg);
   opacity: 1;
   visibility: visible;
   transition: opacity 0.45s ease, visibility 0.45s ease;
@@ -394,15 +423,15 @@ body[data-theme="light"] .splash-progress {
 .vito-bg-stage::before {
   content: "";
   background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.03), transparent 8%, transparent 90%, rgba(255, 255, 255, 0.015)),
-    radial-gradient(circle at 50% 38%, rgba(214, 164, 78, 0.038) 0%, rgba(214, 164, 78, 0.014) 20%, transparent 38%),
-    radial-gradient(circle at 50% 60%, rgba(255, 255, 255, 0.016) 0%, transparent 42%),
-    linear-gradient(180deg, #090909 0%, #020202 100%);
+    linear-gradient(180deg, var(--vito-stage-sheen), transparent 8%, transparent 90%, var(--vito-stage-soft-glow)),
+    radial-gradient(circle at 50% 40%, var(--vito-stage-core-glow) 0%, transparent 48%),
+    radial-gradient(circle at 50% 58%, var(--vito-stage-soft-glow) 0%, transparent 44%),
+    linear-gradient(180deg, var(--vito-overlay-bg) 0%, var(--vito-overlay-bg) 100%);
 }
 
 .vito-bg-stage::after {
   content: "";
-  background: radial-gradient(circle at 50% 52%, transparent 0%, transparent 46%, rgba(0, 0, 0, 0.58) 100%);
+  background: radial-gradient(circle at 50% 52%, transparent 0%, transparent 46%, var(--vito-stage-vignette) 100%);
 }
 
 .vito-bg-column {
@@ -411,9 +440,9 @@ body[data-theme="light"] .splash-progress {
   width: 33vw;
   min-width: 260px;
   height: 134vh;
-  background: linear-gradient(180deg, rgba(0, 0, 0, 0.74), rgba(0, 0, 0, 0.2) 30%, rgba(0, 0, 0, 0.6) 100%);
-  filter: blur(18px);
-  opacity: 0.82;
+  background: linear-gradient(180deg, var(--vito-column-dark), var(--vito-column-soft) 30%, var(--vito-column-dark) 100%);
+  filter: blur(22px);
+  opacity: 0.42;
 }
 
 .vito-bg-column.left {
@@ -434,9 +463,9 @@ body[data-theme="light"] .splash-progress {
   aspect-ratio: 1;
   border-radius: 50%;
   transform: translate(-50%, -50%);
-  background: radial-gradient(circle, rgba(214, 164, 78, 0.06) 0%, rgba(214, 164, 78, 0.022) 24%, rgba(214, 164, 78, 0.008) 42%, transparent 66%);
-  filter: blur(14px);
-  opacity: 0.9;
+  background: radial-gradient(circle, var(--vito-orb-glow) 0%, var(--vito-orb-soft) 28%, transparent 66%);
+  filter: blur(18px);
+  opacity: 0.82;
 }
 
 .vito-bg-floor {
@@ -447,20 +476,45 @@ body[data-theme="light"] .splash-progress {
   height: 34vh;
   transform: translateX(-50%);
   border-radius: 50%;
-  background: radial-gradient(ellipse at center, rgba(214, 164, 78, 0.07) 0%, rgba(214, 164, 78, 0.02) 28%, transparent 64%);
+  background: radial-gradient(ellipse at center, var(--vito-floor-glow) 0%, transparent 62%);
   filter: blur(32px);
-  opacity: 0.8;
+  opacity: 0.72;
 }
 
 .vito-bg-noise {
   position: absolute;
   inset: 0;
   background-image:
-    linear-gradient(rgba(255, 255, 255, 0.01) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(255, 255, 255, 0.008) 1px, transparent 1px);
+    linear-gradient(var(--vito-noise-a) 1px, transparent 1px),
+    linear-gradient(90deg, var(--vito-noise-b) 1px, transparent 1px);
   background-size: 100% 4px, 4px 100%;
   opacity: 0.02;
   mix-blend-mode: screen;
+}
+
+body[data-platform="win32"] .vito-bg-stage::before {
+  background:
+    radial-gradient(circle at 50% 42%, var(--vito-stage-core-glow) 0%, transparent 44%),
+    linear-gradient(180deg, var(--vito-overlay-bg) 0%, var(--vito-overlay-bg) 100%);
+}
+
+body[data-platform="win32"] .vito-bg-column {
+  filter: none;
+  opacity: 0.14;
+}
+
+body[data-platform="win32"] .vito-bg-orb {
+  filter: blur(10px);
+  opacity: 0.62;
+}
+
+body[data-platform="win32"] .vito-bg-floor {
+  filter: blur(16px);
+  opacity: 0.52;
+}
+
+body[data-platform="win32"] .vito-bg-noise {
+  display: none;
 }
 
 .vito-particles {
@@ -492,6 +546,7 @@ body[data-theme="light"] .splash-progress {
 }
 
 .vito-logo-wrap {
+  --vito-logo-radius: clamp(24px, 6vw, 74px);
   position: relative;
   width: min(420px, 74vw);
   aspect-ratio: 1;
@@ -504,31 +559,35 @@ body[data-theme="light"] .splash-progress {
 
 .vito-logo-halo {
   position: absolute;
-  inset: 20%;
-  border-radius: 50%;
-  background: radial-gradient(circle, rgba(243, 210, 138, 0.34) 0%, rgba(214, 164, 78, 0.22) 30%, rgba(214, 164, 78, 0.09) 48%, transparent 70%);
-  filter: blur(24px);
+  inset: 7.5%;
+  border-radius: var(--vito-logo-radius);
+  background: rgba(214, 164, 78, 0.035);
+  box-shadow:
+    0 0 18px rgba(214, 164, 78, 0.18),
+    0 0 42px rgba(214, 164, 78, 0.16),
+    0 0 88px rgba(214, 164, 78, 0.12),
+    0 0 132px rgba(214, 164, 78, 0.08);
+  filter: blur(6px);
   opacity: 0;
-  transform: scale(0.7);
+  transform: scale(0.985);
   animation: vitoHaloCoreReveal 0.7s ease 0.48s forwards;
   pointer-events: none;
 }
 
 .vito-logo-ring {
   position: absolute;
-  inset: 20%;
-  border-radius: 50%;
-  border: 2px solid rgba(214, 164, 78, 0.62);
+  inset: 7.5%;
+  border-radius: var(--vito-logo-radius);
+  border: 1.5px solid rgba(214, 164, 78, 0.42);
   box-shadow:
-    0 0 18px rgba(214, 164, 78, 0.32),
-    0 0 54px rgba(214, 164, 78, 0.24),
-    0 0 92px rgba(214, 164, 78, 0.18),
-    inset 0 0 18px rgba(243, 210, 138, 0.16);
+    0 0 12px rgba(214, 164, 78, 0.18),
+    0 0 28px rgba(214, 164, 78, 0.14),
+    inset 0 0 10px rgba(243, 210, 138, 0.08);
   opacity: 0;
-  transform: scale(0.74);
+  transform: scale(0.992);
   animation: vitoHaloRingReveal 0.65s ease 0.58s forwards;
   pointer-events: none;
-  mix-blend-mode: screen;
+  mix-blend-mode: normal;
 }
 
 .vito-logo {
@@ -537,7 +596,11 @@ body[data-theme="light"] .splash-progress {
   width: 100%;
   height: 100%;
   object-fit: contain;
-  filter: drop-shadow(0 24px 42px rgba(0, 0, 0, 0.42));
+  border-radius: var(--vito-logo-radius);
+  filter:
+    drop-shadow(0 22px 40px rgba(0, 0, 0, 0.42))
+    drop-shadow(0 0 18px rgba(214, 164, 78, 0.12))
+    drop-shadow(0 0 38px rgba(214, 164, 78, 0.08));
 }
 
 .vito-brand-block {
@@ -558,6 +621,11 @@ body[data-theme="light"] .splash-progress {
   transform: translateY(18px);
   text-shadow: 0 0 24px rgba(255, 255, 255, 0.08);
   animation: vitoFadeUp 0.52s ease 1.05s forwards;
+}
+
+body[data-theme="light"] .vito-brand-name {
+  color: #17130e;
+  text-shadow: 0 0 18px rgba(23, 19, 14, 0.08);
 }
 
 .vito-credit-stack {
@@ -581,6 +649,14 @@ body[data-theme="light"] .splash-progress {
   color: rgba(247, 242, 231, 0.48);
   letter-spacing: 0.08em;
   font-style: italic;
+}
+
+body[data-theme="light"] .vito-credit-line-primary {
+  color: rgba(23, 19, 14, 0.72);
+}
+
+body[data-theme="light"] .vito-credit-line-secondary {
+  color: rgba(23, 19, 14, 0.48);
 }
 
 @keyframes vitoFadeUp {

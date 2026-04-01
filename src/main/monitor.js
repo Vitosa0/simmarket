@@ -156,9 +156,10 @@ function sendDesktopNotification(title, body) {
   }
   new Notification({
     title,
+    subtitle: "SimMarket",
     body,
     silent: false,
-    ...(process.platform === "darwin" ? { sound: "default" } : {})
+    ...(process.platform === "darwin" ? { sound: "Ping" } : {})
   }).show();
 }
 
@@ -167,7 +168,10 @@ async function sendDiscordNotification(webhookUrl, title, body) {
   const response = await fetch(webhookUrl, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ content: `**${title}**\n${body}` })
+    body: JSON.stringify({
+      username: "SimMarket",
+      content: `**${title}**\n${body}`
+    })
   });
   if (!response.ok) {
     throw new Error(`Discord ${response.status}`);

@@ -1,6 +1,7 @@
 const { contextBridge, ipcRenderer } = require("electron");
 
 contextBridge.exposeInMainWorld("simcoDesktop", {
+  platform: process.platform,
   getDashboard: () => ipcRenderer.invoke("dashboard:get"),
   saveConfig: (payload) => ipcRenderer.invoke("config:save", payload),
   scanNow: () => ipcRenderer.invoke("scan:now"),
