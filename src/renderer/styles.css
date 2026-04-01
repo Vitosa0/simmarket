@@ -374,10 +374,9 @@ body[data-theme="light"] .splash-progress {
   aspect-ratio: 1;
   display: grid;
   place-items: center;
-  opacity: 0;
+  opacity: 1;
   transform: translateY(0) scale(1);
-  filter: blur(12px);
-  animation: vitoCrestReveal 0.95s cubic-bezier(0.16, 1, 0.3, 1) 0.18s forwards;
+  filter: none;
 }
 
 .vito-logo-halo {
