@@ -125,8 +125,8 @@ Artefactos principales:
 
 ## Nota sobre macOS
 
-Como la app todavía no está firmada ni notarizada, otras Macs pueden mostrar advertencias de seguridad al instalar o abrir la app por primera vez.
+Como la app no está firmada ni notarizada, otras Macs pueden mostrar advertencias de seguridad al instalar o abrir la app por primera vez.
 
 ## Nota sobre Windows
 
-Como el instalador de Windows todavía no está firmado con certificado de código, Windows puede mostrar advertencias de SmartScreen según el equipo y la reputación del archivo.
+Como el instalador de Windows no está firmado con certificado de código, Windows puede mostrar advertencias de SmartScreen según el equipo y la reputación del archivo.
