@@ -64,6 +64,26 @@ Windows (SmartScreen):
 3. Luego hacé clic en `Ejecutar de todas formas`.
 4. Confirmá el diálogo de permisos de Windows (`Sí`) para continuar la instalación.
 
+## Video de instalación
+
+Para reducir fricción en primera instalación, conviene publicar 2 videos cortos:
+
+- macOS: descarga -> bypass de Gatekeeper -> instalación -> primer inicio.
+- Windows: descarga -> SmartScreen (`Más información` / `Ejecutar de todas formas`) -> instalación -> primer inicio.
+
+Sugerencia de formato:
+
+- Duración: `30-60s` por plataforma
+- Resolución: `1080p`
+- Formato: `.mp4` (principal) + `.gif` corto opcional para preview en README
+
+Enlaces (completar al subir assets al Release de GitHub):
+
+- Video macOS: `PENDIENTE_LINK_VIDEO_MAC`
+- Video Windows: `PENDIENTE_LINK_VIDEO_WINDOWS`
+
+Tip: en el Release subí los videos como assets y pegá aquí la URL directa para que queden siempre versionados.
+
 ## Qué guarda localmente
 
 La app crea y usa esta carpeta:
