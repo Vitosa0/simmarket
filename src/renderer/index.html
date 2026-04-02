@@ -45,7 +45,6 @@
         </section>
       </main>
     </div>
-    <div id="liveAlertStack" class="live-alert-stack" aria-live="assertive" aria-atomic="false"></div>
     <div class="app-shell">
       <header class="header">
         <div class="header-brand">
@@ -124,7 +123,21 @@
 
         <main class="list-panel">
           <section class="panel-block">
-            <div class="section-label">Mercado vigilado</div>
+            <div class="section-heading-row">
+              <div class="section-label">Mercado vigilado</div>
+              <button id="notificationsButton" class="notifications-toggle" type="button" aria-label="Abrir notificaciones" title="Abrir notificaciones">
+                <span class="notifications-toggle-label">Notificaciones</span>
+                <span class="notification-toggle-icon-wrap" aria-hidden="true">
+                  <span class="notification-toggle-icon">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" role="presentation">
+                      <path d="M12 4.5a4 4 0 0 1 4 4v2.4c0 1.1.36 2.17 1.02 3.05l.9 1.2c.46.61.03 1.49-.73 1.49H6.81c-.76 0-1.19-.88-.73-1.49l.9-1.2A5.09 5.09 0 0 0 8 10.9V8.5a4 4 0 0 1 4-4Z"></path>
+                      <path d="M10.2 18.2a2.1 2.1 0 0 0 3.6 0"></path>
+                    </svg>
+                  </span>
+                  <span id="notificationsDot" class="notification-dot hidden" aria-hidden="true"></span>
+                </span>
+              </button>
+            </div>
             <div class="filters-row">
               <div class="search-wrap">
                 <span class="search-icon">&#9906;</span>
@@ -137,12 +150,9 @@
               <button class="filter-btn" data-filter="disabled" type="button">Pausadas</button>
               <button id="addAlertButton" class="filter-btn filter-btn-strong" type="button">Nueva alerta</button>
             </div>
+            <div id="alertsCountInfo" class="results-info"></div>
             <div id="alertsList" class="contacts-list"></div>
-          </section>
-
-          <section class="panel-block">
-            <div class="section-label">Actividad reciente</div>
-            <div id="eventsFeed" class="events-feed"></div>
+            <div id="alertsPagination" class="pagination-row"></div>
           </section>
         </main>
       </div>
@@ -266,6 +276,7 @@
             <div id="contactRubroFilters" class="filters-row"></div>
             <div id="contactCountInfo" class="results-info"></div>
             <div id="contactsRegisterList" class="contacts-list"></div>
+            <div id="contactPagination" class="pagination-row"></div>
           </section>
         </main>
       </div>
@@ -307,6 +318,19 @@
         <div class="modal-actions">
           <button type="button" class="ghost-btn" data-contact-action="close-history-modal">Cerrar</button>
         </div>
+      </div>
+    </div>
+
+    <div id="notificationsModal" class="modal-backdrop">
+      <div class="modal-card modal-wide">
+        <div class="modal-header">
+          <div>
+            <h2>Notificaciones</h2>
+            <p>Resumen reciente de disparos, salidas de zona y errores del monitor.</p>
+          </div>
+          <button type="button" class="ghost-btn" data-action="close-notifications-modal">Cerrar</button>
+        </div>
+        <div id="eventsFeed" class="events-feed"></div>
       </div>
     </div>
 

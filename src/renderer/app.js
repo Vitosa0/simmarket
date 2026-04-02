@@ -3,6 +3,9 @@ const CALC_STORAGE_KEY = "simco-desktop-calculator";
 const THEME_STORAGE_KEY = "simco-desktop-theme";
 const CONTACTS_STORAGE_KEY = "simco-desktop-contacts";
 const ONBOARDING_STORAGE_KEY = "simco-desktop-onboarding-completed";
+const NOTIFICATIONS_SEEN_STORAGE_KEY = "simco-desktop-last-seen-event";
+const CONTACTS_PER_PAGE = 4;
+const ALERTS_PER_PAGE = 5;
 const CALC_TARGET_PCTS = [2, 5, 10, 15, 20, 25, 30, 50];
 const VARIOS_LABEL = "Varios";
 const CONTACT_TYPE_OPTIONS = ["Proveedor", "Cliente", "Desconocido", "Social", "Socio"];
@@ -60,6 +63,7 @@ const state = {
   selectedAlertId: null,
   filter: "all",
   search: "",
+  alertPage: 1,
   resourceSearch: "",
   resourceSelectorOpen: false,
   resourceActiveGroup: null,
@@ -69,6 +73,7 @@ const state = {
   contactTypeFilter: "todos",
   contactTrustFilter: "todos",
   contactRubroFilter: "todos",
+  contactPage: 1,
   contactDraft: emptyContactDraft(),
   contactSelectorOpen: false,
   contactTypeSelectorOpen: false,
@@ -76,6 +81,9 @@ const state = {
   contactResourceSearch: "",
   contactSelectedRubros: {},
   currentHistoryContactId: null,
+  notificationsOpen: false,
+  notificationsUnread: false,
+  notificationsLastSeen: localStorage.getItem(NOTIFICATIONS_SEEN_STORAGE_KEY) || "",
   resourceManualMode: false,
   platform: window.simcoDesktop?.platform || "unknown",
   activeView: localStorage.getItem(VIEW_STORAGE_KEY) || "mercado",
@@ -84,7 +92,7 @@ const state = {
   updates: {
     platform: window.simcoDesktop?.platform || "unknown",
     strategy: "manual",
-    currentVersion: "1.0.3",
+    currentVersion: "1.0.4",
     status: "idle",
     checking: false,
     available: false,
@@ -474,43 +482,6 @@ function warningSignature(warnings = []) {
   );
 }
 
-function liveAlertTone(payload) {
-  const title = String(payload?.title || "").toLowerCase();
-  if (title.includes("compra")) return "buy";
-  if (title.includes("venta")) return "sell";
-  return "market";
-}
-
-function liveAlertToneLabel(tone) {
-  if (tone === "buy") return "Compra";
-  if (tone === "sell") return "Venta";
-  return "Mercado";
-}
-
-function showLiveAlert(payload) {
-  const stack = byId("liveAlertStack");
-  if (!stack || !payload?.title) return;
-  const tone = liveAlertTone(payload);
-  const card = document.createElement("article");
-  card.className = `live-alert-card is-${tone}`;
-  card.innerHTML = `
-    <div class="live-alert-top">
-      <div class="live-alert-title">${escapeHtml(payload.title)}</div>
-      <div class="live-alert-pill">${escapeHtml(liveAlertToneLabel(tone))}</div>
-    </div>
-    <div class="live-alert-body">
-      <div class="live-alert-label">${escapeHtml(payload.label || payload.resourceName || "Alerta")}</div>
-      <div class="live-alert-copy">${escapeHtml(payload.body || "")}</div>
-    </div>
-  `;
-  stack.prepend(card);
-  const leave = () => {
-    card.classList.add("is-leaving");
-    window.setTimeout(() => card.remove(), 220);
-  };
-  window.setTimeout(leave, 5400);
-}
-
 async function callDesktop(method, payload) {
   if (!window.simcoDesktop?.[method]) {
     throw new Error("La API de escritorio no está disponible.");
@@ -786,6 +757,7 @@ function editableAlert(alert) {
 }
 
 function syncDraftFromDashboard(dashboard) {
+  syncNotificationState(dashboard);
   state.dashboard = dashboard;
   state.updates = {
     ...state.updates,
@@ -807,6 +779,40 @@ function syncDraftFromDashboard(dashboard) {
   resetConditionSelectorState();
   state.resourceManualMode = false;
   setDirty(false);
+}
+
+function eventIdentity(item) {
+  return String(item?.eventId || `${item?.type || "event"}-${item?.time || ""}-${item?.alertId || item?.label || ""}`);
+}
+
+function latestEventIdentity(events) {
+  return Array.isArray(events) && events.length ? eventIdentity(events[0]) : "";
+}
+
+function markNotificationsSeen(events = state.dashboard?.events) {
+  const nextSeen = latestEventIdentity(events);
+  state.notificationsLastSeen = nextSeen;
+  if (nextSeen) {
+    localStorage.setItem(NOTIFICATIONS_SEEN_STORAGE_KEY, nextSeen);
+  } else {
+    localStorage.removeItem(NOTIFICATIONS_SEEN_STORAGE_KEY);
+  }
+}
+
+function syncNotificationState(nextDashboard) {
+  const nextEvents = Array.isArray(nextDashboard?.events) ? nextDashboard.events : [];
+  const latestSeen = latestEventIdentity(nextEvents);
+  if (!latestSeen) {
+    state.notificationsUnread = false;
+    markNotificationsSeen([]);
+    return;
+  }
+  if (state.notificationsOpen) {
+    markNotificationsSeen(nextEvents);
+    state.notificationsUnread = false;
+    return;
+  }
+  state.notificationsUnread = latestSeen !== state.notificationsLastSeen;
 }
 
 function setDirty(nextValue) {
@@ -1364,6 +1370,14 @@ function renderChannels() {
   byId("channelTelegramChat").value = state.draft.channels.telegramChatId || "";
 }
 
+function alertPageCount(totalItems) {
+  return Math.max(1, Math.ceil(totalItems / ALERTS_PER_PAGE));
+}
+
+function clampAlertPage(totalItems) {
+  state.alertPage = Math.min(Math.max(1, state.alertPage), alertPageCount(totalItems));
+}
+
 function passesFilter(item) {
   const actionKey = inferActionKey(item);
   if (state.filter === "buy" && actionKey !== "buy") return false;
@@ -1409,9 +1423,25 @@ function alertCardMarkup(alert) {
 
 function renderAlertList() {
   const items = state.draft.alerts.filter(passesFilter);
-  byId("alertsList").innerHTML = items.length
-    ? items.map(alertCardMarkup).join("")
+  const container = byId("alertsList");
+  const countInfo = byId("alertsCountInfo");
+  const pagination = byId("alertsPagination");
+  if (!container || !countInfo || !pagination) return;
+  clampAlertPage(items.length);
+  const totalPages = alertPageCount(items.length);
+  const pageStart = (state.alertPage - 1) * ALERTS_PER_PAGE;
+  const paged = items.slice(pageStart, pageStart + ALERTS_PER_PAGE);
+  countInfo.textContent = items.length
+    ? items.length < state.draft.alerts.length
+      ? `${items.length} de ${state.draft.alerts.length} alertas · Página ${state.alertPage} de ${totalPages}`
+      : `Página ${state.alertPage} de ${totalPages}`
+    : "";
+  container.innerHTML = items.length
+    ? paged.map(alertCardMarkup).join("")
     : `<div class="empty-card">No hay alertas para ese filtro.</div>`;
+  pagination.innerHTML = items.length > ALERTS_PER_PAGE
+    ? contactPaginationMarkup(items.length, state.alertPage, ALERTS_PER_PAGE, "alert")
+    : "";
 }
 
 function eventBadgeClass(type) {
@@ -1430,7 +1460,9 @@ function eventDescription(item) {
 
 function renderEvents() {
   const events = state.dashboard?.events || [];
-  byId("eventsFeed").innerHTML = events.length
+  const feed = byId("eventsFeed");
+  if (!feed) return;
+  feed.innerHTML = events.length
     ? events.map((item) => `
         <article class="event-card" data-event-id="${escapeHtml(item.eventId)}">
           <div class="event-head">
@@ -1445,6 +1477,39 @@ function renderEvents() {
         </article>
       `).join("")
     : `<div class="empty-card">Todavía no hay movimientos recientes.</div>`;
+  renderNotificationsButton();
+}
+
+function renderNotificationsButton() {
+  const dot = byId("notificationsDot");
+  const button = byId("notificationsButton");
+  if (!dot || !button) return;
+  dot.classList.toggle("hidden", !state.notificationsUnread);
+  button.classList.toggle("has-unread", state.notificationsUnread);
+  button.setAttribute(
+    "aria-label",
+    state.notificationsUnread ? "Abrir notificaciones nuevas" : "Abrir notificaciones"
+  );
+}
+
+function renderNotificationsModal() {
+  const modal = byId("notificationsModal");
+  if (!modal) return;
+  modal.classList.toggle("visible", state.notificationsOpen);
+}
+
+function openNotificationsModal() {
+  state.notificationsOpen = true;
+  markNotificationsSeen();
+  state.notificationsUnread = false;
+  renderNotificationsButton();
+  renderNotificationsModal();
+  renderEvents();
+}
+
+function closeNotificationsModal() {
+  state.notificationsOpen = false;
+  renderNotificationsModal();
 }
 
 function renderFilterButtons() {
@@ -1898,14 +1963,48 @@ function renderContactEditor() {
   container.innerHTML = contactEditorMarkup();
 }
 
+function contactPageCount(totalItems) {
+  return Math.max(1, Math.ceil(totalItems / CONTACTS_PER_PAGE));
+}
+
+function clampContactPage(totalItems) {
+  state.contactPage = Math.min(Math.max(1, state.contactPage), contactPageCount(totalItems));
+}
+
+function contactPaginationMarkup(totalItems, currentPage = state.contactPage, perPage = CONTACTS_PER_PAGE, scope = "contact") {
+  const totalPages = Math.max(1, Math.ceil(totalItems / perPage));
+  if (totalPages <= 1) return "";
+  const prevDisabled = currentPage <= 1;
+  const nextDisabled = currentPage >= totalPages;
+  const pageButtons = Array.from({ length: totalPages }, (_, index) => {
+    const page = index + 1;
+    return `
+      <button class="pagination-btn${page === currentPage ? " active" : ""}" type="button" data-pagination-scope="${scope}" data-page="${page}">
+        ${page}
+      </button>
+    `;
+  }).join("");
+  return `
+    <button class="pagination-btn nav" type="button" data-pagination-scope="${scope}" data-page-nav="prev"${prevDisabled ? " disabled" : ""}>Anterior</button>
+    <div class="pagination-pages">${pageButtons}</div>
+    <button class="pagination-btn nav" type="button" data-pagination-scope="${scope}" data-page-nav="next"${nextDisabled ? " disabled" : ""}>Siguiente</button>
+  `;
+}
+
 function renderContactList() {
   const container = byId("contactsRegisterList");
   const countInfo = byId("contactCountInfo");
-  if (!container || !countInfo) return;
+  const pagination = byId("contactPagination");
+  if (!container || !countInfo || !pagination) return;
   const filtered = filteredContacts();
+  clampContactPage(filtered.length);
+  const totalPages = contactPageCount(filtered.length);
+  const pageStart = (state.contactPage - 1) * CONTACTS_PER_PAGE;
+  const paged = filtered.slice(pageStart, pageStart + CONTACTS_PER_PAGE);
 
   if (!state.contacts.length) {
     countInfo.textContent = "";
+    pagination.innerHTML = "";
     container.innerHTML = `
       <div class="empty-state">
         <div class="empty-icon">◈</div>
@@ -1917,6 +2016,7 @@ function renderContactList() {
 
   if (!filtered.length) {
     countInfo.textContent = "0 resultados";
+    pagination.innerHTML = "";
     container.innerHTML = `
       <div class="empty-state">
         <div class="empty-icon">◈</div>
@@ -1926,8 +2026,11 @@ function renderContactList() {
     return;
   }
 
-  countInfo.textContent = filtered.length < state.contacts.length ? `${filtered.length} de ${state.contacts.length} contactos` : "";
-  container.innerHTML = filtered.map(contactCardMarkup).join("");
+  countInfo.textContent = filtered.length < state.contacts.length
+    ? `${filtered.length} de ${state.contacts.length} contactos · Página ${state.contactPage} de ${totalPages}`
+    : `Página ${state.contactPage} de ${totalPages}`;
+  container.innerHTML = paged.map(contactCardMarkup).join("");
+  pagination.innerHTML = contactPaginationMarkup(filtered.length, state.contactPage, CONTACTS_PER_PAGE, "contact");
 }
 
 function findContactById(contactId) {
@@ -2160,6 +2263,7 @@ function saveContact() {
     history: [],
     date: new Date().toLocaleDateString("es-AR", { day: "2-digit", month: "short", year: "numeric" })
   }));
+  state.contactPage = 1;
   persistContacts();
   state.contactDraft = emptyContactDraft();
   state.contactTypeSelectorOpen = false;
@@ -2173,6 +2277,7 @@ function deleteContact(contactId) {
   if (state.currentHistoryContactId === contactId) {
     state.currentHistoryContactId = null;
   }
+  clampContactPage(filteredContacts().length);
   persistContacts();
   renderContactView();
   showToast("Contacto eliminado");
@@ -2372,6 +2477,7 @@ function renderAll() {
   renderFilterButtons();
   renderAlertList();
   renderEvents();
+  renderNotificationsModal();
   syncCalculatorInputs();
   recalculateCalculator();
   renderContactView();
@@ -2389,6 +2495,41 @@ function updateEditorDecoration() {
   if (maxGroup) {
     maxGroup.classList.toggle("hidden", editorConditionValue(alert.condition) !== "between");
   }
+}
+
+function handlePagination(event) {
+  const target = event.target;
+  if (!(target instanceof HTMLElement)) return;
+  const pageButton = target.closest("[data-page]");
+  if (pageButton instanceof HTMLElement) {
+    const nextPage = Number(pageButton.dataset.page || "1");
+    const scope = pageButton.dataset.paginationScope || "contact";
+    if (Number.isFinite(nextPage) && nextPage >= 1) {
+      if (scope === "contact") {
+        state.contactPage = nextPage;
+        renderContactList();
+      } else {
+        state.alertPage = nextPage;
+        renderAlertList();
+      }
+    }
+    return;
+  }
+  const navButton = target.closest("[data-page-nav]");
+  if (!(navButton instanceof HTMLElement)) return;
+  const direction = navButton.dataset.pageNav;
+  const scope = navButton.dataset.paginationScope || "contact";
+  if (scope === "contact") {
+    const totalPages = contactPageCount(filteredContacts().length);
+    if (direction === "prev" && state.contactPage > 1) state.contactPage -= 1;
+    if (direction === "next" && state.contactPage < totalPages) state.contactPage += 1;
+    renderContactList();
+    return;
+  }
+  const totalPages = alertPageCount(state.draft.alerts.filter(passesFilter).length);
+  if (direction === "prev" && state.alertPage > 1) state.alertPage -= 1;
+  if (direction === "next" && state.alertPage < totalPages) state.alertPage += 1;
+  renderAlertList();
 }
 
 function handleEditorMutation(event) {
@@ -2527,6 +2668,7 @@ async function scanNow() {
       await persistDraft(false);
     }
     const dashboard = await callDesktop("scanNow");
+    syncNotificationState(dashboard);
     state.dashboard = dashboard;
     renderAll();
     showToast(dashboard.scan?.errors?.length ? `Escaneo con ${dashboard.scan.errors.length} error(es)` : "Escaneo terminado");
@@ -2551,6 +2693,7 @@ async function toggleScanEnabled() {
   renderHeader();
   try {
     const dashboard = await callDesktop("setScanEnabled", nextEnabled);
+    syncNotificationState(dashboard);
     state.dashboard = dashboard;
     state.draft.config.scanEnabled = dashboard.config?.scanEnabled !== false;
     renderAll();
@@ -2636,6 +2779,7 @@ function addAlert() {
     repeatWhileMatched: true,
     notificationKindOverride: ""
   });
+  state.alertPage = 1;
   state.selectedAlertId = state.draft.alerts[0].id;
   resetResourceSelectorState();
   resetConditionSelectorState();
@@ -2647,6 +2791,7 @@ function removeSelectedAlert() {
   const index = currentAlertIndex();
   if (index === -1) return;
   state.draft.alerts.splice(index, 1);
+  clampAlertPage(state.draft.alerts.filter(passesFilter).length);
   state.selectedAlertId = state.draft.alerts[Math.max(0, index - 1)]?.id || state.draft.alerts[0]?.id || null;
   setDirty(true);
   renderAll();
@@ -2661,7 +2806,12 @@ function discardDraft() {
 
 async function deleteEvent(eventId) {
   const dashboard = await callDesktop("deleteEvent", eventId);
+  syncNotificationState(dashboard);
   state.dashboard = dashboard;
+  if (state.notificationsOpen) {
+    markNotificationsSeen(dashboard.events);
+    state.notificationsUnread = false;
+  }
   renderAll();
   showToast("Evento eliminado");
 }
@@ -2673,6 +2823,7 @@ async function loadDashboard({ quiet = false } = {}) {
       syncDraftFromDashboard(dashboard);
       renderAll();
     } else {
+      syncNotificationState(dashboard);
       state.dashboard = dashboard;
       state.updates = {
         ...state.updates,
@@ -2686,6 +2837,7 @@ async function loadDashboard({ quiet = false } = {}) {
       renderSelectedRuntime();
       renderAlertList();
       renderEvents();
+      renderNotificationsModal();
     }
     const nextWarningSignature = warningSignature(dashboard.warnings);
     if (dashboard.warnings?.length && nextWarningSignature !== state.warningSignature) {
@@ -2806,9 +2958,6 @@ function recalculateCalculator() {
 }
 
 function bindStaticUi() {
-  window.simcoDesktop?.onAlertTriggered?.((payload) => {
-    showLiveAlert(payload);
-  });
   window.simcoDesktop?.onUpdateState?.((payload) => {
     state.updates = {
       ...state.updates,
@@ -2821,6 +2970,7 @@ function bindStaticUi() {
   byId("themeToggleButton").addEventListener("click", () => {
     applyTheme(state.theme === "light" ? "dark" : "light");
   });
+  byId("notificationsButton").addEventListener("click", openNotificationsModal);
   byId("tab-mercado").addEventListener("click", () => switchView("mercado"));
   byId("tab-calculadora").addEventListener("click", () => switchView("calculadora"));
   byId("tab-registro").addEventListener("click", () => switchView("registro"));
@@ -2857,12 +3007,14 @@ function bindStaticUi() {
   });
   byId("searchInput").addEventListener("input", (event) => {
     state.search = event.target.value;
+    state.alertPage = 1;
     renderAlertList();
   });
 
   document.querySelectorAll("[data-filter]").forEach((button) => {
     button.addEventListener("click", () => {
       state.filter = button.dataset.filter;
+      state.alertPage = 1;
       renderFilterButtons();
       renderAlertList();
     });
@@ -2949,6 +3101,13 @@ function bindStaticUi() {
     if (!card?.dataset.eventId) return;
     deleteEvent(card.dataset.eventId);
   });
+  byId("notificationsModal").addEventListener("click", (event) => {
+    const target = event.target;
+    if (!(target instanceof HTMLElement)) return;
+    if (target.id === "notificationsModal" || target.dataset.action === "close-notifications-modal") {
+      closeNotificationsModal();
+    }
+  });
 
   ["channelDesktop", "channelDiscord", "channelTelegramToken", "channelTelegramChat"].forEach((id) => {
     const element = byId(id);
@@ -2958,6 +3117,7 @@ function bindStaticUi() {
 
   byId("contactSearchInput").addEventListener("input", (event) => {
     state.contactSearch = event.target.value;
+    state.contactPage = 1;
     renderContactList();
   });
 
@@ -2972,6 +3132,7 @@ function bindStaticUi() {
       if (group === "type") state.contactTypeFilter = value;
       if (group === "trust") state.contactTrustFilter = value;
       if (group === "rubro") state.contactRubroFilter = value;
+      state.contactPage = 1;
       renderContactFilters();
       renderContactList();
     });
@@ -2981,6 +3142,8 @@ function bindStaticUi() {
   byId("contactEditorContainer").addEventListener("change", handleContactMutation);
   byId("contactEditorContainer").addEventListener("click", handleContactMutation);
   byId("contactsRegisterList").addEventListener("click", handleContactMutation);
+  byId("contactPagination").addEventListener("click", handlePagination);
+  byId("alertsPagination").addEventListener("click", handlePagination);
   byId("historyModal").addEventListener("click", (event) => {
     const target = event.target;
     if (!(target instanceof HTMLElement)) return;

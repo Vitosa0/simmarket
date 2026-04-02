@@ -13,13 +13,13 @@ Repositorio oficial:
 - Envío de alertas por Discord y Telegram
 - Calculadora de costos 
 - Registro interno de contactos
-- Instalador `.pkg` para macOS Apple Silicon
+- Instalador `.pkg` universal para macOS
 - Instalador `.exe` para Windows x64
 - Desinstalador incluido en la instalación
 
 ## Requisitos
 
-- macOS Apple Silicon (`arm64`)
+- macOS (`universal`: Apple Silicon + Intel)
 - Windows 10/11 (`x64`)
 - Node.js `20+`
 - npm
@@ -28,7 +28,7 @@ Repositorio oficial:
 
 macOS:
 
-- `SimMarket-Installer-<version>-arm64.pkg`
+- `SimMarket-Installer-<version>-universal.pkg`
 
 1. Abrí el installer.
 2. Instalá `SimMarket.app` en `/Applications`.
@@ -112,9 +112,9 @@ Ese chequeo valida:
 Artefactos principales:
 
 - `SimMarket.app`
-- `SimMarket-Installer-<version>-arm64.pkg`
+- `SimMarket-Installer-<version>-universal.pkg`
 - `SimMarket-Installer-<version>-x64.exe`
-- `SimMarket-<version>-arm64.dmg`
+- `SimMarket-<version>-universal.dmg`
 
 ## Estado actual
 

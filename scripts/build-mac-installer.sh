@@ -2,12 +2,26 @@
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
-APP_PATH="$ROOT_DIR/dist/mac-arm64/SimMarket.app"
 PAYLOAD_DIR="$ROOT_DIR/build/pkg-root"
 SCRIPTS_DIR="$ROOT_DIR/scripts/pkg"
 COMPONENT_PLIST="$ROOT_DIR/scripts/pkg/component.plist"
 VERSION="$(cd "$ROOT_DIR" && node -p "require('./package.json').version")"
-PKG_PATH="$ROOT_DIR/dist/SimMarket-Installer-${VERSION}-arm64.pkg"
+
+if [ -d "$ROOT_DIR/dist/mac-universal/SimMarket.app" ]; then
+  APP_PATH="$ROOT_DIR/dist/mac-universal/SimMarket.app"
+  PKG_ARCH="universal"
+elif [ -d "$ROOT_DIR/dist/mac-arm64/SimMarket.app" ]; then
+  APP_PATH="$ROOT_DIR/dist/mac-arm64/SimMarket.app"
+  PKG_ARCH="arm64"
+elif [ -d "$ROOT_DIR/dist/mac/SimMarket.app" ]; then
+  APP_PATH="$ROOT_DIR/dist/mac/SimMarket.app"
+  PKG_ARCH="universal"
+else
+  APP_PATH="$ROOT_DIR/dist/mac-universal/SimMarket.app"
+  PKG_ARCH="universal"
+fi
+
+PKG_PATH="$ROOT_DIR/dist/SimMarket-Installer-${VERSION}-${PKG_ARCH}.pkg"
 
 if [ ! -d "$APP_PATH" ]; then
   echo "No existe $APP_PATH. Ejecuta primero el build de macOS." >&2
