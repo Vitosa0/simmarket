@@ -941,40 +941,261 @@ body[data-theme="light"] .vito-credit-line-secondary {
 }
 
 .theme-toggle {
+  position: relative;
   width: 38px;
   height: 38px;
+  padding: 0;
   border-radius: 999px;
   border: 1px solid var(--theme-toggle-border);
-  background: var(--theme-toggle-bg);
-  color: var(--theme-toggle-color);
+  background: linear-gradient(180deg, #191919 0%, #0f0f0f 100%);
   display: inline-flex;
   align-items: center;
   justify-content: center;
   cursor: pointer;
-  transition: border-color 0.2s ease, background 0.2s ease, color 0.2s ease, transform 0.12s ease;
+  overflow: hidden;
+  isolation: isolate;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.08),
+    0 10px 20px rgba(0, 0, 0, 0.22);
+  transition:
+    border-color 0.2s ease,
+    background 0.2s ease,
+    box-shadow 0.2s ease,
+    transform 0.12s ease;
+}
+
+body[data-theme="light"] .theme-toggle {
+  background: linear-gradient(180deg, #f4ede3 0%, #e6dccf 100%);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.72),
+    0 8px 16px rgba(73, 57, 39, 0.12);
+}
+
+.theme-toggle::before {
+  content: "";
+  position: absolute;
+  inset: 5px;
+  border-radius: inherit;
+  border: 1px solid rgba(201, 168, 76, 0.34);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.02);
+  pointer-events: none;
+}
+
+body[data-theme="light"] .theme-toggle::before {
+  border-color: rgba(182, 138, 30, 0.34);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.38);
 }
 
 .theme-toggle:hover {
   border-color: var(--border-strong);
-  color: var(--text);
+  transform: translateY(-1px);
 }
 
 .theme-toggle:active {
-  transform: translateY(1px);
+  transform: translateY(0);
 }
 
 .theme-toggle-icon {
-  width: 16px;
-  height: 16px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
+  position: relative;
+  width: 100%;
+  height: 100%;
+  display: block;
+  pointer-events: none;
 }
 
-.theme-toggle-icon svg {
-  width: 16px;
-  height: 16px;
-  display: block;
+.orbital-shell {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+}
+
+.space-disc {
+  position: absolute;
+  inset: 3px;
+  border-radius: 999px;
+  overflow: hidden;
+  transition: opacity 0.28s ease, transform 0.32s ease, border-color 0.28s ease, background 0.28s ease;
+}
+
+body[data-theme="dark"] .space-disc {
+  background:
+    radial-gradient(circle at 50% 48%, rgba(255, 255, 255, 0.035), transparent 30%),
+    radial-gradient(circle at 50% 50%, rgba(201, 168, 76, 0.035), transparent 58%),
+    #0f0f0f;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+body[data-theme="light"] .space-disc {
+  background:
+    radial-gradient(circle at 50% 48%, rgba(255, 255, 255, 0.22), transparent 30%),
+    radial-gradient(circle at 50% 50%, rgba(201, 168, 76, 0.04), transparent 58%),
+    #ece2d5;
+  border: 1px solid rgba(31, 27, 22, 0.08);
+  opacity: 0;
+  transform: scale(0.82);
+}
+
+.orbit {
+  position: absolute;
+  border-radius: 999px;
+  pointer-events: none;
+  transition: opacity 0.28s ease;
+}
+
+.orbit.one {
+  inset: 8px;
+}
+
+.orbit.two {
+  inset: 4px;
+}
+
+body[data-theme="dark"] .orbit {
+  border: 1px solid rgba(255, 255, 255, 0.11);
+}
+
+body[data-theme="light"] .orbit {
+  border: 1px solid rgba(31, 27, 22, 0.12);
+}
+
+.orbit-rotor {
+  position: absolute;
+  inset: 0;
+  border-radius: 999px;
+  animation: theme-orbit-spin linear infinite;
+}
+
+.orbit.one .orbit-rotor {
+  animation-duration: 7.8s;
+}
+
+.orbit.two .orbit-rotor {
+  animation-duration: 11.5s;
+}
+
+.planet {
+  position: absolute;
+  top: -2px;
+  left: 50%;
+  transform: translateX(-50%);
+  border-radius: 999px;
+  transition: opacity 0.28s ease, transform 0.32s ease;
+}
+
+.planet.small {
+  width: 2px;
+  height: 2px;
+}
+
+.planet.large {
+  width: 3px;
+  height: 3px;
+}
+
+body[data-theme="dark"] .planet {
+  background: #ffffff;
+  box-shadow: 0 0 8px rgba(255, 255, 255, 0.18);
+}
+
+body[data-theme="light"] .planet {
+  background: #171717;
+  box-shadow: 0 0 6px rgba(23, 23, 23, 0.1);
+}
+
+body[data-theme="light"] .orbit,
+body[data-theme="light"] .planet {
+  opacity: 0;
+}
+
+body[data-theme="light"] .planet {
+  transform: translateX(-50%) scale(0.72);
+}
+
+.celestial-core {
+  position: absolute;
+  width: 14px;
+  height: 14px;
+  transition: opacity 0.24s ease, transform 0.32s ease;
+}
+
+.celestial-moon {
+  width: 15px;
+  height: 15px;
+}
+
+.celestial-sun::before,
+.celestial-sun::after,
+.celestial-moon::before,
+.celestial-moon::after {
+  content: "";
+  position: absolute;
+}
+
+.celestial-sun::before {
+  inset: 3px;
+  border-radius: 999px;
+  background: #ffffff;
+  box-shadow: 0 0 10px rgba(255, 255, 255, 0.14);
+}
+
+.celestial-moon::before {
+  inset: 1px;
+  border-radius: 999px;
+  background:
+    radial-gradient(circle at 26% 22%, rgba(255, 255, 255, 0.34) 0 10%, rgba(255, 255, 255, 0) 11%),
+    radial-gradient(circle at 34% 34%, #97928c 0%, #7d7871 44%, #5a5550 72%, #33302c 100%);
+  box-shadow:
+    inset -3px -3px 5px rgba(22, 22, 22, 0.22),
+    inset 1px 1px 2px rgba(255, 255, 255, 0.08),
+    0 0 6px rgba(0, 0, 0, 0.06);
+}
+
+.celestial-moon::after {
+  inset: 2px;
+  border-radius: 999px;
+  background:
+    linear-gradient(105deg, rgba(255, 255, 255, 0.05) 0 32%, rgba(255, 255, 255, 0) 33%),
+    radial-gradient(circle at 28% 26%, rgba(67, 63, 58, 0.14) 0 8%, rgba(67, 63, 58, 0) 9%),
+    radial-gradient(circle at 65% 28%, rgba(61, 57, 53, 0.12) 0 7%, rgba(61, 57, 53, 0) 8%),
+    radial-gradient(circle at 42% 45%, rgba(70, 66, 61, 0.1) 0 10%, rgba(70, 66, 61, 0) 11%),
+    radial-gradient(circle at 68% 50%, rgba(58, 54, 49, 0.09) 0 8%, rgba(58, 54, 49, 0) 9%),
+    radial-gradient(circle at 34% 69%, rgba(64, 60, 56, 0.11) 0 9%, rgba(64, 60, 56, 0) 10%),
+    radial-gradient(circle at 60% 70%, rgba(58, 54, 50, 0.1) 0 11%, rgba(58, 54, 50, 0) 12%),
+    radial-gradient(circle at 54% 56%, rgba(255, 255, 255, 0.05) 0 14%, rgba(255, 255, 255, 0) 15%);
+  box-shadow:
+    inset -1px -1px 2px rgba(193, 185, 171, 0.1),
+    0 0 1px rgba(255, 255, 255, 0.08);
+  opacity: 0.86;
+}
+
+body[data-theme="dark"] .celestial-sun {
+  opacity: 1;
+  transform: scale(1);
+}
+
+body[data-theme="dark"] .celestial-moon {
+  opacity: 0;
+  transform: scale(0.78);
+}
+
+body[data-theme="light"] .celestial-sun {
+  opacity: 0;
+  transform: scale(0.78);
+}
+
+body[data-theme="light"] .celestial-moon {
+  opacity: 1;
+  transform: scale(1);
+}
+
+@keyframes theme-orbit-spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 .layout {

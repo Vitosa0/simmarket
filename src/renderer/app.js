@@ -360,20 +360,24 @@ function formatHeaderTime(raw) {
   return date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
 }
 
-function sunIconMarkup() {
+function themeToggleMarkup() {
   return `
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-      <circle cx="12" cy="12" r="4.2"></circle>
-      <path d="M12 2.8v2.5M12 18.7v2.5M21.2 12h-2.5M5.3 12H2.8M18.5 5.5l-1.8 1.8M7.3 16.7l-1.8 1.8M18.5 18.5l-1.8-1.8M7.3 7.3 5.5 5.5"></path>
-    </svg>
-  `;
-}
-
-function moonIconMarkup() {
-  return `
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-      <path d="M19.3 14.7A8.2 8.2 0 0 1 9.3 4.7a8.9 8.9 0 1 0 10 10Z"></path>
-    </svg>
+    <span class="orbital-shell">
+      <span class="space-disc" aria-hidden="true">
+        <span class="orbit one">
+          <span class="orbit-rotor">
+            <span class="planet small"></span>
+          </span>
+        </span>
+        <span class="orbit two">
+          <span class="orbit-rotor">
+            <span class="planet large"></span>
+          </span>
+        </span>
+      </span>
+      <span class="celestial-core celestial-sun" aria-hidden="true"></span>
+      <span class="celestial-core celestial-moon" aria-hidden="true"></span>
+    </span>
   `;
 }
 
@@ -389,9 +393,10 @@ function renderThemeToggle() {
   const icon = byId("themeToggleIcon");
   if (!button || !icon) return;
   const nextTheme = state.theme === "light" ? "dark" : "light";
+  button.dataset.theme = state.theme;
   button.setAttribute("aria-label", nextTheme === "light" ? "Activar modo claro" : "Activar modo oscuro");
   button.setAttribute("title", nextTheme === "light" ? "Activar modo claro" : "Activar modo oscuro");
-  icon.innerHTML = nextTheme === "light" ? sunIconMarkup() : moonIconMarkup();
+  icon.innerHTML = themeToggleMarkup();
 }
 
 function showToast(message, tone = "neutral") {

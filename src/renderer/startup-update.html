@@ -249,6 +249,13 @@
 
       function renderFinalState() {
         const status = String(liveUpdateState?.status || "");
+        if (status === "checking") {
+          message.textContent = "Buscando actualizaciones...";
+          message.classList.remove("is-success");
+          progressBar.style.width = "100%";
+          updateActionButtons();
+          return true;
+        }
         if (status === "available") {
           message.textContent = "Hay una actualización disponible.";
           message.classList.remove("is-success");
@@ -289,7 +296,9 @@
         const progress = Math.min(1, elapsed / PROGRESS_PHASE_MS);
         introFinished = elapsed >= TEXT_PHASE_MS;
         if (elapsed >= TEXT_PHASE_MS) {
-          message.textContent = FINAL_MESSAGE;
+          message.textContent = String(liveUpdateState?.status || "") === "checking"
+            ? "Buscando actualizaciones..."
+            : FINAL_MESSAGE;
         } else {
           const lineProgress = elapsed / TEXT_PHASE_MS;
           const lineIndex = Math.min(lines.length - 1, Math.floor(lineProgress * lines.length));
@@ -300,7 +309,7 @@
         if (elapsed >= TEXT_PHASE_MS) {
           renderFinalState();
         }
-        if (elapsed < TOTAL_MS || ["available", "downloading", "downloaded", "installing"].includes(String(liveUpdateState?.status || ""))) {
+        if (elapsed < TOTAL_MS || ["checking", "available", "downloading", "downloaded", "installing"].includes(String(liveUpdateState?.status || ""))) {
           requestAnimationFrame(tick);
         }
       }

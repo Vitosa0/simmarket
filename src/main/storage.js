@@ -3,6 +3,8 @@ const path = require("node:path");
 const { app } = require("electron");
 const { DEFAULT_CONFIG } = require("./defaults");
 
+const MAX_EVENT_RECORDS = 10;
+
 function ensureDir(dirPath) {
   fs.mkdirSync(dirPath, { recursive: true });
 }
@@ -68,10 +70,16 @@ function saveState(paths, state) {
 
 function appendEvent(paths, record) {
   ensureDir(path.dirname(paths.eventsPath));
-  fs.appendFileSync(paths.eventsPath, JSON.stringify(record) + "\n", "utf8");
+  const nextLine = JSON.stringify(record);
+  const lines = fs.existsSync(paths.eventsPath)
+    ? fs.readFileSync(paths.eventsPath, "utf8").split("\n").filter(Boolean)
+    : [];
+  lines.push(nextLine);
+  const boundedLines = lines.slice(-MAX_EVENT_RECORDS);
+  fs.writeFileSync(paths.eventsPath, boundedLines.join("\n") + "\n", "utf8");
 }
 
-function recentEvents(paths, limit = 25) {
+function recentEvents(paths, limit = MAX_EVENT_RECORDS) {
   if (!fs.existsSync(paths.eventsPath)) {
     return [];
   }
