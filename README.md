@@ -45,6 +45,25 @@ Windows:
 3. El instalador crea accesos de escritorio y menú inicio.
 4. Para desinstalar, usá `Agregar o quitar programas` o el desinstalador incluido por el installer.
 
+## Primera ejecución y advertencias de seguridad
+
+Como los instaladores actuales no están firmados/notarizados, macOS y Windows pueden bloquear la primera apertura.
+
+macOS (Gatekeeper):
+
+1. Intentá abrir `SimMarket-Installer-<version>-universal.pkg` o `SimMarket.app`.
+2. Si aparece el bloqueo de seguridad, cerrá el aviso.
+3. Abrí `Configuración del Sistema` -> `Privacidad y seguridad`.
+4. En la sección `Seguridad`, buscá el mensaje sobre SimMarket y apretá `Abrir igualmente`.
+5. Confirmá con `Abrir` cuando macOS lo vuelva a pedir.
+
+Windows (SmartScreen):
+
+1. Abrí `SimMarket-Installer-<version>-x64.exe`.
+2. Si aparece `Windows protegió su PC`, hacé clic en `Más información`.
+3. Luego hacé clic en `Ejecutar de todas formas`.
+4. Confirmá el diálogo de permisos de Windows (`Sí`) para continuar la instalación.
+
 ## Qué guarda localmente
 
 La app crea y usa esta carpeta:
