@@ -12,6 +12,7 @@ contextBridge.exposeInMainWorld("simcoDesktop", {
   checkForUpdates: () => ipcRenderer.invoke("updates:check"),
   runUpdatePrimaryAction: () => ipcRenderer.invoke("updates:primary-action"),
   dismissUpdatePrompt: () => ipcRenderer.invoke("updates:dismiss"),
+  continueStartup: () => ipcRenderer.invoke("startup:continue"),
   onAlertTriggered: (callback) => {
     if (typeof callback !== "function") return () => {};
     const listener = (_event, payload) => callback(payload);

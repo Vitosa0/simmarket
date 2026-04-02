@@ -36,6 +36,10 @@ let windowsUpdaterConfigured = false;
 let mainWindowReady = false;
 let startupSequenceDone = false;
 let windowsUpdatePromptVisible = true;
+let lastScanSnapshot = {
+  scannedAt: null,
+  errors: []
+};
 let updateState = {
   platform: process.platform,
   strategy: IS_WINDOWS ? "windows-auto" : IS_MAC ? "mac-manual" : "unsupported",
@@ -79,6 +83,18 @@ function revealMainWindowIfReady() {
     startupWindow = null;
   }
   mainWindow.show();
+}
+
+function continueIntoApp() {
+  patchUpdateState({
+    promptVisible: false
+  });
+  if (!mainWindow || mainWindow.isDestroyed()) {
+    createWindow();
+  }
+  startupSequenceDone = true;
+  revealMainWindowIfReady();
+  return updateState;
 }
 
 function createStartupWindow() {
@@ -128,6 +144,22 @@ function isDiscordWebhookUrl(rawUrl) {
   }
 }
 
+function canonicalDiscordWebhookUrl(rawUrl) {
+  try {
+    const parsed = new URL(String(rawUrl || "").trim());
+    if (!["discord.com", "www.discord.com", "ptb.discord.com", "canary.discord.com", "discordapp.com"].includes(parsed.hostname)) {
+      return "";
+    }
+    const match = parsed.pathname.match(/(\/api(?:\/v\d+)?\/webhooks\/[^/]+\/[^/]+)/i);
+    if (!match) {
+      return "";
+    }
+    return `${parsed.protocol}//${parsed.host}${match[1]}`;
+  } catch (error) {
+    return "";
+  }
+}
+
 function appIconDataUri() {
   if (discordAvatarData) return discordAvatarData;
   const buffer = fs.readFileSync(APP_ICON_PNG_PATH);
@@ -136,10 +168,11 @@ function appIconDataUri() {
 }
 
 async function configureDiscordWebhookBranding(webhookUrl) {
-  if (!isDiscordWebhookUrl(webhookUrl)) {
+  const targetUrl = canonicalDiscordWebhookUrl(webhookUrl);
+  if (!targetUrl) {
     return;
   }
-  const response = await fetch(String(webhookUrl).trim(), {
+  const response = await fetch(targetUrl, {
     method: "PATCH",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
@@ -187,11 +220,21 @@ function compareVersions(left, right) {
 
 function releaseAssetForMac(release) {
   const assets = Array.isArray(release?.assets) ? release.assets : [];
-  const preferredSuffix = process.arch === "arm64" ? "arm64.pkg" : "x64.pkg";
-  return assets.find((asset) => asset.name?.endsWith(preferredSuffix))
-    || assets.find((asset) => asset.name?.endsWith(".pkg"))
-    || assets.find((asset) => asset.name?.endsWith(".dmg"))
-    || null;
+  const preferredTokens = process.arch === "arm64"
+    ? ["arm64", "aarch64"]
+    : ["x64", "intel", "amd64"];
+  const compatibleKinds = [".pkg", ".dmg"];
+  const compatibleAssets = assets.filter((asset) => compatibleKinds.some((kind) => asset.name?.endsWith(kind)));
+  const preferredAsset = compatibleAssets.find((asset) => preferredTokens.some((token) => asset.name?.toLowerCase().includes(token)));
+  if (preferredAsset) {
+    return preferredAsset;
+  }
+  const universalAsset = compatibleAssets.find((asset) => {
+    const name = String(asset.name || "").toLowerCase();
+    return name.includes("universal")
+      || preferredTokens.every((token) => !name.includes(token)) && !["arm64", "aarch64", "x64", "intel", "amd64"].some((token) => name.includes(token));
+  });
+  return universalAsset || null;
 }
 
 async function fetchLatestRelease() {
@@ -220,6 +263,24 @@ async function checkMacUpdates({ showPrompt = true } = {}) {
     const latestVersion = normalizeVersion(release.tag_name || release.name || "");
     const hasUpdate = compareVersions(latestVersion, app.getVersion()) > 0;
     const asset = releaseAssetForMac(release);
+    if (hasUpdate && !asset?.browser_download_url) {
+      return patchUpdateState({
+        status: "error",
+        checking: false,
+        available: false,
+        downloading: false,
+        downloaded: false,
+        progress: 0,
+        latestVersion,
+        releaseName: String(release.name || release.tag_name || "").trim(),
+        releaseNotes: String(release.body || "").trim(),
+        publishedAt: String(release.published_at || "").trim(),
+        downloadUrl: "",
+        lastCheckedAt: new Date().toISOString(),
+        error: "Hay una versión nueva, pero no hay un instalador compatible para esta Mac.",
+        promptVisible: showPrompt
+      });
+    }
     const nextState = {
       checking: false,
       available: hasUpdate && Boolean(asset?.browser_download_url),
@@ -255,7 +316,7 @@ async function checkMacUpdates({ showPrompt = true } = {}) {
 function configureWindowsUpdater() {
   if (!IS_WINDOWS || IS_DEV || windowsUpdaterConfigured) return;
   windowsUpdaterConfigured = true;
-  autoUpdater.autoDownload = true;
+  autoUpdater.autoDownload = false;
   autoUpdater.autoInstallOnAppQuit = true;
 
   autoUpdater.on("checking-for-update", () => {
@@ -276,7 +337,7 @@ function configureWindowsUpdater() {
       status: "available",
       checking: false,
       available: true,
-      downloading: true,
+      downloading: false,
       downloaded: false,
       progress: 0,
       latestVersion: normalizeVersion(info?.version || ""),
@@ -412,9 +473,9 @@ function wait(ms) {
 
 async function waitForWindowsStartupState() {
   const startedAt = Date.now();
-  const timeoutMs = 1000 * 60 * 15;
+  const timeoutMs = 12000;
   while ((Date.now() - startedAt) < timeoutMs) {
-    if (["up-to-date", "error", "downloaded"].includes(updateState.status)) {
+    if (["up-to-date", "error", "available", "downloading", "downloaded"].includes(updateState.status)) {
       return updateState.status;
     }
     await wait(120);
@@ -427,56 +488,9 @@ async function runStartupSequence() {
   const minVisibleMs = 3000;
   const maxWaitMs = 3000;
   const startedAt = Date.now();
-  if (IS_WINDOWS && !IS_DEV) {
-    try {
-      await checkForUpdates({ showPrompt: false });
-      const outcome = await waitForWindowsStartupState();
-      const elapsed = Date.now() - startedAt;
-      if (elapsed < minVisibleMs) {
-        await wait(minVisibleMs - elapsed);
-      }
-      if (outcome === "downloaded") {
-        patchUpdateState({
-          status: "installing",
-          checking: false,
-          available: true,
-          downloading: false,
-          downloaded: true,
-          progress: 100,
-          promptVisible: false
-        });
-        await wait(900);
-        autoUpdater.quitAndInstall(false, true);
-        return;
-      }
-    } catch (error) {
-      patchUpdateState({
-        status: "error",
-        checking: false,
-        available: false,
-        downloading: false,
-        downloaded: false,
-        progress: 0,
-        lastCheckedAt: new Date().toISOString(),
-        error: error.message,
-        promptVisible: false
-      });
-      const elapsed = Date.now() - startedAt;
-      if (elapsed < minVisibleMs) {
-        await wait(minVisibleMs - elapsed);
-      }
-    }
-    windowsUpdatePromptVisible = true;
-    if (!mainWindow || mainWindow.isDestroyed()) {
-      createWindow();
-    }
-    startupSequenceDone = true;
-    revealMainWindowIfReady();
-    return;
-  }
   try {
     await Promise.race([
-      checkForUpdates({ showPrompt: true }),
+      checkForUpdates({ showPrompt: false }),
       new Promise((resolve) => setTimeout(resolve, maxWaitMs))
     ]);
   } catch (error) {
@@ -486,14 +500,29 @@ async function runStartupSequence() {
   if (elapsed < minVisibleMs) {
     await new Promise((resolve) => setTimeout(resolve, minVisibleMs - elapsed));
   }
-  if (!mainWindow || mainWindow.isDestroyed()) {
-    createWindow();
+  if (["available", "downloading", "downloaded", "installing"].includes(updateState.status)) {
+    patchUpdateState({
+      promptVisible: false
+    });
+    return;
   }
-  startupSequenceDone = true;
-  revealMainWindowIfReady();
+  continueIntoApp();
 }
 
 function buildConfigSnapshot(config) {
+  const normalizedAlerts = [];
+  const skippedAlerts = [];
+  (Array.isArray(config.alerts) ? config.alerts : []).forEach((alert, index) => {
+    try {
+      normalizedAlerts.push(normalizeRule(alert, index + 1));
+    } catch (error) {
+      skippedAlerts.push({
+        index,
+        label: String(alert?.label || `Alerta ${index + 1}`),
+        error: error.message
+      });
+    }
+  });
   return {
     realmId: Number(config.realmId || 0),
     pollSeconds: Number(config.pollSeconds || 180),
@@ -504,7 +533,37 @@ function buildConfigSnapshot(config) {
       telegramBotToken: String(config.channels?.telegramBotToken || ""),
       telegramChatId: String(config.channels?.telegramChatId || "")
     },
-    alerts: Array.isArray(config.alerts) ? config.alerts.map((alert, index) => normalizeRule(alert, index + 1)) : structuredClone(DEFAULT_CONFIG.alerts)
+    alerts: normalizedAlerts,
+    skippedAlerts
+  };
+}
+
+function summarizeMarketStatus(scanErrors = []) {
+  const errors = Array.isArray(scanErrors) ? scanErrors : [];
+  if (!errors.length) {
+    return {
+      state: "ok",
+      title: "Mercado conectado",
+      message: "Las lecturas del mercado están entrando normalmente.",
+      affectedAlerts: 0
+    };
+  }
+
+  const rateLimited = errors.some((item) => String(item.error || "").includes("429"));
+  if (rateLimited) {
+    return {
+      state: "rate-limited",
+      title: "SimcoTools limitó temporalmente las consultas",
+      message: "La app va a reintentar sola. No hace falta tocar nada.",
+      affectedAlerts: errors.length
+    };
+  }
+
+  return {
+    state: "error",
+    title: "No se pudo leer el mercado",
+    message: "Hubo un problema temporal al consultar precios. Vamos a volver a intentar.",
+    affectedAlerts: errors.length
   };
 }
 
@@ -646,6 +705,11 @@ function buildDashboard(liveResults = {}, scanErrors = [], scannedAt = null) {
   const state = loadState(paths);
   const alerts = buildAlertRows(config, state, liveResults);
   const events = recentEvents(paths, 25);
+  const effectiveErrors = Array.isArray(scanErrors) && (scanErrors.length || scannedAt)
+    ? scanErrors
+    : lastScanSnapshot.errors;
+  const effectiveScannedAt = scannedAt || lastScanSnapshot.scannedAt;
+  const marketStatus = summarizeMarketStatus(effectiveErrors);
   return {
     app: {
       name: "SimMarket",
@@ -664,17 +728,22 @@ function buildDashboard(liveResults = {}, scanErrors = [], scannedAt = null) {
     monitor: {
       statusLabel: scanInFlight ? "Escaneando" : config.scanEnabled === false ? "Pausado" : "Activo",
       intervalSeconds: config.pollSeconds,
-      scanEnabled: config.scanEnabled !== false
+      scanEnabled: config.scanEnabled !== false,
+      marketState: marketStatus.state,
+      marketTitle: marketStatus.title,
+      marketMessage: marketStatus.message,
+      affectedAlerts: marketStatus.affectedAlerts
     },
     alerts,
     events,
     resourceCatalog: RESOURCE_CATALOG,
     updates: updateState,
     scan: {
-      scannedAt,
-      scannedLocal: isoLocal(scannedAt),
-      errors: scanErrors
-    }
+      scannedAt: effectiveScannedAt,
+      scannedLocal: isoLocal(effectiveScannedAt),
+      errors: effectiveErrors
+    },
+    warnings: config.skippedAlerts
   };
 }
 
@@ -705,6 +774,10 @@ async function runScan(triggerNotifications = true) {
       }
     });
     saveState(paths, state);
+    lastScanSnapshot = {
+      scannedAt: result.scannedAt,
+      errors: result.errors
+    };
     return buildDashboard(result.results, result.errors, result.scannedAt);
   } finally {
     scanInFlight = false;
@@ -789,14 +862,7 @@ app.whenReady().then(() => {
   restartScheduler();
   const initialConfig = buildConfigSnapshot(loadConfig(dataPaths()));
   if (initialConfig.channels?.discordWebhookUrl) {
-    configureDiscordWebhookBranding(initialConfig.channels.discordWebhookUrl).catch((error) => {
-      appendEvent(dataPaths(), {
-        time: new Date().toISOString(),
-        type: "error",
-        label: "Discord webhook",
-        error: error.message
-      });
-    });
+    configureDiscordWebhookBranding(initialConfig.channels.discordWebhookUrl).catch(() => {});
   }
   if (initialConfig.scanEnabled !== false) {
     runScan(false).catch(() => {});
@@ -807,6 +873,7 @@ app.whenReady().then(() => {
   ipcMain.handle("updates:check", async () => checkForUpdates({ showPrompt: true }));
   ipcMain.handle("updates:primary-action", async () => runUpdatePrimaryAction());
   ipcMain.handle("updates:dismiss", async () => patchUpdateState({ promptVisible: false }));
+  ipcMain.handle("startup:continue", async () => continueIntoApp());
 
   ipcMain.handle("config:save", async (_event, payload) => {
     const paths = dataPaths();
@@ -815,14 +882,7 @@ app.whenReady().then(() => {
     if (nextConfig.channels?.discordWebhookUrl) {
       try {
         await configureDiscordWebhookBranding(nextConfig.channels.discordWebhookUrl);
-      } catch (error) {
-        appendEvent(paths, {
-          time: new Date().toISOString(),
-          type: "error",
-          label: "Discord webhook",
-          error: error.message
-        });
-      }
+      } catch (error) {}
     }
     restartScheduler();
     return buildDashboard();
