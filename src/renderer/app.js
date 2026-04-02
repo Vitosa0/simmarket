@@ -84,7 +84,7 @@ const state = {
   updates: {
     platform: window.simcoDesktop?.platform || "unknown",
     strategy: "manual",
-    currentVersion: "1.0.2",
+    currentVersion: "1.0.3",
     status: "idle",
     checking: false,
     available: false,

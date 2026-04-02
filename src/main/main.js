@@ -60,6 +60,16 @@ let updateState = {
   promptVisible: false
 };
 
+const STARTUP_WINDOW_COMPACT = {
+  width: 430,
+  height: 248
+};
+
+const STARTUP_WINDOW_EXPANDED = {
+  width: 430,
+  height: 322
+};
+
 if (IS_WINDOWS) {
   app.disableHardwareAcceleration();
   app.commandLine.appendSwitch("disable-direct-composition");
@@ -97,11 +107,24 @@ function continueIntoApp() {
   return updateState;
 }
 
+function startupWindowNeedsExpandedLayout(status = updateState.status) {
+  return ["available", "downloading", "downloaded", "installing"].includes(String(status || ""));
+}
+
+function syncStartupWindowSize() {
+  if (!startupWindow || startupWindow.isDestroyed()) return;
+  const nextSize = startupWindowNeedsExpandedLayout() ? STARTUP_WINDOW_EXPANDED : STARTUP_WINDOW_COMPACT;
+  const bounds = startupWindow.getBounds();
+  if (bounds.width === nextSize.width && bounds.height === nextSize.height) return;
+  startupWindow.setSize(nextSize.width, nextSize.height, true);
+  startupWindow.center();
+}
+
 function createStartupWindow() {
   if (startupWindow && !startupWindow.isDestroyed()) return startupWindow;
   startupWindow = new BrowserWindow({
-    width: 430,
-    height: 248,
+    width: STARTUP_WINDOW_COMPACT.width,
+    height: STARTUP_WINDOW_COMPACT.height,
     center: true,
     frame: true,
     transparent: false,
@@ -129,6 +152,7 @@ function createStartupWindow() {
   startupWindow.on("closed", () => {
     startupWindow = null;
   });
+  syncStartupWindowSize();
   return startupWindow;
 }
 
@@ -199,6 +223,7 @@ function patchUpdateState(patch) {
     ...updateState,
     ...patch
   };
+  syncStartupWindowSize();
   sendUpdateState();
   return updateState;
 }
