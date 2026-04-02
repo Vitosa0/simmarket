@@ -79,10 +79,14 @@ Sugerencia de formato:
 
 Enlaces (completar al subir assets al Release de GitHub):
 
-- Video macOS: `PENDIENTE_LINK_VIDEO_MAC`
+- GIF macOS: [docs/media/simmarket-install-macos.gif](docs/media/simmarket-install-macos.gif)
 - Video Windows: `PENDIENTE_LINK_VIDEO_WINDOWS`
 
 Tip: en el Release subí los videos como assets y pegá aquí la URL directa para que queden siempre versionados.
+
+Vista previa de instalación en macOS:
+
+![Instalación macOS](docs/media/simmarket-install-macos.gif)
 
 ## Qué guarda localmente
 
