@@ -638,7 +638,7 @@ function resourceEntry(resourceId) {
 }
 
 function resourceLabel(resourceId) {
-  if (resourceId === "" || resourceId === null || resourceId === undefined) return "Activo manual";
+  if (resourceId === "" || resourceId === null || resourceId === undefined) return "Sin activo";
   return resourceEntry(resourceId)?.label || `Recurso ${resourceId}`;
 }
 
@@ -739,6 +739,9 @@ function avatarMarkup(item, fallback = "A") {
   const logoUrl = logoUrlForItem(item);
   if (logoUrl) {
     return `<div class="avatar"><img src="${escapeHtml(logoUrl)}" alt="${escapeHtml(item.resourceName || item.label || fallback)}" /></div>`;
+  }
+  if (Object.prototype.hasOwnProperty.call(item || {}, "resourceId") && (item?.resourceId === "" || item?.resourceId === null || item?.resourceId === undefined)) {
+    return `<div class="avatar"></div>`;
   }
   return `<div class="avatar">${escapeHtml((item.resourceName || item.label || fallback).slice(0, 1))}</div>`;
 }
@@ -1207,8 +1210,8 @@ function resourceSelectionSummary(alert) {
     };
   }
   return {
-    title: `ID ${alert.resourceId || ""}`,
-    subtitle: "Activo manual"
+    title: "Seleccionar activo",
+    subtitle: "Elegí un producto para esta alerta"
   };
 }
 
@@ -2846,10 +2849,10 @@ function addAlert() {
   state.draft.alerts.unshift({
     id: newAlertId(),
     label: "Nueva alerta",
-    resourceId: 2,
+    resourceId: "",
     quality: 0,
     condition: "<",
-    targetPrice: 0.37,
+    targetPrice: "",
     targetPriceMax: "",
     enabled: true,
     repeatWhileMatched: true,
