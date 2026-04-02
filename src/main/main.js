@@ -60,6 +60,9 @@ let updateState = {
   promptVisible: false
 };
 
+const RELEASE_FETCH_TIMEOUT_MS = 5000;
+const DISCORD_BRANDING_TIMEOUT_MS = 2500;
+
 const STARTUP_WINDOW_COMPACT = {
   width: 430,
   height: 248
@@ -196,16 +199,23 @@ async function configureDiscordWebhookBranding(webhookUrl) {
   if (!targetUrl) {
     return;
   }
-  const response = await fetch(targetUrl, {
-    method: "PATCH",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      name: "SimMarket",
-      avatar: appIconDataUri()
-    })
-  });
-  if (!response.ok) {
-    throw new Error(`Discord branding ${response.status}`);
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), DISCORD_BRANDING_TIMEOUT_MS);
+  try {
+    const response = await fetch(targetUrl, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      signal: controller.signal,
+      body: JSON.stringify({
+        name: "SimMarket",
+        avatar: appIconDataUri()
+      })
+    });
+    if (!response.ok) {
+      throw new Error(`Discord branding ${response.status}`);
+    }
+  } finally {
+    clearTimeout(timer);
   }
 }
 
@@ -263,16 +273,23 @@ function releaseAssetForMac(release) {
 }
 
 async function fetchLatestRelease() {
-  const response = await fetch(`https://api.github.com/repos/${UPDATE_REPO.owner}/${UPDATE_REPO.repo}/releases/latest`, {
-    headers: {
-      Accept: "application/vnd.github+json",
-      "User-Agent": "SimMarket"
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), RELEASE_FETCH_TIMEOUT_MS);
+  try {
+    const response = await fetch(`https://api.github.com/repos/${UPDATE_REPO.owner}/${UPDATE_REPO.repo}/releases/latest`, {
+      headers: {
+        Accept: "application/vnd.github+json",
+        "User-Agent": "SimMarket"
+      },
+      signal: controller.signal
+    });
+    if (!response.ok) {
+      throw new Error(`GitHub release ${response.status}`);
     }
-  });
-  if (!response.ok) {
-    throw new Error(`GitHub release ${response.status}`);
+    return response.json();
+  } finally {
+    clearTimeout(timer);
   }
-  return response.json();
 }
 
 async function checkMacUpdates({ showPrompt = true } = {}) {
@@ -511,13 +528,9 @@ async function waitForWindowsStartupState() {
 async function runStartupSequence() {
   createStartupWindow();
   const minVisibleMs = 3000;
-  const maxWaitMs = 3000;
   const startedAt = Date.now();
   try {
-    await Promise.race([
-      checkForUpdates({ showPrompt: false }),
-      new Promise((resolve) => setTimeout(resolve, maxWaitMs))
-    ]);
+    await checkForUpdates({ showPrompt: false });
   } catch (error) {
     // Startup should continue even if update lookup fails.
   }
@@ -905,9 +918,7 @@ app.whenReady().then(() => {
     const nextConfig = normalizeIncomingConfig(payload);
     saveConfig(paths, nextConfig);
     if (nextConfig.channels?.discordWebhookUrl) {
-      try {
-        await configureDiscordWebhookBranding(nextConfig.channels.discordWebhookUrl);
-      } catch (error) {}
+      configureDiscordWebhookBranding(nextConfig.channels.discordWebhookUrl).catch(() => {});
     }
     restartScheduler();
     return buildDashboard();
