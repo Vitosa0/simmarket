@@ -23,13 +23,17 @@ function normalizeRule(rawRule, index) {
     throw new Error(`Condición inválida en alerta ${index}`);
   }
   const label = String(rawRule.label || `Alerta ${index}`).trim() || `Alerta ${index}`;
+  const targetPriceRaw = rawRule.targetPrice;
+  if (targetPriceRaw === "" || targetPriceRaw === null || targetPriceRaw === undefined) {
+    throw new Error(`Precio inválido en alerta ${index}`);
+  }
   const normalized = {
     id: String(rawRule.id || slugify(`${label}-${rawRule.resourceId}-q${rawRule.quality}`) || `alert-${index}`),
     label,
     resourceId: Number(rawRule.resourceId),
     quality: Number(rawRule.quality ?? 0),
     condition,
-    targetPrice: Number(rawRule.targetPrice),
+    targetPrice: Number(targetPriceRaw),
     enabled: Boolean(rawRule.enabled ?? true),
     repeatWhileMatched: Boolean(rawRule.repeatWhileMatched ?? true),
     notificationKindOverride: String(rawRule.notificationKindOverride || "").trim().toLowerCase()
@@ -44,7 +48,11 @@ function normalizeRule(rawRule, index) {
     throw new Error(`Precio inválido en alerta ${index}`);
   }
   if (condition === "between") {
-    normalized.targetPriceMax = Number(rawRule.targetPriceMax);
+    const targetPriceMaxRaw = rawRule.targetPriceMax;
+    if (targetPriceMaxRaw === "" || targetPriceMaxRaw === null || targetPriceMaxRaw === undefined) {
+      throw new Error(`Precio máximo inválido en alerta ${index}`);
+    }
+    normalized.targetPriceMax = Number(targetPriceMaxRaw);
     if (!Number.isFinite(normalized.targetPriceMax)) {
       throw new Error(`Precio máximo inválido en alerta ${index}`);
     }
@@ -165,7 +173,8 @@ function sendDesktopNotification(title, body) {
 
 async function sendDiscordNotification(webhookUrl, title, body) {
   if (!webhookUrl) return;
-  const response = await fetch(webhookUrl, {
+  const canonicalWebhook = String(webhookUrl).trim().match(/^(https:\/\/(?:www\.|ptb\.|canary\.)?discord(?:app)?\.com\/api(?:\/v\d+)?\/webhooks\/[^/]+\/[^/?#]+)/i)?.[1] || String(webhookUrl).trim();
+  const response = await fetch(canonicalWebhook, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({

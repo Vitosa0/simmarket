@@ -61,27 +61,27 @@
             <button id="tab-calculadora" class="view-tab" type="button">Calculadora</button>
             <button id="tab-registro" class="view-tab" type="button">Registro</button>
           </div>
-          <div id="marketToolbar" class="header-actions">
-            <button id="scanNowButton" class="action-btn action-btn-secondary" type="button">Escanear mercado</button>
-            <button id="checkUpdatesButton" class="action-btn action-btn-secondary" type="button">Buscar updates</button>
-            <button id="saveButton" class="save-btn" type="button">Guardar cambios</button>
-            <button id="resetButton" class="action-btn action-btn-secondary" type="button">Descartar</button>
-            <button id="scanToggleButton" class="action-btn action-btn-danger" type="button">Parar escaneo</button>
-          </div>
+          <button id="themeToggleButton" class="theme-toggle" type="button" aria-label="Cambiar tema" title="Cambiar tema">
+            <span id="themeToggleIcon" class="theme-toggle-icon" aria-hidden="true"></span>
+          </button>
         </div>
         <div class="stats-bar">
           <div class="stat-pill">Monitor <span id="headerMonitorStat">Sin datos</span></div>
           <div class="stat-pill">Alertas <span id="headerAlertsStat">0</span></div>
           <div class="stat-pill">En zona <span id="headerOpportunityStat">0</span></div>
           <div class="stat-pill">Última revisión <span id="headerScanStat">-</span></div>
-          <div id="draftStatPill" class="stat-pill">Estado <span>Guardado</span></div>
-          <button id="themeToggleButton" class="theme-toggle" type="button" aria-label="Cambiar tema" title="Cambiar tema">
-            <span id="themeToggleIcon" class="theme-toggle-icon" aria-hidden="true"></span>
-          </button>
+        </div>
+        <div id="marketToolbar" class="header-actions">
+          <button id="scanNowButton" class="action-btn action-btn-secondary" type="button">Escanear mercado</button>
+          <button id="checkUpdatesButton" class="action-btn action-btn-secondary" type="button">Buscar updates</button>
+          <button id="saveButton" class="save-btn" type="button">Guardar cambios</button>
+          <button id="resetButton" class="action-btn action-btn-secondary" type="button">Descartar</button>
+          <button id="scanToggleButton" class="action-btn action-btn-danger" type="button">Parar escaneo</button>
         </div>
       </header>
 
       <div id="view-mercado" class="layout view-panel active">
+        <section id="marketHealthBanner" class="market-health-banner hidden"></section>
         <aside class="form-panel">
           <section class="panel-block">
             <div class="section-label">Lectura actual</div>
@@ -328,7 +328,22 @@
       </div>
     </div>
 
-    <div id="statusMessage" class="sr-only" aria-live="polite"></div>
+    <div id="onboardingModal" class="modal-backdrop">
+      <div class="modal-card onboarding-card">
+        <div class="onboarding-step">Primer recorrido</div>
+        <h2 id="onboardingTitle">Bienvenido a SimMarket</h2>
+        <p id="onboardingBody">Desde acá vigilás precios, armás alertas y decidís compras o ventas sin tocar archivos manualmente.</p>
+        <div class="onboarding-points" id="onboardingPoints"></div>
+        <div class="onboarding-progress" id="onboardingProgress"></div>
+        <div class="modal-actions">
+          <button id="onboardingSkipButton" type="button" class="ghost-btn">Saltar</button>
+          <button id="onboardingBackButton" type="button" class="ghost-btn">Atrás</button>
+          <button id="onboardingNextButton" type="button" class="save-btn modal-save-btn">Siguiente</button>
+        </div>
+      </div>
+    </div>
+
+    <div id="statusMessage" class="status-toast" aria-live="polite"></div>
     <script src="./app.js"></script>
   </body>
 </html>

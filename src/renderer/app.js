@@ -2,6 +2,7 @@ const VIEW_STORAGE_KEY = "simco-desktop-view";
 const CALC_STORAGE_KEY = "simco-desktop-calculator";
 const THEME_STORAGE_KEY = "simco-desktop-theme";
 const CONTACTS_STORAGE_KEY = "simco-desktop-contacts";
+const ONBOARDING_STORAGE_KEY = "simco-desktop-onboarding-completed";
 const CALC_TARGET_PCTS = [2, 5, 10, 15, 20, 25, 30, 50];
 const VARIOS_LABEL = "Varios";
 const CONTACT_TYPE_OPTIONS = ["Proveedor", "Cliente", "Desconocido", "Social", "Socio"];
@@ -83,7 +84,7 @@ const state = {
   updates: {
     platform: window.simcoDesktop?.platform || "unknown",
     strategy: "manual",
-    currentVersion: "1.0.1",
+    currentVersion: "1.0.2",
     status: "idle",
     checking: false,
     available: false,
@@ -99,10 +100,44 @@ const state = {
     error: "",
     promptVisible: false
   },
+  onboardingVisible: false,
+  onboardingStep: 0,
+  warningSignature: "",
   dirty: false,
   refreshTimer: null,
   toastTimer: null
 };
+
+const ONBOARDING_STEPS = [
+  {
+    title: "Bienvenido a SimMarket",
+    body: "La app está pensada para que vigiles mercado, armes alertas y tomes decisiones de compra o venta desde un solo panel.",
+    points: [
+      "Seguís activos por rubro y calidad.",
+      "Las alertas entran en zona cuando el precio cumple tu regla.",
+      "No necesitás tocar archivos ni JSON manuales."
+    ]
+  },
+  {
+    title: "Creá tu primera alerta",
+    body: "Empezá por el botón Nueva alerta. Elegí activo, calidad, tipo de alerta y precio gatillo.",
+    points: [
+      "Menor que: zona de compra.",
+      "Mayor que: zona de venta.",
+      "Entre dos precios: vigilancia por rango."
+    ]
+  },
+  {
+    title: "Probá el mercado al instante",
+    body: "Usá Escanear mercado para revisar el precio actual enseguida y validar si tu alerta ya está entrando en zona.",
+    points: [
+      "Si el mercado está limitado, SimMarket te lo va a indicar.",
+      "Las notificaciones salen cuando una alerta entra en zona.",
+      "Podés pausar o reanudar el escaneo automático cuando quieras."
+    ],
+    finalAction: true
+  }
+];
 
 const byId = (id) => document.getElementById(id);
 
@@ -359,14 +394,79 @@ function renderThemeToggle() {
   icon.innerHTML = nextTheme === "light" ? sunIconMarkup() : moonIconMarkup();
 }
 
-function showToast(message) {
+function showToast(message, tone = "neutral") {
   clearTimeout(state.toastTimer);
   const statusMessage = byId("statusMessage");
   if (!statusMessage) return;
   statusMessage.textContent = message;
+  statusMessage.dataset.tone = tone;
+  statusMessage.classList.add("visible");
   state.toastTimer = window.setTimeout(() => {
-    statusMessage.textContent = state.dirty ? "Cambios pendientes" : "Listo";
-  }, 1800);
+    statusMessage.classList.remove("visible");
+    statusMessage.textContent = "";
+    delete statusMessage.dataset.tone;
+  }, 2400);
+}
+
+function validateAlertDraft(alert) {
+  const errors = {};
+  if (!Number.isFinite(Number(alert.resourceId)) || Number(alert.resourceId) <= 0) {
+    errors.resourceId = "Elegí un activo válido.";
+  }
+  if (!Number.isFinite(Number(alert.quality)) || Number(alert.quality) < 0 || !Number.isInteger(Number(alert.quality))) {
+    errors.quality = "La calidad tiene que ser un entero igual o mayor a 0.";
+  }
+  const targetPriceRaw = String(alert.targetPrice ?? "").trim();
+  if (!targetPriceRaw.length || !Number.isFinite(Number(targetPriceRaw))) {
+    errors.targetPrice = "Cargá un precio gatillo válido.";
+  }
+  if (editorConditionValue(alert.condition) === "between") {
+    const targetPriceMaxRaw = String(alert.targetPriceMax ?? "").trim();
+    if (!targetPriceMaxRaw.length || !Number.isFinite(Number(targetPriceMaxRaw))) {
+      errors.targetPriceMax = "Cargá el precio máximo del rango.";
+    }
+  }
+  return errors;
+}
+
+function draftValidationSummary() {
+  const byAlertId = {};
+  let invalidCount = 0;
+  state.draft.alerts.forEach((alert) => {
+    const errors = validateAlertDraft(alert);
+    if (Object.keys(errors).length) {
+      byAlertId[alert.id] = errors;
+      invalidCount += 1;
+    }
+  });
+  return {
+    byAlertId,
+    invalidCount,
+    isValid: invalidCount === 0
+  };
+}
+
+function shouldShowOnboarding() {
+  return localStorage.getItem(ONBOARDING_STORAGE_KEY) !== "true" && (state.dashboard?.alerts?.length || 0) === 0;
+}
+
+function openOnboarding() {
+  state.onboardingVisible = true;
+  state.onboardingStep = 0;
+}
+
+function completeOnboarding() {
+  state.onboardingVisible = false;
+  localStorage.setItem(ONBOARDING_STORAGE_KEY, "true");
+}
+
+function warningSignature(warnings = []) {
+  return JSON.stringify(
+    (Array.isArray(warnings) ? warnings : []).map((warning) => ({
+      label: warning.label,
+      error: warning.error
+    }))
+  );
 }
 
 function liveAlertTone(payload) {
@@ -706,10 +806,25 @@ function syncDraftFromDashboard(dashboard) {
 
 function setDirty(nextValue) {
   state.dirty = nextValue;
-  byId("saveButton").textContent = nextValue ? "Guardar cambios pendientes" : "Guardar cambios";
   const pill = byId("draftStatPill");
-  pill.innerHTML = nextValue ? "Estado <span>Pendiente</span>" : "Estado <span>Guardado</span>";
-  pill.classList.toggle("attention", nextValue);
+  if (pill) {
+    pill.innerHTML = nextValue ? "Estado <span>Pendiente</span>" : "Estado <span>Guardado</span>";
+    pill.classList.toggle("attention", nextValue);
+  }
+  renderSaveButtonState();
+}
+
+function renderSaveButtonState() {
+  const button = byId("saveButton");
+  if (!button) return;
+  const validation = draftValidationSummary();
+  if (!validation.isValid) {
+    button.textContent = validation.invalidCount === 1 ? "Corregir 1 alerta" : `Corregir ${validation.invalidCount} alertas`;
+    button.disabled = true;
+    return;
+  }
+  button.disabled = false;
+  button.textContent = state.dirty ? "Guardar cambios pendientes" : "Guardar cambios";
 }
 
 function selectedAlert() {
@@ -731,6 +846,9 @@ function mergedAlert(alert) {
     actionKey: runtime.actionKey || inferActionKey(alert),
     actionLabel: runtime.actionLabel || actionLabel(alert),
     priceDisplay: runtime.priceDisplay || "-",
+    targetDisplay: runtime.targetDisplay || (editorConditionValue(alert.condition) === "between"
+      ? `entre ${formatNumber(alert.targetPrice)} y ${formatNumber(alert.targetPriceMax)}`
+      : formatNumber(alert.targetPrice)),
     triggerSentence: runtime.triggerSentence || "Sin lectura",
     gapDisplay: runtime.gapDisplay || "-",
     gapPercentDisplay: runtime.gapPercentDisplay || "-",
@@ -744,20 +862,49 @@ function mergedAlert(alert) {
   };
 }
 
-function draftPayload() {
+function validateDraftPayload() {
+  const alerts = state.draft.alerts.map((alert, index) => {
+    const label = String(alert.label || `Alerta ${index + 1}`).trim() || `Alerta ${index + 1}`;
+    const resourceId = Number(alert.resourceId);
+    const quality = Number(alert.quality);
+    const targetRaw = String(alert.targetPrice ?? "").trim();
+    if (!Number.isFinite(resourceId) || resourceId <= 0) {
+      throw new Error(`La alerta "${label}" tiene un activo inválido.`);
+    }
+    if (!Number.isFinite(quality) || quality < 0) {
+      throw new Error(`La alerta "${label}" tiene una calidad inválida.`);
+    }
+    if (!targetRaw.length || !Number.isFinite(Number(targetRaw))) {
+      throw new Error(`Completa el precio gatillo de "${label}".`);
+    }
+    if (editorConditionValue(alert.condition) === "between") {
+      const targetMaxRaw = String(alert.targetPriceMax ?? "").trim();
+      if (!targetMaxRaw.length || !Number.isFinite(Number(targetMaxRaw))) {
+        throw new Error(`Completa el precio máximo de "${label}".`);
+      }
+    }
+    return {
+      ...alert,
+      resourceId,
+      quality,
+      targetPrice: Number(targetRaw),
+      ...(editorConditionValue(alert.condition) === "between"
+        ? { targetPriceMax: Number(String(alert.targetPriceMax ?? "").trim()) }
+        : {})
+    };
+  });
+
   return {
     realmId: Number(state.draft.config.realmId || 0),
     pollSeconds: Number(state.draft.config.pollSeconds || 180),
     scanEnabled: state.draft.config.scanEnabled !== false,
     channels: state.draft.channels,
-    alerts: state.draft.alerts.map((alert) => ({
-      ...alert,
-      resourceId: Number(alert.resourceId),
-      quality: Number(alert.quality),
-      targetPrice: Number(alert.targetPrice),
-      ...(alert.condition === "between" ? { targetPriceMax: Number(alert.targetPriceMax) } : {})
-    }))
+    alerts
   };
+}
+
+function draftPayload() {
+  return validateDraftPayload();
 }
 
 async function persistDraft(showSuccessMessage = true) {
@@ -790,6 +937,7 @@ function renderHeader() {
   byId("headerAlertsStat").textContent = String(dashboard.summary?.enabledAlerts || 0);
   byId("headerOpportunityStat").textContent = String(dashboard.summary?.matchedAlerts || 0);
   byId("headerScanStat").textContent = formatHeaderTime(dashboard.scan?.scannedAt);
+  renderSaveButtonState();
   renderScanToggleButton();
   renderUpdateButton();
 }
@@ -808,7 +956,7 @@ function updateButtonLabel() {
   if (updates.checking) return "Buscando update";
   if (updates.downloaded) return "Instalar update";
   if (updates.downloading) return `Descargando ${Math.round(updates.progress || 0)}%`;
-  if (updates.available) return updates.platform === "win32" ? "Ver descarga" : "Descargar update";
+  if (updates.available) return updates.platform === "win32" ? "Descargar update" : "Descargar update";
   return "Buscar updates";
 }
 
@@ -816,6 +964,9 @@ function renderUpdateButton() {
   const button = byId("checkUpdatesButton");
   if (!button) return;
   const updates = state.updates;
+  const shouldHide = updates.status === "up-to-date" && !updates.available && !updates.downloading && !updates.downloaded && !updates.error;
+  button.style.display = shouldHide ? "none" : "";
+  if (shouldHide) return;
   button.textContent = updateButtonLabel();
   button.disabled = Boolean(updates.checking || updates.downloading);
   button.classList.toggle("action-btn-success", Boolean(updates.downloaded));
@@ -897,6 +1048,48 @@ function renderUpdateModal() {
   dismiss.textContent = updates.downloaded && updates.platform === "win32" ? "Más tarde" : "Ahora no";
 }
 
+function renderMarketHealthBanner() {
+  const banner = byId("marketHealthBanner");
+  if (!banner) return;
+  const monitor = state.dashboard?.monitor;
+  if (!monitor || monitor.marketState === "ok") {
+    banner.classList.add("hidden");
+    banner.innerHTML = "";
+    return;
+  }
+
+  const toneClass = monitor.marketState === "rate-limited" ? "rate-limited" : "error";
+  const suffix = monitor.affectedAlerts ? ` · ${monitor.affectedAlerts} alerta${monitor.affectedAlerts === 1 ? "" : "s"} afectada${monitor.affectedAlerts === 1 ? "" : "s"}` : "";
+  banner.className = `market-health-banner ${toneClass}`;
+  banner.innerHTML = `
+    <div class="market-health-title">${escapeHtml(monitor.marketTitle || "Estado del mercado")}</div>
+    <div class="market-health-copy">${escapeHtml(monitor.marketMessage || "")}${escapeHtml(suffix)}</div>
+  `;
+}
+
+function renderOnboarding() {
+  const modal = byId("onboardingModal");
+  const title = byId("onboardingTitle");
+  const body = byId("onboardingBody");
+  const points = byId("onboardingPoints");
+  const progress = byId("onboardingProgress");
+  const back = byId("onboardingBackButton");
+  const next = byId("onboardingNextButton");
+  if (!modal || !title || !body || !points || !progress || !back || !next) return;
+
+  const visible = state.onboardingVisible && !state.updates.promptVisible;
+  modal.classList.toggle("visible", visible);
+  if (!visible) return;
+
+  const step = ONBOARDING_STEPS[state.onboardingStep] || ONBOARDING_STEPS[0];
+  title.textContent = step.title;
+  body.textContent = step.body;
+  points.innerHTML = step.points.map((point) => `<div class="onboarding-point">${escapeHtml(point)}</div>`).join("");
+  progress.innerHTML = ONBOARDING_STEPS.map((_item, index) => `<span class="onboarding-dot${index === state.onboardingStep ? " active" : ""}"></span>`).join("");
+  back.style.visibility = state.onboardingStep === 0 ? "hidden" : "visible";
+  next.textContent = step.finalAction ? "Crear primera alerta" : "Siguiente";
+}
+
 function renderSelectedRuntime() {
   const alert = selectedAlert();
   if (!alert) {
@@ -904,6 +1097,8 @@ function renderSelectedRuntime() {
     return;
   }
   const item = mergedAlert(alert);
+  const errors = draftValidationSummary().byAlertId[alert.id] || {};
+  const firstError = Object.values(errors)[0] || "";
   byId("selectedRuntime").innerHTML = `
     <div class="summary-top">
       ${avatarMarkup(item, "A")}
@@ -915,12 +1110,13 @@ function renderSelectedRuntime() {
     </div>
     <div class="summary-metrics">
       <div class="metric-box"><span>Precio actual</span><strong>${escapeHtml(item.priceDisplay)}</strong></div>
-      <div class="metric-box"><span>Tu objetivo</span><strong>${escapeHtml(formatNumber(item.targetPrice))}</strong></div>
+      <div class="metric-box"><span>Tu objetivo</span><strong>${escapeHtml(item.targetDisplay)}</strong></div>
       <div class="metric-box"><span>Cuánto falta</span><strong>${escapeHtml(item.gapDisplay)}</strong></div>
     </div>
     <div class="summary-line"><strong>Estado:</strong> ${escapeHtml(item.statusText)}</div>
     <div class="summary-line"><strong>Lectura:</strong> ${escapeHtml(item.gapSentence)}</div>
     <div class="summary-line"><strong>Última revisión:</strong> ${escapeHtml(item.lastSeenLocal)}</div>
+    ${firstError ? `<div class="summary-line summary-line-error"><strong>Revisar:</strong> ${escapeHtml(firstError)}</div>` : ""}
   `;
 }
 
@@ -1045,6 +1241,7 @@ function resourceSelectorOptionsMarkup(alert) {
 function editorMarkup(alert) {
   if (!alert) return `<div class="empty-card">Selecciona una alerta para editarla.</div>`;
   const merged = mergedAlert(alert);
+  const errors = draftValidationSummary().byAlertId[alert.id] || {};
   const targetMaxClass = editorConditionValue(alert.condition) === "between" ? "" : "hidden";
   const selectorSummary = resourceSelectionSummary(alert);
   const conditionSummary = conditionSelectionSummary(alert);
@@ -1080,7 +1277,7 @@ function editorMarkup(alert) {
 
       <div class="input-group">
         <label>Activo</label>
-        <div class="hierarchy-selector${state.resourceSelectorOpen ? " open" : ""}" id="editorResourceSelector">
+        <div class="hierarchy-selector${state.resourceSelectorOpen ? " open" : ""}${errors.resourceId ? " is-invalid" : ""}" id="editorResourceSelector">
           <button type="button" class="selector-summary" data-action="toggle-resource-selector">
             <div class="selector-summary-main">
               <div class="selector-title">${escapeHtml(selectorSummary.title)}</div>
@@ -1097,11 +1294,13 @@ function editorMarkup(alert) {
             <div class="selector-list">${resourceSelectorOptionsMarkup(alert)}</div>
           </div>
         </div>
+        ${errors.resourceId ? `<div class="input-error-copy">${escapeHtml(errors.resourceId)}</div>` : ""}
       </div>
 
-      <div class="input-group">
+      <div class="input-group${errors.quality ? " error" : ""}">
         <label for="editorQuality">Calidad</label>
-        <input id="editorQuality" class="styled-input" data-field="quality" type="number" min="0" step="1" value="${escapeHtml(alert.quality)}" />
+        <input id="editorQuality" class="styled-input${errors.quality ? " is-invalid" : ""}" data-field="quality" type="number" min="0" step="1" value="${escapeHtml(alert.quality)}" />
+        ${errors.quality ? `<div class="input-error-copy">${escapeHtml(errors.quality)}</div>` : ""}
       </div>
 
       <div class="form-row">
@@ -1119,15 +1318,17 @@ function editorMarkup(alert) {
             </div>
           </div>
         </div>
-        <div class="input-group">
+        <div class="input-group${errors.targetPrice ? " error" : ""}">
           <label for="editorTarget">Precio gatillo</label>
-          <input id="editorTarget" class="styled-input" data-field="targetPrice" type="number" min="0" step="0.001" value="${escapeHtml(alert.targetPrice)}" />
+          <input id="editorTarget" class="styled-input${errors.targetPrice ? " is-invalid" : ""}" data-field="targetPrice" type="number" min="0" step="0.001" value="${escapeHtml(alert.targetPrice)}" />
+          ${errors.targetPrice ? `<div class="input-error-copy">${escapeHtml(errors.targetPrice)}</div>` : ""}
         </div>
       </div>
 
-      <div id="editorTargetMaxGroup" class="input-group ${targetMaxClass}">
+      <div id="editorTargetMaxGroup" class="input-group ${targetMaxClass}${errors.targetPriceMax ? " error" : ""}">
         <label for="editorTargetMax">Precio máximo</label>
-        <input id="editorTargetMax" class="styled-input" data-field="targetPriceMax" type="number" min="0" step="0.001" value="${escapeHtml(alert.targetPriceMax)}" />
+        <input id="editorTargetMax" class="styled-input${errors.targetPriceMax ? " is-invalid" : ""}" data-field="targetPriceMax" type="number" min="0" step="0.001" value="${escapeHtml(alert.targetPriceMax)}" />
+        ${errors.targetPriceMax ? `<div class="input-error-copy">${escapeHtml(errors.targetPriceMax)}</div>` : ""}
       </div>
 
       <label class="inline-toggle">
@@ -1172,6 +1373,7 @@ function passesFilter(item) {
 
 function alertCardMarkup(alert) {
   const item = mergedAlert(alert);
+  const hasErrors = Boolean(Object.keys(draftValidationSummary().byAlertId[alert.id] || {}).length);
   return `
     <article class="contact-card${item.id === state.selectedAlertId ? " selected" : ""}${item.enabled ? "" : " muted"}" data-alert-id="${escapeHtml(item.id)}">
       <div class="card-top">
@@ -1184,7 +1386,7 @@ function alertCardMarkup(alert) {
       </div>
       <div class="market-grid">
         <div class="metric-box"><span>Precio actual</span><strong>${escapeHtml(item.priceDisplay)}</strong></div>
-        <div class="metric-box"><span>Objetivo</span><strong>${escapeHtml(formatNumber(item.targetPrice))}</strong></div>
+        <div class="metric-box"><span>Objetivo</span><strong>${escapeHtml(item.targetDisplay)}</strong></div>
         <div class="metric-box"><span>Brecha</span><strong>${escapeHtml(item.gapDisplay)}</strong></div>
       </div>
       <hr class="card-divider" />
@@ -1194,6 +1396,7 @@ function alertCardMarkup(alert) {
         <span class="tag">${escapeHtml(item.statusText)}</span>
         <span class="tag">Última lectura ${escapeHtml(item.lastSeenCompact)}</span>
         <span class="tag">Brecha ${escapeHtml(item.gapPercentDisplay)}</span>
+        ${hasErrors ? '<span class="tag tag-error">Revisar datos</span>' : ""}
       </div>
     </article>
   `;
@@ -1895,7 +2098,7 @@ function saveHistoryEntry() {
   const summary = buildHistorySummary(parsedMessages, note);
 
   if (!summary && !note && !parsedMessages.length) {
-    showToast("Cargá un resumen, una nota o pegá una conversación antes de guardar");
+    showToast("Cargá un resumen, una nota o pegá una conversación antes de guardar", "error");
     return;
   }
 
@@ -1941,7 +2144,7 @@ function saveContact() {
     notes: state.contactDraft.notes.trim()
   };
   if (!draft.name || !draft.perception) {
-    showToast("Completá el nombre y la percepción antes de guardar");
+    showToast("Completá el nombre y la percepción antes de guardar", "error");
     return;
   }
 
@@ -2157,6 +2360,7 @@ function renderAll() {
   renderThemeToggle();
   renderHeader();
   renderUpdateModal();
+  renderMarketHealthBanner();
   renderSelectedRuntime();
   renderEditor();
   renderChannels();
@@ -2166,6 +2370,7 @@ function renderAll() {
   syncCalculatorInputs();
   recalculateCalculator();
   renderContactView();
+  renderOnboarding();
 }
 
 function currentAlertIndex() {
@@ -2307,7 +2512,7 @@ async function saveConfig() {
   try {
     await persistDraft(true);
   } catch (error) {
-    showToast(error.message);
+    showToast(error.message, "error");
   }
 }
 
@@ -2321,7 +2526,7 @@ async function scanNow() {
     renderAll();
     showToast(dashboard.scan?.errors?.length ? `Escaneo con ${dashboard.scan.errors.length} error(es)` : "Escaneo terminado");
   } catch (error) {
-    showToast(error.message);
+    showToast(error.message, "error");
   }
 }
 
@@ -2355,7 +2560,7 @@ async function toggleScanEnabled() {
       };
     }
     renderHeader();
-    showToast(error.message);
+    showToast(error.message, "error");
   }
 }
 
@@ -2372,10 +2577,10 @@ async function checkForUpdates(manual = false) {
       showToast("Ya tenés la última versión");
     }
     if (manual && state.updates.status === "error") {
-      showToast(state.updates.error || "No se pudo revisar updates");
+      showToast(state.updates.error || "No se pudo revisar updates", "error");
     }
   } catch (error) {
-    showToast(error.message);
+    showToast(error.message, "error");
   }
 }
 
@@ -2392,7 +2597,7 @@ async function runUpdatePrimaryAction() {
       showToast("Descarga abierta en GitHub");
     }
   } catch (error) {
-    showToast(error.message);
+    showToast(error.message, "error");
   }
 }
 
@@ -2405,7 +2610,7 @@ async function dismissUpdatePrompt() {
     };
     renderUpdateModal();
   } catch (error) {
-    showToast(error.message);
+    showToast(error.message, "error");
   }
 }
 
@@ -2471,13 +2676,29 @@ async function loadDashboard({ quiet = false } = {}) {
       state.draft.config.scanEnabled = dashboard.config?.scanEnabled !== false;
       renderHeader();
       renderUpdateModal();
+      renderMarketHealthBanner();
+      renderOnboarding();
       renderSelectedRuntime();
       renderAlertList();
       renderEvents();
     }
+    const nextWarningSignature = warningSignature(dashboard.warnings);
+    if (dashboard.warnings?.length && nextWarningSignature !== state.warningSignature) {
+      state.warningSignature = nextWarningSignature;
+      showToast(
+        dashboard.warnings.length === 1
+          ? "Se omitió 1 alerta guardada porque tenía datos inválidos."
+          : `Se omitieron ${dashboard.warnings.length} alertas guardadas porque tenían datos inválidos.`,
+        "error"
+      );
+      return;
+    }
+    if (!dashboard.warnings?.length) {
+      state.warningSignature = "";
+    }
     if (!quiet) showToast("Panel actualizado");
   } catch (error) {
-    showToast(error.message);
+    showToast(error.message, "error");
   }
 }
 
@@ -2590,6 +2811,7 @@ function bindStaticUi() {
     };
     renderHeader();
     renderUpdateModal();
+    renderOnboarding();
   });
   byId("themeToggleButton").addEventListener("click", () => {
     applyTheme(state.theme === "light" ? "dark" : "light");
@@ -2605,6 +2827,29 @@ function bindStaticUi() {
   byId("addAlertButton").addEventListener("click", addAlert);
   byId("updatePrimaryButton").addEventListener("click", runUpdatePrimaryAction);
   byId("updateDismissButton").addEventListener("click", dismissUpdatePrompt);
+  byId("onboardingSkipButton").addEventListener("click", () => {
+    completeOnboarding();
+    renderOnboarding();
+  });
+  byId("onboardingBackButton").addEventListener("click", () => {
+    state.onboardingStep = Math.max(0, state.onboardingStep - 1);
+    renderOnboarding();
+  });
+  byId("onboardingNextButton").addEventListener("click", () => {
+    const step = ONBOARDING_STEPS[state.onboardingStep];
+    if (step?.finalAction) {
+      completeOnboarding();
+      switchView("mercado");
+      if (!state.draft.alerts.length) {
+        addAlert();
+      } else {
+        renderOnboarding();
+      }
+      return;
+    }
+    state.onboardingStep = Math.min(ONBOARDING_STEPS.length - 1, state.onboardingStep + 1);
+    renderOnboarding();
+  });
   byId("searchInput").addEventListener("input", (event) => {
     state.search = event.target.value;
     renderAlertList();
@@ -2747,6 +2992,14 @@ function bindStaticUi() {
       dismissUpdatePrompt();
     }
   });
+  byId("onboardingModal").addEventListener("click", (event) => {
+    const target = event.target;
+    if (!(target instanceof HTMLElement)) return;
+    if (target.id === "onboardingModal") {
+      completeOnboarding();
+      renderOnboarding();
+    }
+  });
 
   [
     ["calc-buy-price", "buyPrice"],
@@ -2784,6 +3037,10 @@ async function boot() {
   const dashboardPromise = loadDashboard({ quiet: true });
   await Promise.all([dashboardPromise, runSplashScreen()]);
   await runVitoIntro();
+  if (shouldShowOnboarding()) {
+    openOnboarding();
+    renderOnboarding();
+  }
   startAutoRefresh();
 }
 

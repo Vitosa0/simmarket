@@ -116,6 +116,55 @@
         color: var(--text-faint);
         letter-spacing: 0.06em;
       }
+
+      .startup-actions {
+        width: 100%;
+        display: flex;
+        justify-content: center;
+        gap: 10px;
+      }
+
+      .startup-actions.hidden {
+        display: none;
+      }
+
+      .startup-btn {
+        min-width: 148px;
+        min-height: 36px;
+        padding: 0 16px;
+        border-radius: 999px;
+        border: 1px solid var(--line);
+        background: #1a1a1a;
+        color: var(--text);
+        font-size: 11px;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        cursor: pointer;
+        transition: border-color 0.18s ease, background 0.18s ease, color 0.18s ease, transform 0.12s ease;
+      }
+
+      .startup-btn:hover:not(:disabled) {
+        border-color: #393939;
+      }
+
+      .startup-btn:active:not(:disabled) {
+        transform: translateY(1px);
+      }
+
+      .startup-btn:disabled {
+        opacity: 0.6;
+        cursor: default;
+      }
+
+      .startup-btn-primary {
+        border-color: rgba(201, 168, 76, 0.45);
+        background: linear-gradient(180deg, rgba(201, 168, 76, 0.22) 0%, rgba(201, 168, 76, 0.1) 100%);
+        color: var(--gold);
+      }
+
+      .startup-btn-primary:hover:not(:disabled) {
+        border-color: rgba(201, 168, 76, 0.72);
+      }
     </style>
   </head>
   <body>
@@ -134,11 +183,16 @@
         </div>
       </div>
 
-      <div id="version" class="startup-footer">v1.0.1</div>
+      <div id="version" class="startup-footer">v1.0.2</div>
+
+      <div id="actions" class="startup-actions hidden">
+        <button id="secondaryAction" class="startup-btn" type="button">Entrar sin actualizar</button>
+        <button id="primaryAction" class="startup-btn startup-btn-primary" type="button">Actualizar ahora</button>
+      </div>
     </main>
 
     <script>
-      const VERSION = new URLSearchParams(window.location.search).get("version") || "1.0.1";
+      const VERSION = new URLSearchParams(window.location.search).get("version") || "1.0.2";
       const TOTAL_MS = 3000;
       const TEXT_PHASE_MS = 1500;
       const PROGRESS_PHASE_MS = 1500;
@@ -159,43 +213,81 @@
       const message = document.getElementById("message");
       const progressBar = document.getElementById("progressBar");
       const version = document.getElementById("version");
+      const actions = document.getElementById("actions");
+      const primaryAction = document.getElementById("primaryAction");
+      const secondaryAction = document.getElementById("secondaryAction");
       const platform = window.simcoDesktop?.platform || "unknown";
       let liveUpdateState = null;
+      let introFinished = false;
+      let primaryBusy = false;
 
       version.textContent = `v${VERSION.replace(/^v/i, "")}`;
 
       const start = performance.now();
 
-      function renderFromLiveUpdateState() {
-        if (platform !== "win32" || !liveUpdateState) return false;
+      function showActions(visible) {
+        actions.classList.toggle("hidden", !visible);
+      }
 
-        if (liveUpdateState.status === "available" || liveUpdateState.status === "downloading") {
-          const progress = Math.max(4, Math.min(100, Number(liveUpdateState.progress || 0)));
+      function updateActionButtons() {
+        const status = String(liveUpdateState?.status || "");
+        showActions(introFinished && ["available", "downloading", "downloaded", "installing"].includes(status));
+
+        secondaryAction.disabled = primaryBusy || status === "installing";
+        primaryAction.disabled = primaryBusy || status === "downloading" || status === "installing";
+
+        if (status === "downloaded") {
+          primaryAction.textContent = platform === "win32" ? "Instalar ahora" : "Descarga abierta";
+        } else if (status === "downloading") {
+          primaryAction.textContent = `Descargando ${Math.round(Number(liveUpdateState?.progress || 0))}%`;
+        } else if (status === "installing") {
+          primaryAction.textContent = "Instalando...";
+        } else {
+          primaryAction.textContent = platform === "win32" ? "Actualizar ahora" : "Descargar update";
+        }
+      }
+
+      function renderFinalState() {
+        const status = String(liveUpdateState?.status || "");
+        if (status === "available") {
+          message.textContent = "Hay una actualización disponible.";
+          message.classList.remove("is-success");
+          progressBar.style.width = "100%";
+          updateActionButtons();
+          return true;
+        }
+        if (status === "downloading") {
+          const progress = Math.max(4, Math.min(100, Number(liveUpdateState?.progress || 0)));
           message.textContent = progress >= 100
             ? "Terminando descarga..."
             : `Descargando update... ${Math.round(progress)}%`;
           message.classList.remove("is-success");
           progressBar.style.width = `${progress}%`;
+          updateActionButtons();
           return true;
         }
-
-        if (liveUpdateState.status === "downloaded" || liveUpdateState.status === "installing") {
+        if (status === "downloaded") {
+          message.textContent = platform === "win32" ? "Update lista para instalar." : "Descarga lista.";
+          message.classList.add("is-success");
+          progressBar.style.width = "100%";
+          updateActionButtons();
+          return true;
+        }
+        if (status === "installing") {
           message.textContent = "Instalando update...";
           message.classList.add("is-success");
           progressBar.style.width = "100%";
+          updateActionButtons();
           return true;
         }
-
+        showActions(false);
         return false;
       }
 
       function tick(now) {
-        if (renderFromLiveUpdateState()) {
-          requestAnimationFrame(tick);
-          return;
-        }
         const elapsed = Math.min(TOTAL_MS, now - start);
         const progress = Math.min(1, elapsed / PROGRESS_PHASE_MS);
+        introFinished = elapsed >= TEXT_PHASE_MS;
         if (elapsed >= TEXT_PHASE_MS) {
           message.textContent = FINAL_MESSAGE;
         } else {
@@ -205,7 +297,10 @@
         }
         message.classList.toggle("is-success", elapsed >= TEXT_PHASE_MS);
         progressBar.style.width = `${Math.max(3, progress * 100)}%`;
-        if (elapsed < TOTAL_MS) {
+        if (elapsed >= TEXT_PHASE_MS) {
+          renderFinalState();
+        }
+        if (elapsed < TOTAL_MS || ["available", "downloading", "downloaded", "installing"].includes(String(liveUpdateState?.status || ""))) {
           requestAnimationFrame(tick);
         }
       }
@@ -219,8 +314,35 @@
       if (window.simcoDesktop?.onUpdateState) {
         window.simcoDesktop.onUpdateState((payload) => {
           liveUpdateState = payload || null;
+          updateActionButtons();
         });
       }
+
+      primaryAction.addEventListener("click", async () => {
+        if (!window.simcoDesktop?.runUpdatePrimaryAction || primaryBusy) return;
+        primaryBusy = true;
+        updateActionButtons();
+        try {
+          const nextState = await window.simcoDesktop.runUpdatePrimaryAction();
+          liveUpdateState = nextState || liveUpdateState;
+        } catch (error) {
+          message.textContent = error?.message || "No se pudo iniciar la actualización.";
+          message.classList.remove("is-success");
+        } finally {
+          primaryBusy = false;
+          updateActionButtons();
+        }
+      });
+
+      secondaryAction.addEventListener("click", async () => {
+        if (!window.simcoDesktop?.continueStartup) return;
+        secondaryAction.disabled = true;
+        try {
+          await window.simcoDesktop.continueStartup();
+        } catch (error) {
+          secondaryAction.disabled = false;
+        }
+      });
 
       requestAnimationFrame(tick);
     </script>
