@@ -3,7 +3,7 @@ const path = require("node:path");
 const { app } = require("electron");
 const { DEFAULT_CONFIG } = require("./defaults");
 
-const MAX_EVENT_RECORDS = 10;
+const MAX_EVENT_RECORDS = 8;
 
 function ensureDir(dirPath) {
   fs.mkdirSync(dirPath, { recursive: true });

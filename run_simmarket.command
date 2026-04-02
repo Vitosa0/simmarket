@@ -1,6 +1,9 @@
 #!/bin/zsh
 ROOT_DIR="$(cd "$(dirname "$0")" && pwd)"
-APP_BUNDLE="$ROOT_DIR/dist/mac-arm64/SimMarket.app"
+APP_BUNDLE="$ROOT_DIR/dist/mac-universal/SimMarket.app"
+if [ ! -d "$APP_BUNDLE" ]; then
+  APP_BUNDLE="$ROOT_DIR/dist/mac-arm64/SimMarket.app"
+fi
 if [ -d "$APP_BUNDLE" ]; then
   osascript -e 'tell application "SimMarket" to quit' >/dev/null 2>&1
   sleep 1
