@@ -1161,91 +1161,38 @@ body[data-theme="light"] .celestial-moon {
 }
 
 .section-heading-row {
+  position: relative;
   display: flex;
-  align-items: flex-start;
+  align-items: flex-end;
   justify-content: space-between;
   gap: 14px;
+  min-height: 44px;
   margin-bottom: 10px;
 }
 
 .section-heading-row .section-label {
   flex: 1;
   margin: 0;
+  align-self: flex-end;
+  font-size: 12px;
+  letter-spacing: 0.2em;
 }
 
 .notifications-toggle {
-  position: relative;
-  flex: none;
-  min-height: 38px;
-  padding: 0 14px 0 16px;
-  border-radius: 999px;
-  border: 1px solid var(--theme-toggle-border);
-  background: linear-gradient(180deg, #191919 0%, #0f0f0f 100%);
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 12px;
-  cursor: pointer;
-  isolation: isolate;
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.08),
-    0 10px 20px rgba(0, 0, 0, 0.22);
-  transition:
-    border-color 0.2s ease,
-    background 0.2s ease,
-    box-shadow 0.2s ease,
-    transform 0.12s ease;
-}
-
-body[data-theme="light"] .notifications-toggle {
-  background: linear-gradient(180deg, #f4ede3 0%, #e6dccf 100%);
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.72),
-    0 8px 16px rgba(73, 57, 39, 0.12);
-}
-
-.notifications-toggle::before {
-  content: "";
   position: absolute;
-  inset: 5px;
-  border-radius: inherit;
-  border: 1px solid rgba(201, 168, 76, 0.24);
-  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.02);
-  pointer-events: none;
-}
-
-body[data-theme="light"] .notifications-toggle::before {
-  border-color: rgba(182, 138, 30, 0.28);
-  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.28);
+  right: 0;
+  top: calc(50% - 10px);
+  flex: none;
+  margin-top: 0;
+  transform: translateY(-50%);
 }
 
 .notifications-toggle:hover {
-  border-color: var(--border-strong);
-  transform: translateY(-1px);
+  transform: translateY(calc(-50% - 1px));
 }
 
 .notifications-toggle:active {
-  transform: translateY(0);
-}
-
-.notifications-toggle-label {
-  position: relative;
-  z-index: 1;
-  font-size: 11px;
-  font-weight: 600;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-  line-height: 1;
-  color: var(--text);
-  white-space: nowrap;
-}
-
-.notification-toggle-icon-wrap {
-  position: relative;
-  z-index: 1;
-  width: 18px;
-  height: 18px;
-  flex: none;
+  transform: translateY(-50%);
 }
 
 .notification-toggle-icon {
@@ -1263,18 +1210,14 @@ body[data-theme="light"] .notifications-toggle::before {
 
 .notifications-toggle.has-unread {
   border-color: var(--border-strong);
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.08),
-    0 10px 20px rgba(0, 0, 0, 0.22),
-    0 0 0 1px rgba(214, 55, 55, 0.12);
 }
 
 .notification-dot {
   position: absolute;
-  top: -3px;
-  right: -4px;
-  width: 11px;
-  height: 11px;
+  top: 5px;
+  right: 5px;
+  width: 9px;
+  height: 9px;
   border-radius: 999px;
   background: #d63737;
   box-shadow:
@@ -1363,6 +1306,37 @@ body[data-theme="light"] .notifications-toggle::before {
   object-fit: contain;
   display: block;
   padding: 4px;
+}
+
+.contact-type-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.contact-type-icon-sm {
+  width: 20px;
+  height: 20px;
+}
+
+.contact-type-icon-md {
+  width: 38px;
+  height: 38px;
+}
+
+.contact-type-icon-lg {
+  width: 46px;
+  height: 46px;
+}
+
+.contact-type-icon-svg {
+  width: 100%;
+  height: 100%;
+  display: block;
+  shape-rendering: geometricPrecision;
+  text-rendering: geometricPrecision;
+  transform: translateZ(0);
 }
 
 .badge {
@@ -1494,6 +1468,13 @@ body[data-theme="light"] .notifications-toggle::before {
   display: flex;
   flex-direction: column;
   gap: 4px;
+}
+
+.selector-title-with-icon {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
 }
 
 .selector-title {
@@ -1896,11 +1877,46 @@ textarea.styled-input {
   gap: 16px;
 }
 
+#notificationsModal .modal-card,
+#notificationsModal .modal-card p,
+#notificationsModal .event-title,
+#notificationsModal .event-body,
+#notificationsModal .event-time,
+#notificationsModal .badge,
+#notificationsModal .ghost-btn,
+#notificationsModal .mini-btn {
+  font-family: "Montserrat", sans-serif;
+}
+
+.notifications-modal-header {
+  margin-bottom: -2px;
+}
+
+#notificationsModal .notifications-modal-title {
+  font-family: "Montserrat", sans-serif;
+  font-size: 17px;
+  font-weight: 600;
+  color: var(--text);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  line-height: 1;
+  margin: 0 0 10px;
+}
+
+.notifications-modal-copy {
+  margin: 0;
+}
+
 #notificationsModal #eventsFeed {
   min-height: 160px;
   max-height: min(520px, calc(100vh - 220px));
   overflow: auto;
   padding-right: 4px;
+}
+
+.notifications-modal-actions {
+  justify-content: space-between;
+  margin-top: 2px;
 }
 
 .contact-card {
