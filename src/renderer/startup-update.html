@@ -231,10 +231,17 @@
 
       function updateActionButtons() {
         const status = String(liveUpdateState?.status || "");
-        showActions(introFinished && ["available", "downloading", "downloaded", "installing"].includes(status));
+        showActions(introFinished && ["available", "downloading", "downloaded", "installing", "offline"].includes(status));
 
         secondaryAction.disabled = primaryBusy || status === "installing";
         primaryAction.disabled = primaryBusy || status === "downloading" || status === "installing";
+
+        if (status === "offline") {
+          secondaryAction.textContent = "Entrar en modo desconectado";
+          primaryAction.textContent = "Reintentar";
+        } else {
+          secondaryAction.textContent = "Entrar sin actualizar";
+        }
 
         if (status === "downloaded") {
           primaryAction.textContent = platform === "win32" ? "Instalar ahora" : "Descarga abierta";
@@ -242,6 +249,8 @@
           primaryAction.textContent = `Descargando ${Math.round(Number(liveUpdateState?.progress || 0))}%`;
         } else if (status === "installing") {
           primaryAction.textContent = "Instalando...";
+        } else if (status === "offline") {
+          primaryAction.textContent = "Reintentar";
         } else {
           primaryAction.textContent = platform === "win32" ? "Actualizar ahora" : "Descargar update";
         }
@@ -287,6 +296,13 @@
           updateActionButtons();
           return true;
         }
+        if (status === "offline") {
+          message.textContent = "No hay conexion a internet.";
+          message.classList.remove("is-success");
+          progressBar.style.width = "100%";
+          updateActionButtons();
+          return true;
+        }
         showActions(false);
         return false;
       }
@@ -309,7 +325,7 @@
         if (elapsed >= TEXT_PHASE_MS) {
           renderFinalState();
         }
-        if (elapsed < TOTAL_MS || ["checking", "available", "downloading", "downloaded", "installing"].includes(String(liveUpdateState?.status || ""))) {
+        if (elapsed < TOTAL_MS || ["checking", "available", "downloading", "downloaded", "installing", "offline"].includes(String(liveUpdateState?.status || ""))) {
           requestAnimationFrame(tick);
         }
       }

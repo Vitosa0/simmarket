@@ -30,6 +30,66 @@ const CONTACT_TRUST_OPTIONS = [
   { value: "Bajo", tone: "bajo" },
   { value: "Neutro", tone: "neutro" }
 ];
+const CONTACT_TYPE_ICON_SVG = {
+  Proveedor: `
+    <svg class="contact-type-icon-svg" viewBox="0 0 200 200" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <circle cx="100" cy="100" r="96" fill="#141412" stroke="#c9a84c" stroke-width="3" />
+      <circle cx="100" cy="100" r="80" fill="none" stroke="rgba(201,168,76,0.12)" stroke-width="1.5" />
+      <rect x="44" y="58" width="14" height="46" rx="2" fill="none" stroke="#c9a84c" stroke-width="3" />
+      <path d="M51 55 C49 48 55 42 51 36" fill="none" stroke="#c9a84c" stroke-width="2.5" stroke-linecap="round" opacity="0.5" />
+      <path d="M54 52 C52 45 57 40 54 34" fill="none" stroke="#c9a84c" stroke-width="1.5" stroke-linecap="round" opacity="0.25" />
+      <polyline points="36,104 56,76 76,104 96,76 116,104 136,76 156,104 164,104" fill="none" stroke="#c9a84c" stroke-width="3" stroke-linejoin="round" />
+      <rect x="36" y="104" width="128" height="54" rx="2" fill="rgba(201,168,76,0.06)" stroke="#c9a84c" stroke-width="3" />
+      <rect x="50" y="116" width="20" height="16" rx="1.5" fill="rgba(201,168,76,0.22)" stroke="#c9a84c" stroke-width="2" />
+      <rect x="90" y="116" width="20" height="16" rx="1.5" fill="rgba(201,168,76,0.22)" stroke="#c9a84c" stroke-width="2" />
+      <rect x="130" y="116" width="20" height="16" rx="1.5" fill="rgba(201,168,76,0.22)" stroke="#c9a84c" stroke-width="2" />
+      <rect x="88" y="134" width="24" height="24" rx="1.5" fill="rgba(201,168,76,0.12)" stroke="#c9a84c" stroke-width="2" />
+    </svg>
+  `,
+  Cliente: `
+    <svg class="contact-type-icon-svg" viewBox="0 0 200 200" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <circle cx="100" cy="100" r="96" fill="#141412" stroke="#4ade80" stroke-width="3" />
+      <circle cx="100" cy="100" r="80" fill="none" stroke="rgba(74,222,128,0.12)" stroke-width="1.5" />
+      <path d="M46 46 L128 46 L158 84 L128 154 L46 154 Z" fill="rgba(74,222,128,0.08)" stroke="#4ade80" stroke-width="3.5" stroke-linejoin="round" />
+      <circle cx="66" cy="68" r="10" fill="#141412" stroke="#4ade80" stroke-width="3" />
+      <line x1="76" y1="94" x2="138" y2="94" stroke="#4ade80" stroke-width="4" stroke-linecap="round" />
+      <line x1="76" y1="112" x2="130" y2="112" stroke="#4ade80" stroke-width="4" stroke-linecap="round" opacity="0.55" />
+      <line x1="76" y1="130" x2="118" y2="130" stroke="#4ade80" stroke-width="4" stroke-linecap="round" opacity="0.28" />
+    </svg>
+  `,
+  Desconocido: `
+    <svg class="contact-type-icon-svg" viewBox="0 0 200 200" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <circle cx="100" cy="100" r="96" fill="#141412" stroke="rgba(244,240,230,0.35)" stroke-width="3" stroke-dasharray="14 9" />
+      <circle cx="100" cy="100" r="80" fill="none" stroke="rgba(244,240,230,0.07)" stroke-width="1.5" />
+      <circle cx="100" cy="70" r="26" fill="rgba(244,240,230,0.04)" stroke="rgba(244,240,230,0.32)" stroke-width="3" stroke-dasharray="8 7" />
+      <path d="M42 152 C42 114 158 114 158 152" fill="none" stroke="rgba(244,240,230,0.32)" stroke-width="3" stroke-dasharray="8 7" stroke-linecap="round" />
+      <path d="M86 60 C86 48 114 48 114 64 C114 74 100 76 100 86" fill="none" stroke="rgba(244,240,230,0.75)" stroke-width="5.5" stroke-linecap="round" />
+      <circle cx="100" cy="96" r="4.5" fill="rgba(244,240,230,0.75)" />
+    </svg>
+  `,
+  Social: `
+    <svg class="contact-type-icon-svg" viewBox="0 0 200 200" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <circle cx="100" cy="100" r="96" fill="#141412" stroke="#60a5fa" stroke-width="3" />
+      <circle cx="100" cy="100" r="80" fill="none" stroke="rgba(96,165,250,0.12)" stroke-width="1.5" />
+      <circle cx="58" cy="76" r="18" fill="rgba(96,165,250,0.06)" stroke="#60a5fa" stroke-width="2.5" opacity="0.6" />
+      <path d="M22 140 C22 110 82 106 82 106" fill="none" stroke="#60a5fa" stroke-width="2.5" stroke-linecap="round" opacity="0.6" />
+      <circle cx="142" cy="76" r="18" fill="rgba(96,165,250,0.06)" stroke="#60a5fa" stroke-width="2.5" opacity="0.6" />
+      <path d="M178 140 C178 110 118 106 118 106" fill="none" stroke="#60a5fa" stroke-width="2.5" stroke-linecap="round" opacity="0.6" />
+      <circle cx="100" cy="70" r="24" fill="rgba(96,165,250,0.12)" stroke="#60a5fa" stroke-width="3.5" />
+      <path d="M46 148 C46 112 154 112 154 148" fill="none" stroke="#60a5fa" stroke-width="3.5" stroke-linecap="round" />
+    </svg>
+  `,
+  Socio: `
+    <svg class="contact-type-icon-svg" viewBox="0 0 200 200" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <circle cx="100" cy="100" r="96" fill="#141412" stroke="#c9a84c" stroke-width="3" />
+      <circle cx="100" cy="100" r="80" fill="none" stroke="rgba(201,168,76,0.12)" stroke-width="1.5" />
+      <circle cx="78" cy="100" r="40" fill="rgba(201,168,76,0.07)" stroke="#c9a84c" stroke-width="3" />
+      <circle cx="122" cy="100" r="40" fill="rgba(201,168,76,0.07)" stroke="#c9a84c" stroke-width="3" />
+      <path d="M100 62.8 C113 71 113 129 100 137.2 C87 129 87 71 100 62.8 Z" fill="rgba(201,168,76,0.28)" />
+      <circle cx="100" cy="100" r="7" fill="#c9a84c" />
+    </svg>
+  `
+};
 const SPLASH_TOTAL_MS = 6000;
 const VITO_INTRO_TOTAL_MS = 3000;
 const SPLASH_PROGRESS_SEGMENTS = [
@@ -687,6 +747,13 @@ function letterAvatarMarkup(label, fallback = "C") {
   const safeLabel = String(label || "").trim();
   const letter = safeLabel ? safeLabel.charAt(0).toUpperCase() : fallback;
   return `<div class="avatar">${escapeHtml(letter)}</div>`;
+}
+
+function contactTypeIconMarkup(type, size = "md") {
+  const normalizedType = CONTACT_TYPE_OPTIONS.includes(type) ? type : "Proveedor";
+  const normalizedSize = ["sm", "md", "lg"].includes(size) ? size : "md";
+  const iconSvg = CONTACT_TYPE_ICON_SVG[normalizedType] || CONTACT_TYPE_ICON_SVG.Proveedor;
+  return `<span class="contact-type-icon contact-type-icon-${normalizedSize}" aria-hidden="true">${iconSvg}</span>`;
 }
 
 function viewMeta(view = state.activeView) {
@@ -1512,6 +1579,15 @@ function closeNotificationsModal() {
   renderNotificationsModal();
 }
 
+async function clearNotifications() {
+  const dashboard = await callDesktop("clearEvents");
+  markNotificationsSeen([]);
+  state.notificationsUnread = false;
+  state.dashboard = dashboard;
+  renderAll();
+  showToast("Casilla limpiada");
+}
+
 function renderFilterButtons() {
   document.querySelectorAll("[data-filter]").forEach((button) => {
     button.classList.toggle("active", button.dataset.filter === state.filter);
@@ -1761,7 +1837,7 @@ function contactEditorMarkup() {
   return `
     <div class="editor-card">
       <div class="summary-top">
-        ${letterAvatarMarkup(draft.name || "C", "C")}
+        ${contactTypeIconMarkup(draft.type, "lg")}
         <div class="summary-title">
           <div class="summary-name">${escapeHtml(draft.name || "Nuevo contacto")}</div>
           <div class="summary-meta">${escapeHtml(draft.type)} · ${escapeHtml(selectorSummary.title)}</div>
@@ -1885,7 +1961,7 @@ function contactCardMarkup(contact) {
   return `
     <article class="contact-card register-contact-card" data-contact-id="${escapeHtml(contact.id)}">
       <div class="card-top">
-        ${letterAvatarMarkup(contact.name, "C")}
+        ${contactTypeIconMarkup(contact.type, "md")}
         <div class="card-title">
           <div class="contact-name">${escapeHtml(contact.name)}</div>
           <div class="contact-meta">${escapeHtml([contact.type, contactResolvedProductDisplay(contact)].join(" · "))}</div>
@@ -3106,6 +3182,10 @@ function bindStaticUi() {
     if (!(target instanceof HTMLElement)) return;
     if (target.id === "notificationsModal" || target.dataset.action === "close-notifications-modal") {
       closeNotificationsModal();
+      return;
+    }
+    if (target.dataset.action === "clear-notifications") {
+      clearNotifications();
     }
   });
 

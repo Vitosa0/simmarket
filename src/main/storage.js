@@ -3,8 +3,6 @@ const path = require("node:path");
 const { app } = require("electron");
 const { DEFAULT_CONFIG } = require("./defaults");
 
-const MAX_EVENT_RECORDS = 8;
-
 function ensureDir(dirPath) {
   fs.mkdirSync(dirPath, { recursive: true });
 }
@@ -75,16 +73,15 @@ function appendEvent(paths, record) {
     ? fs.readFileSync(paths.eventsPath, "utf8").split("\n").filter(Boolean)
     : [];
   lines.push(nextLine);
-  const boundedLines = lines.slice(-MAX_EVENT_RECORDS);
-  fs.writeFileSync(paths.eventsPath, boundedLines.join("\n") + "\n", "utf8");
+  fs.writeFileSync(paths.eventsPath, lines.join("\n") + "\n", "utf8");
 }
 
-function recentEvents(paths, limit = MAX_EVENT_RECORDS) {
+function recentEvents(paths, limit) {
   if (!fs.existsSync(paths.eventsPath)) {
     return [];
   }
   const lines = fs.readFileSync(paths.eventsPath, "utf8").split("\n").filter(Boolean);
-  return lines
+  const parsed = lines
     .map((line, index) => {
       try {
         const payload = JSON.parse(line);
@@ -94,9 +91,11 @@ function recentEvents(paths, limit = MAX_EVENT_RECORDS) {
         return null;
       }
     })
-    .filter(Boolean)
-    .slice(-limit)
-    .reverse();
+    .filter(Boolean);
+  if (typeof limit === "number" && Number.isFinite(limit) && limit > 0) {
+    return parsed.slice(-limit).reverse();
+  }
+  return parsed.reverse();
 }
 
 function deleteEvent(paths, eventId) {
@@ -117,6 +116,14 @@ function deleteEvent(paths, eventId) {
   return removed;
 }
 
+function clearEvents(paths) {
+  if (!fs.existsSync(paths.eventsPath)) {
+    return false;
+  }
+  fs.writeFileSync(paths.eventsPath, "", "utf8");
+  return true;
+}
+
 module.exports = {
   appDataPaths,
   loadConfig,
@@ -125,5 +132,6 @@ module.exports = {
   saveState,
   appendEvent,
   recentEvents,
-  deleteEvent
+  deleteEvent,
+  clearEvents
 };

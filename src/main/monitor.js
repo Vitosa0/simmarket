@@ -1,6 +1,8 @@
 const { Notification } = require("electron");
 const { getResourceById } = require("./catalog");
 
+const DISCORD_AVATAR_URL = "https://raw.githubusercontent.com/Vitosa0/simmarket/main/src/assets/branding/simmarket-mark-1024.png";
+
 const API_TIMEOUT_MS = 20000;
 const ALLOWED_CONDITIONS = new Set(["<=", ">=", "<", ">", "==", "between"]);
 
@@ -179,6 +181,7 @@ async function sendDiscordNotification(webhookUrl, title, body) {
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
       username: "SimMarket",
+      avatar_url: DISCORD_AVATAR_URL,
       content: `**${title}**\n${body}`
     })
   });

@@ -7,6 +7,7 @@ const { DEFAULT_CONFIG } = require("./defaults");
 const {
   appDataPaths,
   appendEvent,
+  clearEvents,
   deleteEvent,
   loadConfig,
   loadState,
@@ -21,6 +22,8 @@ let startupWindow = null;
 let scanTimer = null;
 let scanInFlight = false;
 let discordAvatarData = null;
+let lastDiscordBrandedWebhook = "";
+let discordBrandingInFlightWebhook = "";
 const IS_WINDOWS = process.platform === "win32";
 const IS_MAC = process.platform === "darwin";
 const IS_DEV = !app.isPackaged;
@@ -32,6 +35,7 @@ const APP_ICON_PATH = process.platform === "win32"
   ? path.join(__dirname, "..", "assets", "branding", "simmarket-mark.ico")
   : path.join(__dirname, "..", "assets", "branding", "simmarket-mark-1024.png");
 const APP_ICON_PNG_PATH = path.join(__dirname, "..", "assets", "branding", "simmarket-mark-1024.png");
+const APP_ICON_DISCORD_PNG_PATH = path.join(__dirname, "..", "assets", "branding", "simmarket-mark-discord.png");
 let windowsUpdaterConfigured = false;
 let mainWindowReady = false;
 let startupSequenceDone = false;
@@ -110,8 +114,26 @@ function continueIntoApp() {
   return updateState;
 }
 
+function isOfflineUpdateError(error) {
+  const message = String(error?.message || error || "").toLowerCase();
+  return [
+    "failed to fetch",
+    "fetch failed",
+    "internet_disconnected",
+    "internet disconnected",
+    "offline",
+    "network",
+    "enotfound",
+    "eai_again",
+    "econnrefused",
+    "econnreset",
+    "net::",
+    "socket hang up"
+  ].some((token) => message.includes(token));
+}
+
 function startupWindowNeedsExpandedLayout(status = updateState.status) {
-  return ["available", "downloading", "downloaded", "installing"].includes(String(status || ""));
+  return ["available", "downloading", "downloaded", "installing", "offline"].includes(String(status || ""));
 }
 
 function syncStartupWindowSize() {
@@ -189,16 +211,18 @@ function canonicalDiscordWebhookUrl(rawUrl) {
 
 function appIconDataUri() {
   if (discordAvatarData) return discordAvatarData;
-  const buffer = fs.readFileSync(APP_ICON_PNG_PATH);
+  const iconPath = fs.existsSync(APP_ICON_DISCORD_PNG_PATH) ? APP_ICON_DISCORD_PNG_PATH : APP_ICON_PNG_PATH;
+  const buffer = fs.readFileSync(iconPath);
   discordAvatarData = `data:image/png;base64,${buffer.toString("base64")}`;
   return discordAvatarData;
 }
 
 async function configureDiscordWebhookBranding(webhookUrl) {
   const targetUrl = canonicalDiscordWebhookUrl(webhookUrl);
-  if (!targetUrl) {
+  if (!targetUrl || targetUrl === lastDiscordBrandedWebhook || targetUrl === discordBrandingInFlightWebhook) {
     return;
   }
+  discordBrandingInFlightWebhook = targetUrl;
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), DISCORD_BRANDING_TIMEOUT_MS);
   try {
@@ -214,7 +238,11 @@ async function configureDiscordWebhookBranding(webhookUrl) {
     if (!response.ok) {
       throw new Error(`Discord branding ${response.status}`);
     }
+    lastDiscordBrandedWebhook = targetUrl;
   } finally {
+    if (discordBrandingInFlightWebhook === targetUrl) {
+      discordBrandingInFlightWebhook = "";
+    }
     clearTimeout(timer);
   }
 }
@@ -341,16 +369,17 @@ async function checkMacUpdates({ showPrompt = true } = {}) {
     nextState.status = nextState.available ? "available" : "up-to-date";
     return patchUpdateState(nextState);
   } catch (error) {
+    const offline = isOfflineUpdateError(error);
     return patchUpdateState({
-      status: "error",
+      status: offline ? "offline" : "error",
       checking: false,
       available: false,
       downloading: false,
       downloaded: false,
       progress: 0,
       lastCheckedAt: new Date().toISOString(),
-      error: error.message,
-      promptVisible: false
+      error: offline ? "Sin conexion a internet." : error.message,
+      promptVisible: offline ? true : false
     });
   }
 }
@@ -441,15 +470,16 @@ function configureWindowsUpdater() {
   });
 
   autoUpdater.on("error", (error) => {
+    const offline = isOfflineUpdateError(error);
     patchUpdateState({
-      status: "error",
+      status: offline ? "offline" : "error",
       checking: false,
       downloading: false,
       downloaded: false,
       progress: 0,
       lastCheckedAt: new Date().toISOString(),
-      error: error.message,
-      promptVisible: false
+      error: offline ? "Sin conexion a internet." : error.message,
+      promptVisible: offline ? true : false
     });
   });
 }
@@ -492,9 +522,19 @@ async function runUpdatePrimaryAction() {
       autoUpdater.quitAndInstall();
       return { ok: true };
     }
+    if (updateState.status === "offline") {
+      windowsUpdatePromptVisible = false;
+      await checkForUpdates({ showPrompt: false });
+      return updateState;
+    }
     if (updateState.available && !updateState.downloading) {
       await autoUpdater.downloadUpdate();
     }
+    return updateState;
+  }
+
+  if (IS_MAC && updateState.status === "offline") {
+    await checkMacUpdates({ showPrompt: false });
     return updateState;
   }
 
@@ -538,7 +578,7 @@ async function runStartupSequence() {
   if (elapsed < minVisibleMs) {
     await new Promise((resolve) => setTimeout(resolve, minVisibleMs - elapsed));
   }
-  if (["available", "downloading", "downloaded", "installing"].includes(updateState.status)) {
+  if (["available", "downloading", "downloaded", "installing", "offline"].includes(updateState.status)) {
     patchUpdateState({
       promptVisible: false
     });
@@ -742,7 +782,7 @@ function buildDashboard(liveResults = {}, scanErrors = [], scannedAt = null) {
   const config = buildConfigSnapshot(loadConfig(paths));
   const state = loadState(paths);
   const alerts = buildAlertRows(config, state, liveResults);
-  const events = recentEvents(paths, 25);
+  const events = recentEvents(paths);
   const effectiveErrors = Array.isArray(scanErrors) && (scanErrors.length || scannedAt)
     ? scanErrors
     : lastScanSnapshot.errors;
@@ -919,6 +959,9 @@ app.whenReady().then(() => {
     saveConfig(paths, nextConfig);
     if (nextConfig.channels?.discordWebhookUrl) {
       configureDiscordWebhookBranding(nextConfig.channels.discordWebhookUrl).catch(() => {});
+    } else {
+      lastDiscordBrandedWebhook = "";
+      discordBrandingInFlightWebhook = "";
     }
     restartScheduler();
     return buildDashboard();
@@ -942,6 +985,11 @@ app.whenReady().then(() => {
 
   ipcMain.handle("event:delete", async (_event, eventId) => {
     deleteEvent(dataPaths(), eventId);
+    return buildDashboard();
+  });
+
+  ipcMain.handle("events:clear", async () => {
+    clearEvents(dataPaths());
     return buildDashboard();
   });
 

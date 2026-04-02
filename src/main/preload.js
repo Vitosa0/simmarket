@@ -7,6 +7,7 @@ contextBridge.exposeInMainWorld("simcoDesktop", {
   scanNow: () => ipcRenderer.invoke("scan:now"),
   setScanEnabled: (enabled) => ipcRenderer.invoke("monitor:set-enabled", enabled),
   deleteEvent: (eventId) => ipcRenderer.invoke("event:delete", eventId),
+  clearEvents: () => ipcRenderer.invoke("events:clear"),
   openDataDirectory: () => ipcRenderer.invoke("data:open-directory"),
   getUpdateState: () => ipcRenderer.invoke("updates:get-state"),
   checkForUpdates: () => ipcRenderer.invoke("updates:check"),
