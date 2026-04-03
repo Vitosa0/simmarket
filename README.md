@@ -68,22 +68,6 @@ Windows (SmartScreen):
 3. Luego hacé clic en `Ejecutar de todas formas`.
 4. Confirmá el diálogo de permisos de Windows (`Sí`) para continuar la instalación.
 
-## Vista rápida de instalación
-
-macOS:
-
-<a href="https://imgur.com/a/9EM1JH5">
-  <img src="https://raw.githubusercontent.com/Vitosa0/simmarket/main/docs/media/simmarket-install-macos-preview.png" alt="Vista previa de instalación en macOS" width="900" />
-</a>
-
-- [Ver GIF completo de instalación en Imgur](https://imgur.com/a/9EM1JH5)
-- [Abrir release actual](https://github.com/Vitosa0/simmarket/releases/tag/v1.0.4)
-
-Windows:
-
-- Seguí los pasos de SmartScreen indicados más arriba (`Más información` -> `Ejecutar de todas formas`).
-
-
 ## Qué guarda localmente
 
 La app crea y usa esta carpeta:
