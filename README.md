@@ -20,12 +20,12 @@ Release actual:
 - Instalador `.exe` para Windows x64
 - Desinstalador incluido en la instalación
 
-## Requisitos
+## Plataformas compatibles
 
 - macOS (`universal`: Apple Silicon + Intel)
 - Windows 10/11 (`x64`)
-- Node.js `20+`
-- npm
+
+Para instalar y usar la app no hace falta tener `Node.js` ni `npm`.
 
 ## Instalación para usar la app
 
@@ -83,7 +83,12 @@ Ahí se guardan, según el uso:
 
 Los assets visuales, logos y catálogo vienen dentro de la app. No dependen de una carpeta externa de proyecto.
 
-## Desarrollo
+## Desarrollo local
+
+Requisitos para desarrollo:
+
+- Node.js `20+`
+- npm
 
 ```bash
 npm install

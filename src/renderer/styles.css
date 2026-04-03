@@ -2536,14 +2536,32 @@ textarea.styled-input {
 .calc-units-selector {
   padding: 10px 12px;
   min-width: 0;
+  overflow: visible;
+  z-index: 2;
 }
 
 .calc-units-selector .selector-panel {
-  margin-top: 10px;
+  position: absolute;
+  top: calc(100% + 10px);
+  left: -1px;
+  right: -1px;
+  margin-top: 0;
+  padding: 12px;
+  border-top: none;
+  border: 1px solid var(--border-strong);
+  border-radius: 12px;
+  background: var(--panel);
+  box-shadow: 0 22px 48px rgba(0, 0, 0, 0.38);
+  z-index: 24;
 }
 
 .calc-units-selector .selector-list {
   max-height: 220px;
+  padding-right: 0;
+}
+
+.calc-units-selector.open {
+  z-index: 26;
 }
 
 .no-spinner::-webkit-outer-spin-button,
