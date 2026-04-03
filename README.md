@@ -5,6 +5,9 @@ SimMarket es una app de escritorio para seguir el mercado de SimCompanies con un
 Repositorio oficial:
 - [https://github.com/Vitosa0/simmarket](https://github.com/Vitosa0/simmarket)
 
+Release actual:
+- [SimMarket v1.0.4](https://github.com/Vitosa0/simmarket/releases/tag/v1.0.4)
+
 ## Qué incluye
 
 - Alertas de mercado con escaneo manual y automático
@@ -28,7 +31,8 @@ Repositorio oficial:
 
 macOS:
 
-- `SimMarket-Installer-<version>-universal.pkg`
+- [Installer `.pkg` universal](https://github.com/Vitosa0/simmarket/releases/download/v1.0.4/SimMarket-Installer-1.0.4-universal.pkg)
+- [`.dmg` universal](https://github.com/Vitosa0/simmarket/releases/download/v1.0.4/SimMarket-1.0.4-universal.dmg)
 
 1. Abrí el installer.
 2. Instalá `SimMarket.app` en `/Applications`.
@@ -38,7 +42,7 @@ macOS:
 
 Windows:
 
-- `SimMarket-Installer-<version>-x64.exe`
+- [Installer `.exe` x64](https://github.com/Vitosa0/simmarket/releases/download/v1.0.4/SimMarket-Installer-1.0.4-x64.exe)
 
 1. Abrí el installer.
 2. Elegí la carpeta de instalación o usá la sugerida.
@@ -64,27 +68,20 @@ Windows (SmartScreen):
 3. Luego hacé clic en `Ejecutar de todas formas`.
 4. Confirmá el diálogo de permisos de Windows (`Sí`) para continuar la instalación.
 
-## Video de instalación
+## Vista rápida de instalación
 
-Para reducir fricción en primera instalación, conviene publicar 2 videos cortos:
+macOS:
 
-- macOS: descarga -> bypass de Gatekeeper -> instalación -> primer inicio.
-- Windows: descarga -> SmartScreen (`Más información` / `Ejecutar de todas formas`) -> instalación -> primer inicio.
+<a href="https://imgur.com/a/9EM1JH5">
+  <img src="https://raw.githubusercontent.com/Vitosa0/simmarket/main/docs/media/simmarket-install-macos-preview.png" alt="Vista previa de instalación en macOS" width="900" />
+</a>
 
-Sugerencia de formato:
+- [Ver GIF completo de instalación en Imgur](https://imgur.com/a/9EM1JH5)
+- [Abrir release actual](https://github.com/Vitosa0/simmarket/releases/tag/v1.0.4)
 
-- Duración: `30-60s` por plataforma
-- Resolución: `1080p`
-- Formato: `.mp4` (principal) + `.gif` corto opcional para preview en README
+Windows:
 
-Enlaces (completar al subir assets al Release de GitHub):
-
-- GIF macOS: [docs/media/simmarket-install-macos.gif](docs/media/simmarket-install-macos.gif)
-- Video Windows: `PENDIENTE_LINK_VIDEO_WINDOWS`
-
-Tip: en el Release subí los videos como assets y pegá aquí la URL directa para que queden siempre versionados.
-
-<img src="https://imgur.com/a/9EM1JH5" alt="Instalación macOS" width="900" />
+- Seguí los pasos de SmartScreen indicados más arriba (`Más información` -> `Ejecutar de todas formas`).
 
 
 ## Qué guarda localmente
