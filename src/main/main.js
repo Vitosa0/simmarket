@@ -44,6 +44,7 @@ let lastScanSnapshot = {
   scannedAt: null,
   errors: []
 };
+const gotSingleInstanceLock = app.requestSingleInstanceLock();
 let updateState = {
   platform: process.platform,
   strategy: IS_WINDOWS ? "windows-auto" : IS_MAC ? "mac-manual" : "unsupported",
@@ -82,6 +83,10 @@ if (IS_WINDOWS) {
   app.commandLine.appendSwitch("disable-direct-composition");
 }
 
+if (!gotSingleInstanceLock) {
+  app.quit();
+}
+
 function dataPaths() {
   return appDataPaths();
 }
@@ -112,6 +117,18 @@ function continueIntoApp() {
   startupSequenceDone = true;
   revealMainWindowIfReady();
   return updateState;
+}
+
+function focusPrimaryWindows() {
+  const windowToFocus = (mainWindow && !mainWindow.isDestroyed())
+    ? mainWindow
+    : (startupWindow && !startupWindow.isDestroyed() ? startupWindow : null);
+  if (!windowToFocus) return;
+  if (windowToFocus.isMinimized()) {
+    windowToFocus.restore();
+  }
+  windowToFocus.show();
+  windowToFocus.focus();
 }
 
 function isOfflineUpdateError(error) {
@@ -928,7 +945,12 @@ function normalizeIncomingConfig(payload) {
   };
 }
 
+app.on("second-instance", () => {
+  focusPrimaryWindows();
+});
+
 app.whenReady().then(() => {
+  if (!gotSingleInstanceLock) return;
   if (IS_WINDOWS) {
     Menu.setApplicationMenu(null);
   }

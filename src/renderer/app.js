@@ -7,6 +7,7 @@ const NOTIFICATIONS_SEEN_STORAGE_KEY = "simco-desktop-last-seen-event";
 const CONTACTS_PER_PAGE = 4;
 const ALERTS_PER_PAGE = 5;
 const CALC_TARGET_PCTS = [2, 5, 10, 15, 20, 25, 30, 50];
+const CALC_TRANSPORT_UNIT_OPTIONS = ["0", "0.1", "0.2", "0.5", "1", "2", "5", "10", "1000"];
 const VARIOS_LABEL = "Varios";
 const CONTACT_TYPE_OPTIONS = ["Proveedor", "Cliente", "Desconocido", "Social", "Socio"];
 const CONTACT_TYPE_FILTER_OPTIONS = [
@@ -30,9 +31,14 @@ const CONTACT_TRUST_OPTIONS = [
   { value: "Bajo", tone: "bajo" },
   { value: "Neutro", tone: "neutro" }
 ];
+
+function svgDataUri(svg) {
+  return `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(String(svg || "").trim())}`;
+}
+
 const CONTACT_TYPE_ICON_SVG = {
   Proveedor: `
-    <svg class="contact-type-icon-svg" viewBox="0 0 200 200" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <svg viewBox="0 0 200 200" fill="none" xmlns="http://www.w3.org/2000/svg" shape-rendering="geometricPrecision" preserveAspectRatio="xMidYMid meet">
       <circle cx="100" cy="100" r="96" fill="#141412" stroke="#c9a84c" stroke-width="3" />
       <circle cx="100" cy="100" r="80" fill="none" stroke="rgba(201,168,76,0.12)" stroke-width="1.5" />
       <rect x="44" y="58" width="14" height="46" rx="2" fill="none" stroke="#c9a84c" stroke-width="3" />
@@ -47,7 +53,7 @@ const CONTACT_TYPE_ICON_SVG = {
     </svg>
   `,
   Cliente: `
-    <svg class="contact-type-icon-svg" viewBox="0 0 200 200" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <svg viewBox="0 0 200 200" fill="none" xmlns="http://www.w3.org/2000/svg" shape-rendering="geometricPrecision" preserveAspectRatio="xMidYMid meet">
       <circle cx="100" cy="100" r="96" fill="#141412" stroke="#4ade80" stroke-width="3" />
       <circle cx="100" cy="100" r="80" fill="none" stroke="rgba(74,222,128,0.12)" stroke-width="1.5" />
       <path d="M46 46 L128 46 L158 84 L128 154 L46 154 Z" fill="rgba(74,222,128,0.08)" stroke="#4ade80" stroke-width="3.5" stroke-linejoin="round" />
@@ -58,7 +64,7 @@ const CONTACT_TYPE_ICON_SVG = {
     </svg>
   `,
   Desconocido: `
-    <svg class="contact-type-icon-svg" viewBox="0 0 200 200" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <svg viewBox="0 0 200 200" fill="none" xmlns="http://www.w3.org/2000/svg" shape-rendering="geometricPrecision" preserveAspectRatio="xMidYMid meet">
       <circle cx="100" cy="100" r="96" fill="#141412" stroke="rgba(244,240,230,0.35)" stroke-width="3" stroke-dasharray="14 9" />
       <circle cx="100" cy="100" r="80" fill="none" stroke="rgba(244,240,230,0.07)" stroke-width="1.5" />
       <circle cx="100" cy="70" r="26" fill="rgba(244,240,230,0.04)" stroke="rgba(244,240,230,0.32)" stroke-width="3" stroke-dasharray="8 7" />
@@ -68,7 +74,7 @@ const CONTACT_TYPE_ICON_SVG = {
     </svg>
   `,
   Social: `
-    <svg class="contact-type-icon-svg" viewBox="0 0 200 200" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <svg viewBox="0 0 200 200" fill="none" xmlns="http://www.w3.org/2000/svg" shape-rendering="geometricPrecision" preserveAspectRatio="xMidYMid meet">
       <circle cx="100" cy="100" r="96" fill="#141412" stroke="#60a5fa" stroke-width="3" />
       <circle cx="100" cy="100" r="80" fill="none" stroke="rgba(96,165,250,0.12)" stroke-width="1.5" />
       <circle cx="58" cy="76" r="18" fill="rgba(96,165,250,0.06)" stroke="#60a5fa" stroke-width="2.5" opacity="0.6" />
@@ -80,7 +86,7 @@ const CONTACT_TYPE_ICON_SVG = {
     </svg>
   `,
   Socio: `
-    <svg class="contact-type-icon-svg" viewBox="0 0 200 200" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <svg viewBox="0 0 200 200" fill="none" xmlns="http://www.w3.org/2000/svg" shape-rendering="geometricPrecision" preserveAspectRatio="xMidYMid meet">
       <circle cx="100" cy="100" r="96" fill="#141412" stroke="#c9a84c" stroke-width="3" />
       <circle cx="100" cy="100" r="80" fill="none" stroke="rgba(201,168,76,0.12)" stroke-width="1.5" />
       <circle cx="78" cy="100" r="40" fill="rgba(201,168,76,0.07)" stroke="#c9a84c" stroke-width="3" />
@@ -90,6 +96,9 @@ const CONTACT_TYPE_ICON_SVG = {
     </svg>
   `
 };
+const CONTACT_TYPE_ICON_DATA_URI = Object.fromEntries(
+  Object.entries(CONTACT_TYPE_ICON_SVG).map(([key, svg]) => [key, svgDataUri(svg)])
+);
 const SPLASH_TOTAL_MS = 6000;
 const VITO_INTRO_TOTAL_MS = 3000;
 const SPLASH_PROGRESS_SEGMENTS = [
@@ -137,6 +146,7 @@ const state = {
   contactDraft: emptyContactDraft(),
   contactSelectorOpen: false,
   contactTypeSelectorOpen: false,
+  calculatorUnitsSelectorOpen: false,
   contactActiveGroup: null,
   contactResourceSearch: "",
   contactSelectedRubros: {},
@@ -214,11 +224,14 @@ const wait = (ms) => new Promise((resolve) => window.setTimeout(resolve, ms));
 function loadCalculatorState() {
   try {
     const saved = JSON.parse(localStorage.getItem(CALC_STORAGE_KEY) || "{}");
+    const transportUnits = CALC_TRANSPORT_UNIT_OPTIONS.includes(String(saved.transportUnits ?? "0"))
+      ? String(saved.transportUnits ?? "0")
+      : "0";
     return {
       buyPrice: saved.buyPrice ?? "",
       quantity: saved.quantity ?? "",
       transportPrice: saved.transportPrice ?? "",
-      transportUnits: saved.transportUnits ?? "0",
+      transportUnits,
       sellCheck: saved.sellCheck ?? ""
     };
   } catch (error) {
@@ -486,8 +499,13 @@ function validateAlertDraft(alert) {
   if (!Number.isFinite(Number(alert.resourceId)) || Number(alert.resourceId) <= 0) {
     errors.resourceId = "Elegí un activo válido.";
   }
-  if (!Number.isFinite(Number(alert.quality)) || Number(alert.quality) < 0 || !Number.isInteger(Number(alert.quality))) {
-    errors.quality = "La calidad tiene que ser un entero igual o mayor a 0.";
+  if (
+    !Number.isFinite(Number(alert.quality))
+    || Number(alert.quality) < 0
+    || Number(alert.quality) > 12
+    || !Number.isInteger(Number(alert.quality))
+  ) {
+    errors.quality = "La calidad tiene que ser un entero entre 0 y 12.";
   }
   const targetPriceRaw = String(alert.targetPrice ?? "").trim();
   if (!targetPriceRaw.length || !Number.isFinite(Number(targetPriceRaw))) {
@@ -755,8 +773,43 @@ function letterAvatarMarkup(label, fallback = "C") {
 function contactTypeIconMarkup(type, size = "md") {
   const normalizedType = CONTACT_TYPE_OPTIONS.includes(type) ? type : "Proveedor";
   const normalizedSize = ["sm", "md", "lg"].includes(size) ? size : "md";
-  const iconSvg = CONTACT_TYPE_ICON_SVG[normalizedType] || CONTACT_TYPE_ICON_SVG.Proveedor;
-  return `<span class="contact-type-icon contact-type-icon-${normalizedSize}" aria-hidden="true">${iconSvg}</span>`;
+  const iconUri = CONTACT_TYPE_ICON_DATA_URI[normalizedType] || CONTACT_TYPE_ICON_DATA_URI.Proveedor;
+  return `<span class="contact-type-icon contact-type-icon-${normalizedSize}" aria-hidden="true"><img class="contact-type-icon-image" src="${iconUri}" alt="" draggable="false" /></span>`;
+}
+
+function calculatorUnitsSummary() {
+  return CALC_TRANSPORT_UNIT_OPTIONS.includes(String(state.calculator.transportUnits || ""))
+    ? String(state.calculator.transportUnits)
+    : "0";
+}
+
+function calculatorUnitOptionsMarkup() {
+  const current = calculatorUnitsSummary();
+  const options = CALC_TRANSPORT_UNIT_OPTIONS.filter((option) => option !== current);
+  if (!options.length) {
+    return `<div class="selector-empty">No hay otras unidades disponibles.</div>`;
+  }
+  return options.map((option) => `
+    <button class="selector-option" type="button" data-calc-action="select-transport-units" data-calc-unit="${escapeHtml(option)}">
+      <div class="selector-option-main">
+        <span>${escapeHtml(option)}</span>
+      </div>
+    </button>
+  `).join("");
+}
+
+function renderCalculatorUnitsSelector() {
+  const selector = byId("calcUnitsSelector");
+  const summary = byId("calcUnitsSummary");
+  const list = byId("calcUnitsOptions");
+  const chevron = byId("calcUnitsChevron");
+  const hiddenInput = byId("calc-transport-units");
+  if (!selector || !summary || !list || !chevron || !hiddenInput) return;
+  selector.classList.toggle("open", state.calculatorUnitsSelectorOpen);
+  summary.textContent = calculatorUnitsSummary();
+  list.innerHTML = calculatorUnitOptionsMarkup();
+  chevron.textContent = state.calculatorUnitsSelectorOpen ? "▲" : "▼";
+  hiddenInput.value = calculatorUnitsSummary();
 }
 
 function viewMeta(view = state.activeView) {
@@ -1003,6 +1056,7 @@ function renderActiveView() {
   });
   byId("marketToolbar").style.display = active.toolbarVisible ? "" : "none";
   byId("viewTitle").textContent = active.title;
+  renderCalculatorUnitsSelector();
 }
 
 function switchView(view) {
@@ -1380,7 +1434,7 @@ function editorMarkup(alert) {
 
       <div class="input-group${errors.quality ? " error" : ""}">
         <label for="editorQuality">Calidad</label>
-        <input id="editorQuality" class="styled-input${errors.quality ? " is-invalid" : ""}" data-field="quality" type="number" min="0" step="1" value="${escapeHtml(alert.quality)}" />
+        <input id="editorQuality" class="styled-input${errors.quality ? " is-invalid" : ""}" data-field="quality" type="number" min="0" max="12" step="1" value="${escapeHtml(alert.quality)}" />
         ${errors.quality ? `<div class="input-error-copy">${escapeHtml(errors.quality)}</div>` : ""}
       </div>
 
@@ -2954,12 +3008,12 @@ function syncCalculatorInputs() {
     ["calc-buy-price", "buyPrice"],
     ["calc-qty", "quantity"],
     ["calc-transport-price", "transportPrice"],
-    ["calc-transport-units", "transportUnits"],
     ["calc-sell-check", "sellCheck"]
   ].forEach(([id, key]) => {
     const element = byId(id);
     if (element) element.value = state.calculator[key] ?? "";
   });
+  renderCalculatorUnitsSelector();
 }
 
 function recalculateCalculator() {
@@ -3122,6 +3176,7 @@ function bindStaticUi() {
     const conditionSelector = byId("editorConditionSelector");
     const contactSelector = byId("contactResourceSelector");
     const contactTypeSelector = byId("contactTypeSelector");
+    const calcUnitsSelector = byId("calcUnitsSelector");
     let shouldRender = false;
     if (state.resourceSelectorOpen && resourceSelector && !resourceSelector.contains(target)) {
       resetResourceSelectorState();
@@ -3139,9 +3194,14 @@ function bindStaticUi() {
       state.contactTypeSelectorOpen = false;
       shouldRender = true;
     }
+    if (state.calculatorUnitsSelectorOpen && calcUnitsSelector && !calcUnitsSelector.contains(target)) {
+      state.calculatorUnitsSelectorOpen = false;
+      shouldRender = true;
+    }
     if (shouldRender) {
       renderEditor();
       renderContactEditor();
+      renderCalculatorUnitsSelector();
     }
   });
 
@@ -3164,12 +3224,38 @@ function bindStaticUi() {
       state.contactTypeSelectorOpen = false;
       shouldRender = true;
     }
+    if (state.calculatorUnitsSelectorOpen) {
+      state.calculatorUnitsSelectorOpen = false;
+      shouldRender = true;
+    }
     if (state.currentHistoryContactId) {
       closeHistoryModal();
     }
     if (shouldRender) {
       renderEditor();
       renderContactEditor();
+      renderCalculatorUnitsSelector();
+    }
+  });
+
+  byId("calcUnitsSelector").addEventListener("click", (event) => {
+    const target = event.target;
+    if (!(target instanceof HTMLElement)) return;
+    const actionTarget = target.closest("[data-calc-action]");
+    if (!(actionTarget instanceof HTMLElement)) return;
+    const action = actionTarget.dataset.calcAction || "";
+    if (action === "toggle-units-selector") {
+      state.calculatorUnitsSelectorOpen = !state.calculatorUnitsSelectorOpen;
+      renderCalculatorUnitsSelector();
+      return;
+    }
+    if (action === "select-transport-units") {
+      const nextValue = actionTarget.dataset.calcUnit || "0";
+      state.calculator.transportUnits = CALC_TRANSPORT_UNIT_OPTIONS.includes(nextValue) ? nextValue : "0";
+      state.calculatorUnitsSelectorOpen = false;
+      persistCalculatorState();
+      renderCalculatorUnitsSelector();
+      recalculateCalculator();
     }
   });
 
@@ -3256,7 +3342,6 @@ function bindStaticUi() {
     ["calc-buy-price", "buyPrice"],
     ["calc-qty", "quantity"],
     ["calc-transport-price", "transportPrice"],
-    ["calc-transport-units", "transportUnits"],
     ["calc-sell-check", "sellCheck"]
   ].forEach(([id, key]) => {
     const element = byId(id);

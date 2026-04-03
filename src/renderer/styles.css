@@ -1330,13 +1330,12 @@ body[data-theme="light"] .celestial-moon {
   height: 46px;
 }
 
-.contact-type-icon-svg {
+.contact-type-icon-image {
   width: 100%;
   height: 100%;
   display: block;
-  shape-rendering: geometricPrecision;
-  text-rendering: geometricPrecision;
-  transform: translateZ(0);
+  object-fit: contain;
+  image-rendering: auto;
 }
 
 .badge {
@@ -2534,44 +2533,17 @@ textarea.styled-input {
   grid-template-columns: minmax(0, 1fr) minmax(84px, 25%);
 }
 
-.calc-selector {
-  position: relative;
-  background: var(--panel);
-  border: 1px solid var(--border);
-  border-radius: 4px;
+.calc-units-selector {
+  padding: 10px 12px;
+  min-width: 0;
 }
 
-.calc-selector select {
-  appearance: none;
-  width: 100%;
-  background: transparent;
-  border: none;
-  color: var(--text);
-  font-family: "Montserrat", sans-serif;
-  font-size: 12px;
-  padding: 10px 28px 10px 10px;
-  outline: none;
+.calc-units-selector .selector-panel {
+  margin-top: 10px;
 }
 
-body[data-platform="win32"][data-theme="dark"] .calc-selector {
-  background: #ffffff;
-}
-
-body[data-platform="win32"][data-theme="dark"] .calc-selector select,
-body[data-platform="win32"][data-theme="dark"] .calc-selector select option {
-  background: #ffffff;
-  color: #111111;
-}
-
-.calc-selector::after {
-  content: "▼";
-  position: absolute;
-  right: 10px;
-  top: 50%;
-  transform: translateY(-50%);
-  color: var(--text-dim);
-  font-size: 10px;
-  pointer-events: none;
+.calc-units-selector .selector-list {
+  max-height: 220px;
 }
 
 .no-spinner::-webkit-outer-spin-button,

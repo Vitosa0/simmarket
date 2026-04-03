@@ -175,18 +175,17 @@
             </div>
             <div class="input-group">
               <label for="calc-transport-units">Unidades/u</label>
-              <div class="calc-selector">
-                <select id="calc-transport-units">
-                  <option value="0">0</option>
-                  <option value="0.1">0.1</option>
-                  <option value="0.2">0.2</option>
-                  <option value="0.5">0.5</option>
-                  <option value="1">1</option>
-                  <option value="2">2</option>
-                  <option value="5">5</option>
-                  <option value="10">10</option>
-                  <option value="1000">1000</option>
-                </select>
+              <div class="hierarchy-selector calc-units-selector" id="calcUnitsSelector">
+                <input id="calc-transport-units" type="hidden" value="0" />
+                <button type="button" class="selector-summary" data-calc-action="toggle-units-selector">
+                  <div class="selector-summary-main">
+                    <div id="calcUnitsSummary" class="selector-title">0</div>
+                  </div>
+                  <div id="calcUnitsChevron" class="selector-chevron">▼</div>
+                </button>
+                <div class="selector-panel">
+                  <div id="calcUnitsOptions" class="selector-list"></div>
+                </div>
               </div>
             </div>
           </div>
