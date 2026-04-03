@@ -91,20 +91,59 @@ function dataPaths() {
   return appDataPaths();
 }
 
-function revealMainWindowIfReady() {
-  if (!mainWindow || mainWindow.isDestroyed() || !mainWindowReady || !startupSequenceDone) return;
+function promoteMainWindow() {
+  if (!mainWindow || mainWindow.isDestroyed()) return;
+  if (mainWindow.isMinimized()) {
+    mainWindow.restore();
+  }
+  mainWindow.show();
   if (IS_WINDOWS) {
     mainWindow.maximize();
     mainWindow.setFullScreen(true);
-  } else {
+    mainWindow.setAlwaysOnTop(true);
+    mainWindow.moveTop();
+    mainWindow.focus();
+    setTimeout(() => {
+      if (!mainWindow || mainWindow.isDestroyed()) return;
+      if (mainWindow.isMinimized()) {
+        mainWindow.restore();
+      }
+      if (!mainWindow.isVisible()) {
+        mainWindow.show();
+      }
+      if (!mainWindow.isMaximized()) {
+        mainWindow.maximize();
+      }
+      if (!mainWindow.isFullScreen()) {
+        mainWindow.setFullScreen(true);
+      }
+      mainWindow.moveTop();
+      mainWindow.focus();
+      mainWindow.setAlwaysOnTop(false);
+    }, 180);
+    return;
+  }
+  mainWindow.focus();
+}
+
+function revealMainWindowIfReady() {
+  if (!mainWindow || mainWindow.isDestroyed() || !mainWindowReady || !startupSequenceDone) return;
+  if (startupWindow && !startupWindow.isDestroyed()) {
+    startupWindow.setAlwaysOnTop(false);
+    startupWindow.hide();
+  }
+  if (!IS_WINDOWS) {
     mainWindow.setSimpleFullScreen(false);
     mainWindow.setFullScreen(true);
   }
+  promoteMainWindow();
   if (startupWindow && !startupWindow.isDestroyed()) {
-    startupWindow.close();
-    startupWindow = null;
+    setTimeout(() => {
+      if (!startupWindow || startupWindow.isDestroyed()) return;
+      startupWindow.close();
+      startupWindow = null;
+    }, IS_WINDOWS ? 120 : 0);
   }
-  mainWindow.show();
 }
 
 function continueIntoApp() {
