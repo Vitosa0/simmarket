@@ -86,7 +86,7 @@ Tip: en el Release subí los videos como assets y pegá aquí la URL directa par
 
 Vista previa de instalación en macOS:
 
-![Instalación macOS](docs/media/simmarket-install-macos.gif)
+<img src="https://raw.githubusercontent.com/Vitosa0/simmarket/main/docs/media/simmarket-install-macos.gif" alt="Instalación macOS" width="900" />
 
 ## Qué guarda localmente
 
