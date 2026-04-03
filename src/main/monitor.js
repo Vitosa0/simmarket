@@ -4,10 +4,22 @@ const { getResourceById } = require("./catalog");
 const DISCORD_AVATAR_URL = "https://raw.githubusercontent.com/Vitosa0/simmarket/main/src/assets/branding/simmarket-mark-1024.png";
 
 const API_TIMEOUT_MS = 20000;
+const MAX_QUALITY = 12;
+const FETCH_RETRY_LIMIT = 3;
+const TRANSIENT_HTTP_STATUSES = new Set([408, 425, 429, 500, 502, 503, 504]);
+const SHORT_COOLDOWN_MS = 20_000;
+const RATE_LIMIT_COOLDOWN_MS = 45_000;
+const STALE_SUMMARY_MAX_AGE_MS = 6 * 60 * 1000;
 const ALLOWED_CONDITIONS = new Set(["<=", ">=", "<", ">", "==", "between"]);
+const latestResourceSummaries = new Map();
+let marketCooldownUntil = 0;
 
 function isoNow() {
   return new Date().toISOString();
+}
+
+function wait(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 function slugify(value) {
@@ -43,7 +55,7 @@ function normalizeRule(rawRule, index) {
   if (!Number.isFinite(normalized.resourceId) || normalized.resourceId <= 0) {
     throw new Error(`Activo inválido en alerta ${index}`);
   }
-  if (!Number.isFinite(normalized.quality) || normalized.quality < 0) {
+  if (!Number.isFinite(normalized.quality) || normalized.quality < 0 || normalized.quality > MAX_QUALITY) {
     throw new Error(`Calidad inválida en alerta ${index}`);
   }
   if (!Number.isFinite(normalized.targetPrice)) {
@@ -103,23 +115,48 @@ function formatMarketNumber(value) {
 }
 
 async function fetchJson(url) {
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), API_TIMEOUT_MS);
-  try {
-    const response = await fetch(url, {
-      headers: {
-        "Accept": "application/json",
-        "User-Agent": "simmarket/1.0"
-      },
-      signal: controller.signal
-    });
-    if (!response.ok) {
-      throw new Error(`HTTP Error ${response.status}: ${response.statusText}`);
+  let lastError = null;
+  for (let attempt = 0; attempt < FETCH_RETRY_LIMIT; attempt += 1) {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), API_TIMEOUT_MS);
+    try {
+      const response = await fetch(url, {
+        headers: {
+          "Accept": "application/json",
+          "User-Agent": "simmarket/1.0"
+        },
+        signal: controller.signal
+      });
+      if (!response.ok) {
+        const error = new Error(`HTTP Error ${response.status}: ${response.statusText}`);
+        error.status = response.status;
+        error.transient = TRANSIENT_HTTP_STATUSES.has(response.status);
+        const retryAfter = Number(response.headers.get("retry-after"));
+        if (Number.isFinite(retryAfter) && retryAfter > 0) {
+          error.retryAfterMs = retryAfter * 1000;
+        }
+        throw error;
+      }
+      return await response.json();
+    } catch (error) {
+      const message = String(error?.message || "");
+      const transient = Boolean(
+        error?.transient
+          || error?.name === "AbortError"
+          || /fetch failed|network|econn|socket|timed out|timeout|enotfound|eai_again/i.test(message)
+      );
+      error.transient = transient;
+      lastError = error;
+      if (!transient || attempt === FETCH_RETRY_LIMIT - 1) {
+        throw error;
+      }
+      const retryDelay = Number(error?.retryAfterMs) || (850 * (attempt + 1));
+      await wait(retryDelay);
+    } finally {
+      clearTimeout(timer);
     }
-    return await response.json();
-  } finally {
-    clearTimeout(timer);
   }
+  throw lastError || new Error("No se pudo consultar el mercado.");
 }
 
 function resourceUrl(realmId, resourceId) {
@@ -129,7 +166,44 @@ function resourceUrl(realmId, resourceId) {
 async function fetchResourceSummary(realmId, resourceId, cache) {
   const cacheKey = `${realmId}:${resourceId}`;
   if (!cache.has(cacheKey)) {
-    cache.set(cacheKey, fetchJson(resourceUrl(realmId, resourceId)));
+    cache.set(cacheKey, (async () => {
+      const cachedSummary = latestResourceSummaries.get(cacheKey);
+      const now = Date.now();
+
+      if (marketCooldownUntil > now) {
+        if (cachedSummary && (now - cachedSummary.fetchedAt) <= STALE_SUMMARY_MAX_AGE_MS) {
+          return cachedSummary.summary;
+        }
+        const cooldownError = new Error("HTTP Error 429: Too Many Requests");
+        cooldownError.status = 429;
+        cooldownError.transient = true;
+        throw cooldownError;
+      }
+
+      try {
+        const summary = await fetchJson(resourceUrl(realmId, resourceId));
+        latestResourceSummaries.set(cacheKey, {
+          summary,
+          fetchedAt: Date.now()
+        });
+        if (marketCooldownUntil && Date.now() >= marketCooldownUntil) {
+          marketCooldownUntil = 0;
+        }
+        return summary;
+      } catch (error) {
+        const isRateLimited = Number(error?.status) === 429;
+        if (isRateLimited) {
+          marketCooldownUntil = Math.max(marketCooldownUntil, Date.now() + (Number(error?.retryAfterMs) || RATE_LIMIT_COOLDOWN_MS));
+        } else if (error?.transient) {
+          marketCooldownUntil = Math.max(marketCooldownUntil, Date.now() + SHORT_COOLDOWN_MS);
+        }
+
+        if (cachedSummary && (Date.now() - cachedSummary.fetchedAt) <= STALE_SUMMARY_MAX_AGE_MS && (isRateLimited || error?.transient)) {
+          return cachedSummary.summary;
+        }
+        throw error;
+      }
+    })());
   }
   return cache.get(cacheKey);
 }
