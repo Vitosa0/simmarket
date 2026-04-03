@@ -84,7 +84,7 @@ Enlaces (completar al subir assets al Release de GitHub):
 
 Tip: en el Release subí los videos como assets y pegá aquí la URL directa para que queden siempre versionados.
 
-<img src="https://media0.giphy.com/media/v1.Y2lkPTc5MGI3NjExNWt3NThzZnVtaWhrNjRqdHkzZzg1ZGxnZXQ0NWt4bG54Nmw3ZWJpeCZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/7QlLGyfLJlSgE6n2fS/giphy.gif" alt="Instalación macOS" width="900" />
+<img src="https://imgur.com/a/9EM1JH5" alt="Instalación macOS" width="900" />
 
 
 ## Qué guarda localmente
