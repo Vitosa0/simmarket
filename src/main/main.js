@@ -15,7 +15,15 @@ const {
   saveConfig,
   saveState
 } = require("./storage");
-const { classifyRule, describeCondition, formatMarketNumber, normalizeRule, scanAlerts } = require("./monitor");
+const {
+  classifyRule,
+  describeCondition,
+  formatMarketNumber,
+  hasProductSnapshot,
+  hasTickerSnapshot,
+  normalizeRule,
+  scanAlerts
+} = require("./monitor");
 
 let mainWindow = null;
 let startupWindow = null;
@@ -67,6 +75,7 @@ let updateState = {
 
 const RELEASE_FETCH_TIMEOUT_MS = 5000;
 const DISCORD_BRANDING_TIMEOUT_MS = 2500;
+const SCAN_INTERVAL_MS = DEFAULT_CONFIG.pollSeconds * 1000;
 
 const STARTUP_WINDOW_COMPACT = {
   width: 430,
@@ -659,7 +668,7 @@ function buildConfigSnapshot(config) {
   });
   return {
     realmId: Number(config.realmId || 0),
-    pollSeconds: Number(config.pollSeconds || 180),
+    pollSeconds: DEFAULT_CONFIG.pollSeconds,
     scanEnabled: Boolean(config.scanEnabled ?? true),
     channels: {
       desktop: Boolean(config.channels?.desktop),
@@ -687,7 +696,7 @@ function summarizeMarketStatus(scanErrors = []) {
   if (rateLimited) {
     return {
       state: "rate-limited",
-      title: "SimcoTools limitó temporalmente las consultas",
+      title: "SimCompanies limitó temporalmente las consultas",
       message: "La app va a reintentar sola. No hace falta tocar nada.",
       affectedAlerts: errors.length
     };
@@ -881,7 +890,7 @@ function buildDashboard(liveResults = {}, scanErrors = [], scannedAt = null) {
   };
 }
 
-async function runScan(triggerNotifications = true) {
+async function runScan(triggerNotifications = true, options = {}) {
   if (scanInFlight) {
     return buildDashboard();
   }
@@ -895,6 +904,7 @@ async function runScan(triggerNotifications = true) {
       config,
       state,
       appendEvent: append,
+      allowNetwork: options.allowNetwork !== false,
       triggerNotifications,
       onTrigger: (payload) => {
         if (mainWindow && !mainWindow.isDestroyed()) {
@@ -920,17 +930,94 @@ async function runScan(triggerNotifications = true) {
 
 function restartScheduler() {
   if (scanTimer) {
-    clearInterval(scanTimer);
+    clearTimeout(scanTimer);
     scanTimer = null;
   }
+}
+
+function scheduleNextScan(delayMs = SCAN_INTERVAL_MS) {
+  restartScheduler();
   const config = buildConfigSnapshot(loadConfig(dataPaths()));
   if (config.scanEnabled === false) {
     return;
   }
-  const intervalMs = Math.max(30, Number(config.pollSeconds || 180)) * 1000;
-  scanTimer = setInterval(() => {
-    runScan(true).catch(() => {});
-  }, intervalMs);
+  scanTimer = setTimeout(async () => {
+    scanTimer = null;
+    const startedAt = Date.now();
+    try {
+      await runScan(true);
+    } catch (_error) {
+      // El próximo ciclo vuelve a intentar automáticamente.
+    } finally {
+      const elapsed = Date.now() - startedAt;
+      scheduleNextScan(Math.max(0, SCAN_INTERVAL_MS - elapsed));
+    }
+  }, Math.max(0, Number(delayMs) || 0));
+}
+
+async function startAutomaticScanning(triggerNotifications = false) {
+  restartScheduler();
+  const config = buildConfigSnapshot(loadConfig(dataPaths()));
+  if (config.scanEnabled === false) {
+    return buildDashboard();
+  }
+  const startedAt = Date.now();
+  try {
+    return await runScan(triggerNotifications);
+  } finally {
+    const elapsed = Date.now() - startedAt;
+    scheduleNextScan(Math.max(0, SCAN_INTERVAL_MS - elapsed));
+  }
+}
+
+function alertNeedsCachedMarketData(alert, realmId) {
+  if (Boolean(alert?.enabled) === false) return false;
+  const quality = Number(alert?.quality || 0);
+  const resourceId = Number(alert?.resourceId || 0);
+  if (!Number.isFinite(resourceId) || resourceId <= 0) return false;
+  if (quality === 0) {
+    return !hasTickerSnapshot(realmId);
+  }
+  return !hasProductSnapshot(realmId, resourceId);
+}
+
+function configNeedsNetworkPriming(previousConfig, nextConfig) {
+  const realmId = Number(nextConfig?.realmId || 0);
+  const nextAlerts = Array.isArray(nextConfig?.alerts) ? nextConfig.alerts : [];
+  const previousAlerts = Array.isArray(previousConfig?.alerts) ? previousConfig.alerts : [];
+  const previousById = new Map(previousAlerts.map((alert) => [String(alert.id), alert]));
+
+  if (!lastScanSnapshot.scannedAt) {
+    return nextAlerts.some((alert) => alertNeedsCachedMarketData(alert, realmId));
+  }
+
+  if (Number(previousConfig?.realmId || 0) !== realmId) {
+    return nextAlerts.some((alert) => alertNeedsCachedMarketData(alert, realmId));
+  }
+
+  return nextAlerts.some((alert) => {
+    const previous = previousById.get(String(alert.id));
+    if (!previous) {
+      return alertNeedsCachedMarketData(alert, realmId);
+    }
+    const becameEnabled = Boolean(previous.enabled) === false && Boolean(alert.enabled) !== false;
+    const resourceChanged = Number(previous.resourceId) !== Number(alert.resourceId);
+    const qualityChanged = Number(previous.quality) !== Number(alert.quality);
+    if (!becameEnabled && !resourceChanged && !qualityChanged) {
+      return false;
+    }
+    return alertNeedsCachedMarketData(alert, realmId);
+  });
+}
+
+async function refreshAfterConfigSave(allowNetwork = false) {
+  const startedAt = Date.now();
+  try {
+    return await runScan(false, { allowNetwork });
+  } finally {
+    const elapsed = Date.now() - startedAt;
+    scheduleNextScan(Math.max(0, SCAN_INTERVAL_MS - elapsed));
+  }
 }
 
 function createWindow() {
@@ -972,7 +1059,7 @@ function createWindow() {
 function normalizeIncomingConfig(payload) {
   return {
     realmId: Number(payload.realmId || 0),
-    pollSeconds: Number(payload.pollSeconds || 180),
+    pollSeconds: DEFAULT_CONFIG.pollSeconds,
     scanEnabled: Boolean(payload.scanEnabled ?? true),
     channels: {
       desktop: Boolean(payload.channels?.desktop),
@@ -998,13 +1085,14 @@ app.whenReady().then(() => {
   }
   createStartupWindow();
   configureWindowsUpdater();
-  restartScheduler();
   const initialConfig = buildConfigSnapshot(loadConfig(dataPaths()));
   if (initialConfig.channels?.discordWebhookUrl) {
     configureDiscordWebhookBranding(initialConfig.channels.discordWebhookUrl).catch(() => {});
   }
   if (initialConfig.scanEnabled !== false) {
-    runScan(false).catch(() => {});
+    startAutomaticScanning(false).catch(() => {
+      scheduleNextScan(SCAN_INTERVAL_MS);
+    });
   }
 
   ipcMain.handle("dashboard:get", async () => buildDashboard());
@@ -1016,6 +1104,7 @@ app.whenReady().then(() => {
 
   ipcMain.handle("config:save", async (_event, payload) => {
     const paths = dataPaths();
+    const previousConfig = buildConfigSnapshot(loadConfig(paths));
     const nextConfig = normalizeIncomingConfig(payload);
     saveConfig(paths, nextConfig);
     if (nextConfig.channels?.discordWebhookUrl) {
@@ -1024,11 +1113,16 @@ app.whenReady().then(() => {
       lastDiscordBrandedWebhook = "";
       discordBrandingInFlightWebhook = "";
     }
-    restartScheduler();
+    if (nextConfig.scanEnabled !== false) {
+      const needsNetwork = configNeedsNetworkPriming(previousConfig, nextConfig);
+      return refreshAfterConfigSave(needsNetwork);
+    } else {
+      restartScheduler();
+    }
     return buildDashboard();
   });
 
-  ipcMain.handle("scan:now", async () => runScan(true));
+  ipcMain.handle("scan:now", async () => runScan(false, { allowNetwork: false }));
 
   ipcMain.handle("monitor:set-enabled", async (_event, enabled) => {
     const paths = dataPaths();
@@ -1037,10 +1131,10 @@ app.whenReady().then(() => {
       scanEnabled: Boolean(enabled)
     };
     saveConfig(paths, nextConfig);
-    restartScheduler();
     if (nextConfig.scanEnabled) {
-      return runScan(false);
+      return startAutomaticScanning(false);
     }
+    restartScheduler();
     return buildDashboard();
   });
 

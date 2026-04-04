@@ -6,7 +6,7 @@ Repositorio oficial:
 - [https://github.com/Vitosa0/simmarket](https://github.com/Vitosa0/simmarket)
 
 Release actual:
-- [SimMarket v1.0.4](https://github.com/Vitosa0/simmarket/releases/tag/v1.0.4)
+- [SimMarket v1.0.5](https://github.com/Vitosa0/simmarket/releases/tag/v1.0.5)
 
 ## Qué incluye
 
@@ -31,8 +31,8 @@ Para instalar y usar la app no hace falta tener `Node.js` ni `npm`.
 
 macOS:
 
-- [Installer `.pkg` universal](https://github.com/Vitosa0/simmarket/releases/download/v1.0.4/SimMarket-Installer-1.0.4-universal.pkg)
-- [`.dmg` universal](https://github.com/Vitosa0/simmarket/releases/download/v1.0.4/SimMarket-1.0.4-universal.dmg)
+- [Installer `.pkg` universal](https://github.com/Vitosa0/simmarket/releases/download/v1.0.5/SimMarket-Installer-1.0.5-universal.pkg)
+- [`.dmg` universal](https://github.com/Vitosa0/simmarket/releases/download/v1.0.5/SimMarket-1.0.5-universal.dmg)
 
 1. Abrí el installer.
 2. Instalá `SimMarket.app` en `/Applications`.
@@ -42,7 +42,7 @@ macOS:
 
 Windows:
 
-- [Installer `.exe` x64](https://github.com/Vitosa0/simmarket/releases/download/v1.0.4/SimMarket-Installer-1.0.4-x64.exe)
+- [Installer `.exe` x64](https://github.com/Vitosa0/simmarket/releases/download/v1.0.5/SimMarket-Installer-1.0.5-x64.exe)
 
 1. Abrí el installer.
 2. Elegí la carpeta de instalación o usá la sugerida.

@@ -122,6 +122,8 @@ const SPLASH_PROGRESS_SEGMENTS = [
   { start: 5400, end: SPLASH_TOTAL_MS, from: 75, to: 100, power: 0.48 }
 ];
 
+const initialCalculatorBook = loadCalculatorBook();
+
 const state = {
   dashboard: null,
   draft: {
@@ -158,11 +160,12 @@ const state = {
   platform: window.simcoDesktop?.platform || "unknown",
   activeView: localStorage.getItem(VIEW_STORAGE_KEY) || "mercado",
   theme: localStorage.getItem(THEME_STORAGE_KEY) || "dark",
-  calculator: loadCalculatorState(),
+  calculatorBook: initialCalculatorBook,
+  calculator: activeCalculatorFromBook(initialCalculatorBook),
   updates: {
     platform: window.simcoDesktop?.platform || "unknown",
     strategy: "manual",
-    currentVersion: "1.0.4",
+    currentVersion: "1.0.5",
     status: "idle",
     checking: false,
     available: false,
@@ -191,14 +194,14 @@ const ONBOARDING_STEPS = [
     title: "Bienvenido a SimMarket",
     body: "La app está pensada para que vigiles mercado, armes alertas y tomes decisiones de compra o venta desde un solo panel.",
     points: [
-      "Seguís activos por rubro y calidad.",
+      "Seguís activos por rubro y por su precio mínimo actual.",
       "Las alertas entran en zona cuando el precio cumple tu regla.",
       "No necesitás tocar archivos ni JSON manuales."
     ]
   },
   {
     title: "Creá tu primera alerta",
-    body: "Empezá por el botón Nueva alerta. Elegí activo, calidad, tipo de alerta y precio gatillo.",
+    body: "Empezá por el botón Nueva alerta. Elegí activo, tipo de alerta y precio gatillo.",
     points: [
       "Menor que: zona de compra.",
       "Mayor que: zona de venta.",
@@ -207,7 +210,7 @@ const ONBOARDING_STEPS = [
   },
   {
     title: "Probá el mercado al instante",
-    body: "Usá Escanear mercado para revisar el precio actual enseguida y validar si tu alerta ya está entrando en zona.",
+    body: "Usá Iniciar escaneo para traer el primer ticker completo y, desde ahí, dejar el monitoreo corriendo cada 5 minutos.",
     points: [
       "Si el mercado está limitado, SimMarket te lo va a indicar.",
       "Las notificaciones salen cuando una alerta entra en zona.",
@@ -221,28 +224,66 @@ const byId = (id) => document.getElementById(id);
 
 const wait = (ms) => new Promise((resolve) => window.setTimeout(resolve, ms));
 
-function loadCalculatorState() {
+function createCalculatorPageId() {
+  return `calc-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`;
+}
+
+function emptyCalculatorState(id = createCalculatorPageId()) {
+  return {
+    id,
+    buyPrice: "",
+    quantity: "",
+    transportPrice: "",
+    transportUnits: "0",
+    sellCheck: ""
+  };
+}
+
+function normalizeCalculatorState(saved, fallbackId = createCalculatorPageId()) {
+  const normalized = emptyCalculatorState(String(saved?.id || fallbackId));
+  const transportUnits = CALC_TRANSPORT_UNIT_OPTIONS.includes(String(saved?.transportUnits ?? "0"))
+    ? String(saved?.transportUnits ?? "0")
+    : "0";
+  return {
+    ...normalized,
+    buyPrice: saved?.buyPrice ?? "",
+    quantity: saved?.quantity ?? "",
+    transportPrice: saved?.transportPrice ?? "",
+    transportUnits,
+    sellCheck: saved?.sellCheck ?? ""
+  };
+}
+
+function loadCalculatorBook() {
   try {
     const saved = JSON.parse(localStorage.getItem(CALC_STORAGE_KEY) || "{}");
-    const transportUnits = CALC_TRANSPORT_UNIT_OPTIONS.includes(String(saved.transportUnits ?? "0"))
-      ? String(saved.transportUnits ?? "0")
-      : "0";
+    if (Array.isArray(saved?.pages) && saved.pages.length) {
+      const pages = saved.pages.map((page, index) => normalizeCalculatorState(page, `calc-${index + 1}`));
+      const activeId = pages.some((page) => page.id === saved.activeId)
+        ? saved.activeId
+        : pages[0].id;
+      return { activeId, pages };
+    }
     return {
-      buyPrice: saved.buyPrice ?? "",
-      quantity: saved.quantity ?? "",
-      transportPrice: saved.transportPrice ?? "",
-      transportUnits,
-      sellCheck: saved.sellCheck ?? ""
+      activeId: "calc-1",
+      pages: [normalizeCalculatorState(saved, "calc-1")]
     };
   } catch (error) {
     return {
-      buyPrice: "",
-      quantity: "",
-      transportPrice: "",
-      transportUnits: "0",
-      sellCheck: ""
+      activeId: "calc-1",
+      pages: [emptyCalculatorState("calc-1")]
     };
   }
+}
+
+function activeCalculatorFromBook(book) {
+  if (!book?.pages?.length) {
+    return emptyCalculatorState("calc-1");
+  }
+  const active = book.pages.find((page) => page.id === book.activeId);
+  if (active) return active;
+  book.activeId = book.pages[0].id;
+  return book.pages[0];
 }
 
 function emptyContactDraft() {
@@ -394,9 +435,44 @@ function formatNumber(value) {
   return number.toFixed(3).replace(/\.?0+$/, "");
 }
 
+function qualityLabel(value) {
+  const quality = Number(value);
+  return `Q${Number.isInteger(quality) && quality >= 0 ? quality : 0}`;
+}
+
 function formatCurrency(value) {
   if (value === null || value === undefined || value === "" || Number.isNaN(Number(value))) return "—";
-  return `$${Number(value).toLocaleString("es-AR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  const number = Number(value);
+  const maxFractionDigits = Math.abs(number) >= 100 ? 2 : 5;
+  return `$${number.toLocaleString("es-AR", { minimumFractionDigits: 0, maximumFractionDigits: maxFractionDigits })}`;
+}
+
+function parseLocaleDecimal(value) {
+  const raw = String(value ?? "").trim().replace(/\s+/g, "");
+  if (!raw) return Number.NaN;
+  const commaCount = (raw.match(/,/g) || []).length;
+  const dotCount = (raw.match(/\./g) || []).length;
+  let normalized = raw;
+  if (commaCount > 0 && dotCount > 0) {
+    if (raw.lastIndexOf(",") > raw.lastIndexOf(".")) {
+      normalized = raw.replace(/\./g, "").replace(",", ".");
+    } else {
+      normalized = raw.replace(/,/g, "");
+    }
+  } else if (commaCount > 1) {
+    normalized = raw.replace(/,/g, "");
+  } else if (dotCount > 1) {
+    normalized = raw.replace(/\./g, "");
+  } else if (commaCount === 1) {
+    normalized = raw.replace(",", ".");
+  }
+  return Number(normalized);
+}
+
+function parseIntegerInput(value) {
+  const digits = String(value ?? "").replace(/[^\d-]/g, "");
+  if (!digits || digits === "-") return Number.NaN;
+  return Number(digits);
 }
 
 function formatDateTime(raw) {
@@ -499,13 +575,10 @@ function validateAlertDraft(alert) {
   if (!Number.isFinite(Number(alert.resourceId)) || Number(alert.resourceId) <= 0) {
     errors.resourceId = "Elegí un activo válido.";
   }
-  if (
-    !Number.isFinite(Number(alert.quality))
-    || Number(alert.quality) < 0
-    || Number(alert.quality) > 12
-    || !Number.isInteger(Number(alert.quality))
-  ) {
-    errors.quality = "La calidad tiene que ser un entero entre 0 y 12.";
+  const qualityRaw = String(alert.quality ?? "").trim();
+  const quality = Number(qualityRaw);
+  if (!qualityRaw.length || !Number.isInteger(quality) || quality < 0 || quality > 12) {
+    errors.quality = "La calidad tiene que estar entre Q0 y Q12.";
   }
   const targetPriceRaw = String(alert.targetPrice ?? "").trim();
   if (!targetPriceRaw.length || !Number.isFinite(Number(targetPriceRaw))) {
@@ -812,6 +885,132 @@ function renderCalculatorUnitsSelector() {
   hiddenInput.value = calculatorUnitsSummary();
 }
 
+function calculatorPageIndex() {
+  const index = state.calculatorBook.pages.findIndex((page) => page.id === state.calculator?.id);
+  return index >= 0 ? index : 0;
+}
+
+function compactPaginationItems(totalPages, currentPage) {
+  if (totalPages <= 10) {
+    return Array.from({ length: totalPages }, (_, index) => ({ type: "page", page: index + 1 }));
+  }
+  if (currentPage <= 4) {
+    return [
+      { type: "page", page: 1 },
+      { type: "page", page: 2 },
+      { type: "page", page: 3 },
+      { type: "page", page: 4 },
+      { type: "page", page: 5 },
+      { type: "page", page: 6 },
+      { type: "ellipsis", key: "ellipsis-end" },
+      { type: "page", page: totalPages }
+    ];
+  }
+  if (currentPage >= totalPages - 3) {
+    return [
+      { type: "page", page: 1 },
+      { type: "ellipsis", key: "ellipsis-start" },
+      { type: "page", page: totalPages - 5 },
+      { type: "page", page: totalPages - 4 },
+      { type: "page", page: totalPages - 3 },
+      { type: "page", page: totalPages - 2 },
+      { type: "page", page: totalPages - 1 },
+      { type: "page", page: totalPages }
+    ];
+  }
+  return [
+    { type: "page", page: 1 },
+    { type: "ellipsis", key: `ellipsis-left-${currentPage}` },
+    { type: "page", page: currentPage - 1 },
+    { type: "page", page: currentPage },
+    { type: "page", page: currentPage + 1 },
+    { type: "ellipsis", key: `ellipsis-right-${currentPage}` },
+    { type: "page", page: totalPages }
+  ];
+}
+
+function paginationMarkup(totalPages, currentPage, scope = "contact") {
+  if (totalPages <= 1) return "";
+  const prevDisabled = currentPage <= 1;
+  const nextDisabled = currentPage >= totalPages;
+  const pageButtons = compactPaginationItems(totalPages, currentPage).map((item) => {
+    if (item.type === "ellipsis") {
+      return `<span class="pagination-ellipsis">…</span>`;
+    }
+    return `
+      <button class="pagination-btn${item.page === currentPage ? " active" : ""}" type="button" data-pagination-scope="${scope}" data-page="${item.page}">
+        ${item.page}
+      </button>
+    `;
+  }).join("");
+  return `
+    <button class="pagination-btn nav" type="button" data-pagination-scope="${scope}" data-page-nav="prev"${prevDisabled ? " disabled" : ""}>Anterior</button>
+    <div class="pagination-pages">${pageButtons}</div>
+    <button class="pagination-btn nav" type="button" data-pagination-scope="${scope}" data-page-nav="next"${nextDisabled ? " disabled" : ""}>Siguiente</button>
+  `;
+}
+
+function renderCalculatorPages() {
+  const label = byId("calcPageLabel");
+  const pagination = byId("calcWorkspacePagination");
+  if (!label || !pagination) return;
+  const index = calculatorPageIndex();
+  const total = state.calculatorBook.pages.length || 1;
+  label.textContent = `Cálculo ${index + 1} de ${total}`;
+  pagination.innerHTML = paginationMarkup(total, index + 1, "calc");
+}
+
+function setActiveCalculatorPage(pageId) {
+  const page = state.calculatorBook.pages.find((item) => item.id === pageId);
+  if (!page) return;
+  state.calculator = page;
+  state.calculatorBook.activeId = page.id;
+  state.calculatorUnitsSelectorOpen = false;
+  persistCalculatorState();
+  renderCalculatorPages();
+  syncCalculatorInputs();
+  recalculateCalculator();
+}
+
+function addCalculatorPage() {
+  const nextPage = emptyCalculatorState();
+  state.calculatorBook.pages.push(nextPage);
+  state.calculator = nextPage;
+  state.calculatorBook.activeId = nextPage.id;
+  state.calculatorUnitsSelectorOpen = false;
+  persistCalculatorState();
+  renderCalculatorPages();
+  syncCalculatorInputs();
+  recalculateCalculator();
+  showToast("Nuevo cálculo creado");
+}
+
+function deleteActiveCalculatorPage() {
+  if (state.calculatorBook.pages.length <= 1) {
+    const cleared = emptyCalculatorState(state.calculator?.id || "calc-1");
+    state.calculatorBook.pages = [cleared];
+    state.calculatorBook.activeId = cleared.id;
+    state.calculator = cleared;
+    state.calculatorUnitsSelectorOpen = false;
+    persistCalculatorState();
+    syncCalculatorInputs();
+    recalculateCalculator();
+    showToast("Cálculo eliminado");
+    return;
+  }
+  const index = calculatorPageIndex();
+  state.calculatorBook.pages.splice(index, 1);
+  const nextIndex = Math.max(0, index - 1);
+  const nextPage = state.calculatorBook.pages[nextIndex];
+  state.calculator = nextPage;
+  state.calculatorBook.activeId = nextPage.id;
+  state.calculatorUnitsSelectorOpen = false;
+  persistCalculatorState();
+  syncCalculatorInputs();
+  recalculateCalculator();
+  showToast("Cálculo eliminado");
+}
+
 function viewMeta(view = state.activeView) {
   if (view === "calculadora") {
     return {
@@ -1000,13 +1199,14 @@ function validateDraftPayload() {
   const alerts = state.draft.alerts.map((alert, index) => {
     const label = String(alert.label || `Alerta ${index + 1}`).trim() || `Alerta ${index + 1}`;
     const resourceId = Number(alert.resourceId);
-    const quality = Number(alert.quality);
+    const qualityRaw = String(alert.quality ?? "").trim();
+    const quality = Number(qualityRaw);
     const targetRaw = String(alert.targetPrice ?? "").trim();
     if (!Number.isFinite(resourceId) || resourceId <= 0) {
       throw new Error(`La alerta "${label}" tiene un activo inválido.`);
     }
-    if (!Number.isFinite(quality) || quality < 0) {
-      throw new Error(`La alerta "${label}" tiene una calidad inválida.`);
+    if (!qualityRaw.length || !Number.isInteger(quality) || quality < 0 || quality > 12) {
+      throw new Error(`Completa una calidad válida entre Q0 y Q12 para "${label}".`);
     }
     if (!targetRaw.length || !Number.isFinite(Number(targetRaw))) {
       throw new Error(`Completa el precio gatillo de "${label}".`);
@@ -1030,7 +1230,7 @@ function validateDraftPayload() {
 
   return {
     realmId: Number(state.draft.config.realmId || 0),
-    pollSeconds: Number(state.draft.config.pollSeconds || 180),
+    pollSeconds: 300,
     scanEnabled: state.draft.config.scanEnabled !== false,
     channels: state.draft.channels,
     alerts
@@ -1239,7 +1439,7 @@ function renderSelectedRuntime() {
       ${avatarMarkup(item, "A")}
       <div class="summary-title">
         <div class="summary-name">${escapeHtml(item.label)}</div>
-        <div class="summary-meta">${escapeHtml(item.resourceName)} · Q${escapeHtml(item.quality)} · ID ${escapeHtml(item.resourceId)}</div>
+        <div class="summary-meta">${escapeHtml(item.resourceName)} · ${escapeHtml(qualityLabel(item.quality))} · ID ${escapeHtml(item.resourceId)}</div>
       </div>
       <span class="badge ${actionBadgeClass(item.actionKey)}">${escapeHtml(item.actionLabel)}</span>
     </div>
@@ -1394,7 +1594,7 @@ function editorMarkup(alert) {
         ${avatarMarkup(merged, "A")}
         <div class="summary-title">
           <div class="summary-name">${escapeHtml(alert.label || "Nueva alerta")}</div>
-          <div class="summary-meta">${escapeHtml(merged.resourceName)} · Q${escapeHtml(alert.quality)}</div>
+          <div class="summary-meta">${escapeHtml(merged.resourceName)} · ${escapeHtml(qualityLabel(alert.quality))} · ID ${escapeHtml(alert.resourceId)}</div>
         </div>
         <span class="badge ${statusBadgeClass(merged.statusTone, alert.enabled)}">${escapeHtml(merged.statusText)}</span>
       </div>
@@ -1432,13 +1632,12 @@ function editorMarkup(alert) {
         ${errors.resourceId ? `<div class="input-error-copy">${escapeHtml(errors.resourceId)}</div>` : ""}
       </div>
 
-      <div class="input-group${errors.quality ? " error" : ""}">
-        <label for="editorQuality">Calidad</label>
-        <input id="editorQuality" class="styled-input${errors.quality ? " is-invalid" : ""}" data-field="quality" type="number" min="0" max="12" step="1" value="${escapeHtml(alert.quality)}" />
-        ${errors.quality ? `<div class="input-error-copy">${escapeHtml(errors.quality)}</div>` : ""}
-      </div>
-
       <div class="form-row">
+        <div class="input-group${errors.quality ? " error" : ""}">
+          <label for="editorQuality">Calidad (Q)</label>
+          <input id="editorQuality" class="styled-input no-spinner${errors.quality ? " is-invalid" : ""}" data-field="quality" type="number" min="0" max="12" step="1" value="${escapeHtml(alert.quality)}" />
+          ${errors.quality ? `<div class="input-error-copy">${escapeHtml(errors.quality)}</div>` : ""}
+        </div>
         <div class="input-group">
           <label>Tipo de alerta</label>
           <div class="hierarchy-selector${state.conditionSelectorOpen ? " open" : ""}" id="editorConditionSelector">
@@ -1453,11 +1652,12 @@ function editorMarkup(alert) {
             </div>
           </div>
         </div>
-        <div class="input-group${errors.targetPrice ? " error" : ""}">
-          <label for="editorTarget">Precio gatillo</label>
-          <input id="editorTarget" class="styled-input${errors.targetPrice ? " is-invalid" : ""}" data-field="targetPrice" type="number" min="0" step="0.001" value="${escapeHtml(alert.targetPrice)}" />
-          ${errors.targetPrice ? `<div class="input-error-copy">${escapeHtml(errors.targetPrice)}</div>` : ""}
-        </div>
+      </div>
+
+      <div class="input-group${errors.targetPrice ? " error" : ""}">
+        <label for="editorTarget">Precio gatillo</label>
+        <input id="editorTarget" class="styled-input${errors.targetPrice ? " is-invalid" : ""}" data-field="targetPrice" type="number" min="0" step="0.001" value="${escapeHtml(alert.targetPrice)}" />
+        ${errors.targetPrice ? `<div class="input-error-copy">${escapeHtml(errors.targetPrice)}</div>` : ""}
       </div>
 
       <div id="editorTargetMaxGroup" class="input-group ${targetMaxClass}${errors.targetPriceMax ? " error" : ""}">
@@ -1511,7 +1711,7 @@ function passesFilter(item) {
   const query = normalizeSearch(state.search);
   if (!query) return true;
   const merged = mergedAlert(item);
-  return normalizeSearch([item.label, merged.resourceName, item.resourceId, `q${item.quality}`].join(" ")).includes(query);
+  return normalizeSearch([item.label, merged.resourceName, item.resourceId, qualityLabel(item.quality)].join(" ")).includes(query);
 }
 
 function alertCardMarkup(alert) {
@@ -1523,7 +1723,7 @@ function alertCardMarkup(alert) {
         ${avatarMarkup(item, "A")}
         <div class="card-title">
           <div class="contact-name">${escapeHtml(item.label)}</div>
-          <div class="contact-meta">${escapeHtml(item.resourceName)} · Q${escapeHtml(item.quality)} · ID ${escapeHtml(item.resourceId)}</div>
+          <div class="contact-meta">${escapeHtml(item.resourceName)} · ${escapeHtml(qualityLabel(item.quality))} · ID ${escapeHtml(item.resourceId)}</div>
         </div>
         <span class="badge ${actionBadgeClass(item.actionKey)}">${escapeHtml(item.actionLabel)}</span>
       </div>
@@ -2106,22 +2306,7 @@ function clampContactPage(totalItems) {
 
 function contactPaginationMarkup(totalItems, currentPage = state.contactPage, perPage = CONTACTS_PER_PAGE, scope = "contact") {
   const totalPages = Math.max(1, Math.ceil(totalItems / perPage));
-  if (totalPages <= 1) return "";
-  const prevDisabled = currentPage <= 1;
-  const nextDisabled = currentPage >= totalPages;
-  const pageButtons = Array.from({ length: totalPages }, (_, index) => {
-    const page = index + 1;
-    return `
-      <button class="pagination-btn${page === currentPage ? " active" : ""}" type="button" data-pagination-scope="${scope}" data-page="${page}">
-        ${page}
-      </button>
-    `;
-  }).join("");
-  return `
-    <button class="pagination-btn nav" type="button" data-pagination-scope="${scope}" data-page-nav="prev"${prevDisabled ? " disabled" : ""}>Anterior</button>
-    <div class="pagination-pages">${pageButtons}</div>
-    <button class="pagination-btn nav" type="button" data-pagination-scope="${scope}" data-page-nav="next"${nextDisabled ? " disabled" : ""}>Siguiente</button>
-  `;
+  return paginationMarkup(totalPages, currentPage, scope);
 }
 
 function renderContactList() {
@@ -2641,6 +2826,11 @@ function handlePagination(event) {
       if (scope === "contact") {
         state.contactPage = nextPage;
         renderContactList();
+      } else if (scope === "calc") {
+        const nextCalculator = state.calculatorBook.pages[nextPage - 1];
+        if (nextCalculator) {
+          setActiveCalculatorPage(nextCalculator.id);
+        }
       } else {
         state.alertPage = nextPage;
         renderAlertList();
@@ -2657,6 +2847,17 @@ function handlePagination(event) {
     if (direction === "prev" && state.contactPage > 1) state.contactPage -= 1;
     if (direction === "next" && state.contactPage < totalPages) state.contactPage += 1;
     renderContactList();
+    return;
+  }
+  if (scope === "calc") {
+    const totalPages = Math.max(1, state.calculatorBook.pages.length);
+    let nextPage = calculatorPageIndex() + 1;
+    if (direction === "prev" && nextPage > 1) nextPage -= 1;
+    if (direction === "next" && nextPage < totalPages) nextPage += 1;
+    const nextCalculator = state.calculatorBook.pages[nextPage - 1];
+    if (nextCalculator) {
+      setActiveCalculatorPage(nextCalculator.id);
+    }
     return;
   }
   const totalPages = alertPageCount(state.draft.alerts.filter(passesFilter).length);
@@ -3000,7 +3201,19 @@ function startAutoRefresh() {
 }
 
 function persistCalculatorState() {
-  localStorage.setItem(CALC_STORAGE_KEY, JSON.stringify(state.calculator));
+  state.calculatorBook.activeId = state.calculator?.id || state.calculatorBook.pages[0]?.id || "calc-1";
+  const payload = {
+    activeId: state.calculatorBook.activeId,
+    pages: state.calculatorBook.pages.map((page) => ({
+      id: page.id,
+      buyPrice: page.buyPrice ?? "",
+      quantity: page.quantity ?? "",
+      transportPrice: page.transportPrice ?? "",
+      transportUnits: page.transportUnits ?? "0",
+      sellCheck: page.sellCheck ?? ""
+    }))
+  };
+  localStorage.setItem(CALC_STORAGE_KEY, JSON.stringify(payload));
 }
 
 function syncCalculatorInputs() {
@@ -3013,15 +3226,16 @@ function syncCalculatorInputs() {
     const element = byId(id);
     if (element) element.value = state.calculator[key] ?? "";
   });
+  renderCalculatorPages();
   renderCalculatorUnitsSelector();
 }
 
 function recalculateCalculator() {
-  const buyPrice = Number(state.calculator.buyPrice);
-  const qty = Number(state.calculator.quantity) || 1;
-  const transportPrice = Number(state.calculator.transportPrice) || 0;
-  const transportUnits = Number(state.calculator.transportUnits) || 0;
-  const sellCheck = Number(state.calculator.sellCheck);
+  const buyPrice = parseLocaleDecimal(state.calculator.buyPrice);
+  const qty = parseIntegerInput(state.calculator.quantity) || 1;
+  const transportPrice = parseLocaleDecimal(state.calculator.transportPrice) || 0;
+  const transportUnits = parseLocaleDecimal(state.calculator.transportUnits) || 0;
+  const sellCheck = parseLocaleDecimal(state.calculator.sellCheck);
   const empty = byId("calc-empty-state");
   const main = byId("calc-main-results");
   if (!Number.isFinite(buyPrice) || buyPrice <= 0) {
@@ -3069,7 +3283,7 @@ function recalculateCalculator() {
     const netPerUnit = sellCheck * (1 - feeRate) - buyPrice - freightPerUnit;
     const netTotal = netPerUnit * qty;
     const pctGain = (netPerUnit / buyPrice) * 100;
-    if (Math.abs(netPerUnit) < 0.01) {
+    if (Math.abs(netPerUnit) < 0.000001) {
       verdict.className = "calc-verdict breakeven-v";
       verdict.textContent = "Breakeven exacto";
       verdictDetail.textContent = "No ganás ni perdés.";
@@ -3107,7 +3321,10 @@ function bindStaticUi() {
   byId("tab-mercado").addEventListener("click", () => switchView("mercado"));
   byId("tab-calculadora").addEventListener("click", () => switchView("calculadora"));
   byId("tab-registro").addEventListener("click", () => switchView("registro"));
-  byId("scanNowButton").addEventListener("click", scanNow);
+  const scanNowButton = byId("scanNowButton");
+  if (scanNowButton) {
+    scanNowButton.addEventListener("click", scanNow);
+  }
   byId("checkUpdatesButton").addEventListener("click", () => checkForUpdates(true));
   byId("scanToggleButton").addEventListener("click", toggleScanEnabled);
   byId("saveButton").addEventListener("click", saveConfig);
@@ -3258,6 +3475,10 @@ function bindStaticUi() {
       recalculateCalculator();
     }
   });
+
+  byId("calcAddButton").addEventListener("click", addCalculatorPage);
+  byId("calcDeleteButton").addEventListener("click", deleteActiveCalculatorPage);
+  byId("calcWorkspacePagination").addEventListener("click", handlePagination);
 
   byId("eventsFeed").addEventListener("click", (event) => {
     const target = event.target;
