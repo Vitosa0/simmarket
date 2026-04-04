@@ -41,7 +41,7 @@ function loadConfig(paths) {
   }
   return {
     realmId: Number(config.realmId ?? DEFAULT_CONFIG.realmId),
-    pollSeconds: Number(config.pollSeconds ?? DEFAULT_CONFIG.pollSeconds),
+    pollSeconds: DEFAULT_CONFIG.pollSeconds,
     scanEnabled: Boolean(config.scanEnabled ?? DEFAULT_CONFIG.scanEnabled),
     channels: {
       desktop: Boolean(config.channels?.desktop ?? DEFAULT_CONFIG.channels.desktop),

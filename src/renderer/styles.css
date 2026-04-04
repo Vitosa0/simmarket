@@ -640,6 +640,10 @@ body[data-theme="light"] .vito-credit-line-secondary {
     "stats actions";
   align-items: flex-start;
   gap: 14px;
+  position: sticky;
+  top: 0;
+  z-index: 40;
+  background: var(--bg);
 }
 
 .header h1 {
@@ -1134,6 +1138,7 @@ body[data-theme="light"] .celestial-moon {
   display: flex;
   flex-direction: column;
   gap: 18px;
+  min-height: 0;
 }
 
 .form-panel,
@@ -1831,6 +1836,16 @@ textarea.styled-input {
   align-items: center;
   gap: 8px;
   flex-wrap: wrap;
+}
+
+.pagination-ellipsis {
+  min-width: 28px;
+  height: 34px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-faint);
+  letter-spacing: 0.12em;
 }
 
 .pagination-btn {
@@ -2588,6 +2603,56 @@ textarea.styled-input {
   gap: 10px;
 }
 
+.calc-page-label {
+  font-size: 11px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--text-faint);
+  text-align: left;
+}
+
+.calc-primary-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+}
+
+.calc-sidebar-footer {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  align-items: flex-start;
+  padding-top: 10px;
+}
+
+.calc-results-footer {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 0;
+  margin-top: 16px;
+}
+
+.calc-page-pagination {
+  margin-top: 0;
+  width: 100%;
+  justify-content: center;
+  align-self: center;
+}
+
+.calc-page-pagination .pagination-pages {
+  justify-content: center;
+}
+
+.calc-page-pagination .pagination-btn.nav {
+  min-width: 86px;
+}
+
+.calc-delete-btn {
+  align-self: flex-start;
+}
+
 .calc-price,
 .calc-summary-value,
 .calc-target-price {
@@ -2721,14 +2786,13 @@ textarea.styled-input {
 }
 
 .calc-empty {
-  flex: 1;
   display: flex;
   flex-direction: column;
   align-items: center;
-  justify-content: center;
+  justify-content: flex-start;
   gap: 10px;
   color: var(--text-faint);
-  padding: 60px 20px;
+  padding: 124px 20px 40px;
   text-align: center;
 }
 
@@ -2771,6 +2835,20 @@ textarea.styled-input {
 
   .calc-summary-item:last-child {
     border-bottom: none;
+  }
+
+  .calc-results-footer,
+  .calc-sidebar-footer {
+    align-items: stretch;
+  }
+
+  .calc-page-pagination {
+    width: 100%;
+    justify-content: center;
+  }
+
+  .calc-page-pagination .pagination-pages {
+    justify-content: center;
   }
 }
 

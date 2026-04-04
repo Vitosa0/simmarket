@@ -4,14 +4,16 @@ const { getResourceById } = require("./catalog");
 const DISCORD_AVATAR_URL = "https://raw.githubusercontent.com/Vitosa0/simmarket/main/src/assets/branding/simmarket-mark-1024.png";
 
 const API_TIMEOUT_MS = 20000;
-const MAX_QUALITY = 12;
 const FETCH_RETRY_LIMIT = 3;
 const TRANSIENT_HTTP_STATUSES = new Set([408, 425, 429, 500, 502, 503, 504]);
 const SHORT_COOLDOWN_MS = 20_000;
 const RATE_LIMIT_COOLDOWN_MS = 45_000;
-const STALE_SUMMARY_MAX_AGE_MS = 6 * 60 * 1000;
+const STALE_TICKER_MAX_AGE_MS = 6 * 60 * 1000;
 const ALLOWED_CONDITIONS = new Set(["<=", ">=", "<", ">", "==", "between"]);
-const latestResourceSummaries = new Map();
+const QUALITY_MIN = 0;
+const QUALITY_MAX = 12;
+const latestTickerSnapshots = new Map();
+const latestProductSnapshots = new Map();
 let marketCooldownUntil = 0;
 
 function isoNow() {
@@ -45,7 +47,7 @@ function normalizeRule(rawRule, index) {
     id: String(rawRule.id || slugify(`${label}-${rawRule.resourceId}-q${rawRule.quality}`) || `alert-${index}`),
     label,
     resourceId: Number(rawRule.resourceId),
-    quality: Number(rawRule.quality ?? 0),
+    quality: Number.isFinite(Number(rawRule.quality)) ? Number(rawRule.quality) : 0,
     condition,
     targetPrice: Number(targetPriceRaw),
     enabled: Boolean(rawRule.enabled ?? true),
@@ -55,7 +57,7 @@ function normalizeRule(rawRule, index) {
   if (!Number.isFinite(normalized.resourceId) || normalized.resourceId <= 0) {
     throw new Error(`Activo inválido en alerta ${index}`);
   }
-  if (!Number.isFinite(normalized.quality) || normalized.quality < 0 || normalized.quality > MAX_QUALITY) {
+  if (!Number.isInteger(normalized.quality) || normalized.quality < QUALITY_MIN || normalized.quality > QUALITY_MAX) {
     throw new Error(`Calidad inválida en alerta ${index}`);
   }
   if (!Number.isFinite(normalized.targetPrice)) {
@@ -159,20 +161,51 @@ async function fetchJson(url) {
   throw lastError || new Error("No se pudo consultar el mercado.");
 }
 
-function resourceUrl(realmId, resourceId) {
-  return `https://api.simcotools.com/v1/realms/${realmId}/market/resources/${resourceId}`;
+function marketTickerUrl(realmId) {
+  return `https://www.simcompanies.com/api/v3/market-ticker/${realmId}/`;
 }
 
-async function fetchResourceSummary(realmId, resourceId, cache) {
-  const cacheKey = `${realmId}:${resourceId}`;
+function marketProductUrl(realmId, resourceId) {
+  return `https://www.simcompanies.com/api/v3/market/all/${realmId}/${resourceId}/`;
+}
+
+function tickerSnapshotKey(realmId) {
+  return `${realmId}`;
+}
+
+function productSnapshotKey(realmId, resourceId) {
+  return `${realmId}:${resourceId}`;
+}
+
+function hasTickerSnapshot(realmId) {
+  return latestTickerSnapshots.has(tickerSnapshotKey(realmId));
+}
+
+function hasProductSnapshot(realmId, resourceId) {
+  return latestProductSnapshots.has(productSnapshotKey(realmId, resourceId));
+}
+
+function snapshotIso(fetchedAt) {
+  return new Date(fetchedAt).toISOString();
+}
+
+async function fetchMarketTicker(realmId, cache, { allowNetwork = true } = {}) {
+  const cacheKey = `${realmId}`;
   if (!cache.has(cacheKey)) {
     cache.set(cacheKey, (async () => {
-      const cachedSummary = latestResourceSummaries.get(cacheKey);
+      const cachedTicker = latestTickerSnapshots.get(tickerSnapshotKey(realmId));
       const now = Date.now();
 
+      if (!allowNetwork) {
+        if (cachedTicker) {
+          return cachedTicker;
+        }
+        throw new Error("Todavía no hay un ticker guardado para reutilizar.");
+      }
+
       if (marketCooldownUntil > now) {
-        if (cachedSummary && (now - cachedSummary.fetchedAt) <= STALE_SUMMARY_MAX_AGE_MS) {
-          return cachedSummary.summary;
+        if (cachedTicker && (now - cachedTicker.fetchedAt) <= STALE_TICKER_MAX_AGE_MS) {
+          return cachedTicker;
         }
         const cooldownError = new Error("HTTP Error 429: Too Many Requests");
         cooldownError.status = 429;
@@ -181,15 +214,16 @@ async function fetchResourceSummary(realmId, resourceId, cache) {
       }
 
       try {
-        const summary = await fetchJson(resourceUrl(realmId, resourceId));
-        latestResourceSummaries.set(cacheKey, {
-          summary,
+        const rows = await fetchJson(marketTickerUrl(realmId));
+        const snapshot = {
+          rows,
           fetchedAt: Date.now()
-        });
+        };
+        latestTickerSnapshots.set(tickerSnapshotKey(realmId), snapshot);
         if (marketCooldownUntil && Date.now() >= marketCooldownUntil) {
           marketCooldownUntil = 0;
         }
-        return summary;
+        return snapshot;
       } catch (error) {
         const isRateLimited = Number(error?.status) === 429;
         if (isRateLimited) {
@@ -198,8 +232,8 @@ async function fetchResourceSummary(realmId, resourceId, cache) {
           marketCooldownUntil = Math.max(marketCooldownUntil, Date.now() + SHORT_COOLDOWN_MS);
         }
 
-        if (cachedSummary && (Date.now() - cachedSummary.fetchedAt) <= STALE_SUMMARY_MAX_AGE_MS && (isRateLimited || error?.transient)) {
-          return cachedSummary.summary;
+        if (cachedTicker && (Date.now() - cachedTicker.fetchedAt) <= STALE_TICKER_MAX_AGE_MS && (isRateLimited || error?.transient)) {
+          return cachedTicker;
         }
         throw error;
       }
@@ -208,16 +242,72 @@ async function fetchResourceSummary(realmId, resourceId, cache) {
   return cache.get(cacheKey);
 }
 
-function findQualitySummary(summary, quality) {
-  const rows = summary?.resource?.summariesByQuality;
-  if (!Array.isArray(rows)) {
-    throw new Error("El recurso no devolvió calidades.");
+async function fetchMarketProduct(realmId, resourceId, cache, { allowNetwork = true } = {}) {
+  const cacheKey = productSnapshotKey(realmId, resourceId);
+  if (!cache.has(cacheKey)) {
+    cache.set(cacheKey, (async () => {
+      const cachedProduct = latestProductSnapshots.get(cacheKey);
+      const now = Date.now();
+
+      if (!allowNetwork) {
+        if (cachedProduct) {
+          return cachedProduct;
+        }
+        throw new Error("Todavía no hay una lectura guardada para ese producto.");
+      }
+
+      if (marketCooldownUntil > now) {
+        if (cachedProduct && (now - cachedProduct.fetchedAt) <= STALE_TICKER_MAX_AGE_MS) {
+          return cachedProduct;
+        }
+        const cooldownError = new Error("HTTP Error 429: Too Many Requests");
+        cooldownError.status = 429;
+        cooldownError.transient = true;
+        throw cooldownError;
+      }
+
+      try {
+        const rows = await fetchJson(marketProductUrl(realmId, resourceId));
+        const snapshot = {
+          rows,
+          fetchedAt: Date.now()
+        };
+        latestProductSnapshots.set(cacheKey, snapshot);
+        if (marketCooldownUntil && Date.now() >= marketCooldownUntil) {
+          marketCooldownUntil = 0;
+        }
+        return snapshot;
+      } catch (error) {
+        const isRateLimited = Number(error?.status) === 429;
+        if (isRateLimited) {
+          marketCooldownUntil = Math.max(marketCooldownUntil, Date.now() + (Number(error?.retryAfterMs) || RATE_LIMIT_COOLDOWN_MS));
+        } else if (error?.transient) {
+          marketCooldownUntil = Math.max(marketCooldownUntil, Date.now() + SHORT_COOLDOWN_MS);
+        }
+
+        if (cachedProduct && (Date.now() - cachedProduct.fetchedAt) <= STALE_TICKER_MAX_AGE_MS && (isRateLimited || error?.transient)) {
+          return cachedProduct;
+        }
+        throw error;
+      }
+    })());
   }
-  const match = rows.find((item) => Number(item.quality) === Number(quality));
-  if (!match) {
-    throw new Error(`No se encontró la calidad Q${quality}.`);
-  }
-  return match;
+  return cache.get(cacheKey);
+}
+
+function lowestListingForQuality(rows, quality) {
+  const numericQuality = Number(quality);
+  return (Array.isArray(rows) ? rows : []).reduce((lowest, row) => {
+    const rowQuality = Number(row?.quality);
+    const rowPrice = Number(row?.price);
+    if (!Number.isFinite(rowQuality) || rowQuality !== numericQuality || !Number.isFinite(rowPrice)) {
+      return lowest;
+    }
+    if (!lowest || rowPrice < Number(lowest.price)) {
+      return row;
+    }
+    return lowest;
+  }, null);
 }
 
 function buildNotificationTitle(rule) {
@@ -292,11 +382,12 @@ async function notifyChannels(channels, title, body) {
   }
 }
 
-async function scanAlerts({ config, state, appendEvent, onTrigger, triggerNotifications = true }) {
+async function scanAlerts({ config, state, appendEvent, onTrigger, triggerNotifications = true, allowNetwork = true }) {
   const normalizedAlerts = config.alerts.map((rule, index) => normalizeRule(rule, index + 1));
   const realmId = Number(config.realmId || 0);
   const channels = config.channels || {};
-  const cache = new Map();
+  const tickerCache = new Map();
+  const productCache = new Map();
   const errors = [];
   const results = {};
   const groupedByResource = new Map();
@@ -309,12 +400,140 @@ async function scanAlerts({ config, state, appendEvent, onTrigger, triggerNotifi
     groupedByResource.get(key).push(rule);
   });
 
-  for (const [resourceId, rules] of groupedByResource.entries()) {
-    let summary;
+  let tickerSnapshot = null;
+  const needsTicker = normalizedAlerts.some((rule) => Number(rule.quality) === 0);
+  if (needsTicker) {
     try {
-      summary = await fetchResourceSummary(realmId, Number(resourceId), cache);
+      tickerSnapshot = await fetchMarketTicker(realmId, tickerCache, { allowNetwork });
     } catch (error) {
-      rules.forEach((rule) => {
+      normalizedAlerts
+        .filter((rule) => Number(rule.quality) === 0)
+        .forEach((rule) => {
+          errors.push({ alertId: rule.id, error: error.message });
+          appendEvent({
+            time: isoNow(),
+            type: "error",
+            alertId: rule.id,
+            label: rule.label,
+            error: error.message
+          });
+        });
+    }
+  }
+
+  const tickerByResource = new Map(
+    (Array.isArray(tickerSnapshot?.rows) ? tickerSnapshot.rows : [])
+      .map((row) => [Number(row?.kind), row])
+      .filter(([kind]) => Number.isFinite(kind))
+  );
+
+  async function processRule(rule, resourceName, price, sourceTime) {
+    const matched = rule.enabled ? evaluateCondition(rule, price) : false;
+    const previousState = state[rule.id] || {};
+    const shouldNotify = matched && rule.enabled && (rule.repeatWhileMatched || !previousState.matched);
+
+    state[rule.id] = {
+      matched,
+      lastSeenPrice: price,
+      lastSeenAt: isoNow(),
+      resourceTime: sourceTime || null,
+      lastNotifiedAt: shouldNotify ? isoNow() : (previousState.lastNotifiedAt || null)
+    };
+
+    results[rule.id] = {
+      price,
+      matched,
+      resourceName,
+      sourceTime: sourceTime || null
+    };
+
+    if (matched && shouldNotify) {
+      const title = buildNotificationTitle(rule);
+      const body = buildNotificationBody(rule, resourceName, price);
+      if (triggerNotifications) {
+        await notifyChannels(channels, title, body);
+      }
+      if (triggerNotifications && typeof onTrigger === "function") {
+        onTrigger({
+          alertId: rule.id,
+          label: rule.label,
+          title,
+          body,
+          resourceName,
+          quality: rule.quality,
+          price
+        });
+      }
+      appendEvent({
+        time: isoNow(),
+        type: "trigger",
+        alertId: rule.id,
+        label: rule.label,
+        price,
+        body
+      });
+    }
+
+    if (!matched && previousState.matched) {
+      appendEvent({
+        time: isoNow(),
+        type: "cleared",
+        alertId: rule.id,
+        label: rule.label
+      });
+    }
+  }
+
+  for (const [resourceId, rules] of groupedByResource.entries()) {
+    const numericResourceId = Number(resourceId);
+    const resource = getResourceById(numericResourceId);
+    const resourceName = resource?.label || `Recurso ${numericResourceId}`;
+    const q0Rules = rules.filter((rule) => Number(rule.quality) === 0);
+    const qualityRules = rules.filter((rule) => Number(rule.quality) > 0);
+
+    if (q0Rules.length) {
+      const tickerRow = tickerByResource.get(numericResourceId);
+      if (!tickerRow || !Number.isFinite(Number(tickerRow.price))) {
+        q0Rules.forEach((rule) => {
+          const errorMessage = "No se encontró un precio mínimo actual para Q0 en ese producto.";
+          errors.push({ alertId: rule.id, error: errorMessage });
+          appendEvent({
+            time: isoNow(),
+            type: "error",
+            alertId: rule.id,
+            label: rule.label,
+            error: errorMessage
+          });
+        });
+      } else {
+        const tickerPrice = Number(tickerRow.price);
+        const tickerSourceTime = tickerSnapshot ? snapshotIso(tickerSnapshot.fetchedAt) : null;
+        for (const rule of q0Rules) {
+          try {
+            await processRule(rule, resourceName, tickerPrice, tickerSourceTime);
+          } catch (error) {
+            errors.push({ alertId: rule.id, error: error.message });
+            appendEvent({
+              time: isoNow(),
+              type: "error",
+              alertId: rule.id,
+              label: rule.label,
+              error: error.message
+            });
+          }
+        }
+      }
+    }
+
+    if (!qualityRules.length) {
+      continue;
+    }
+
+    let productSnapshot;
+    try {
+      productSnapshot = await fetchMarketProduct(realmId, numericResourceId, productCache, { allowNetwork });
+    } catch (error) {
+      qualityRules.forEach((rule) => {
         errors.push({ alertId: rule.id, error: error.message });
         appendEvent({
           time: isoNow(),
@@ -327,66 +546,15 @@ async function scanAlerts({ config, state, appendEvent, onTrigger, triggerNotifi
       continue;
     }
 
-    for (const rule of rules) {
+    for (const rule of qualityRules) {
       try {
-        const qualitySummary = findQualitySummary(summary, rule.quality);
-        const resource = getResourceById(rule.resourceId);
-        const resourceName = resource?.label || summary?.resource?.name || `Recurso ${rule.resourceId}`;
-        const price = Number(qualitySummary.price);
-        const matched = rule.enabled ? evaluateCondition(rule, price) : false;
-        const previousState = state[rule.id] || {};
-        const shouldNotify = matched && rule.enabled && (rule.repeatWhileMatched || !previousState.matched);
-
-        state[rule.id] = {
-          matched,
-          lastSeenPrice: price,
-          lastSeenAt: isoNow(),
-          resourceTime: qualitySummary.updatedAt || summary?.resource?.updatedAt || null,
-          lastNotifiedAt: shouldNotify ? isoNow() : (previousState.lastNotifiedAt || null)
-        };
-
-        results[rule.id] = {
-          price,
-          matched,
-          resourceName,
-          sourceTime: qualitySummary.updatedAt || summary?.resource?.updatedAt || null
-        };
-
-        if (matched && shouldNotify) {
-          const title = buildNotificationTitle(rule);
-          const body = buildNotificationBody(rule, resourceName, price);
-          if (triggerNotifications) {
-            await notifyChannels(channels, title, body);
-          }
-          if (triggerNotifications && typeof onTrigger === "function") {
-            onTrigger({
-              alertId: rule.id,
-              label: rule.label,
-              title,
-              body,
-              resourceName,
-              quality: rule.quality,
-              price
-            });
-          }
-          appendEvent({
-            time: isoNow(),
-            type: "trigger",
-            alertId: rule.id,
-            label: rule.label,
-            price,
-            body
-          });
+        const lowestListing = lowestListingForQuality(productSnapshot.rows, rule.quality);
+        if (!lowestListing || !Number.isFinite(Number(lowestListing.price))) {
+          throw new Error(`No se encontró un precio actual para Q${rule.quality} en ese producto.`);
         }
-
-        if (!matched && previousState.matched) {
-          appendEvent({
-            time: isoNow(),
-            type: "cleared",
-            alertId: rule.id,
-            label: rule.label
-          });
-        }
+        const price = Number(lowestListing.price);
+        const sourceTime = lowestListing.datetimeDecayUpdated || lowestListing.posted || snapshotIso(productSnapshot.fetchedAt);
+        await processRule(rule, resourceName, price, sourceTime);
       } catch (error) {
         errors.push({ alertId: rule.id, error: error.message });
         appendEvent({
@@ -413,6 +581,8 @@ module.exports = {
   describeCondition,
   evaluateCondition,
   formatMarketNumber,
+  hasProductSnapshot,
+  hasTickerSnapshot,
   isoNow,
   normalizeRule,
   scanAlerts

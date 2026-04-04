@@ -1,6 +1,6 @@
 const DEFAULT_CONFIG = {
   realmId: 0,
-  pollSeconds: 180,
+  pollSeconds: 300,
   scanEnabled: true,
   channels: {
     desktop: true,
