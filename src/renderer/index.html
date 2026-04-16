@@ -58,17 +58,19 @@
           <div class="view-switcher">
             <button id="tab-mercado" class="view-tab active" type="button">Mercado</button>
             <button id="tab-calculadora" class="view-tab" type="button">Calculadora</button>
+            <button id="tab-ejecutivos" class="view-tab" type="button">Ejecutivos</button>
             <button id="tab-registro" class="view-tab" type="button">Registro</button>
           </div>
+          <button id="languageToggleButton" class="language-toggle" type="button" aria-label="Cambiar idioma a inglés" title="Cambiar idioma a inglés">EN</button>
           <button id="themeToggleButton" class="theme-toggle" type="button" aria-label="Cambiar tema" title="Cambiar tema">
             <span id="themeToggleIcon" class="theme-toggle-icon" aria-hidden="true"></span>
           </button>
         </div>
         <div class="stats-bar">
-          <div class="stat-pill">Monitor <span id="headerMonitorStat">Sin datos</span></div>
-          <div class="stat-pill">Alertas <span id="headerAlertsStat">0</span></div>
-          <div class="stat-pill">En zona <span id="headerOpportunityStat">0</span></div>
-          <div class="stat-pill">Última revisión <span id="headerScanStat">-</span></div>
+          <div class="stat-pill"><span id="headerMonitorLabel">Monitor</span> <span id="headerMonitorStat">Sin datos</span></div>
+          <div class="stat-pill"><span id="headerAlertsLabel">Alertas</span> <span id="headerAlertsStat">0</span></div>
+          <div class="stat-pill"><span id="headerInZoneLabel">En zona</span> <span id="headerOpportunityStat">0</span></div>
+          <div class="stat-pill"><span id="headerLastReviewLabel">Última revisión</span> <span id="headerScanStat">-</span></div>
         </div>
         <div id="marketToolbar" class="header-actions">
           <button id="scanNowButton" class="action-btn action-btn-secondary" type="button">Escanear mercado</button>
@@ -83,39 +85,69 @@
         <section id="marketHealthBanner" class="market-health-banner hidden"></section>
         <aside class="form-panel">
           <section class="panel-block">
-            <div class="section-label">Lectura actual</div>
+            <div id="mercadoCurrentLabel" class="section-label">Lectura actual</div>
             <div id="selectedRuntime" class="summary-card"></div>
           </section>
 
           <section class="panel-block">
-            <div class="section-label">Editar alerta</div>
+            <div id="mercadoEditorLabel" class="section-label">Editar alerta</div>
             <div id="editorContainer" class="editor-shell"></div>
           </section>
 
           <section class="panel-block">
-            <div class="section-label">Canales de aviso</div>
+            <div id="mercadoChannelsLabel" class="section-label">Canales de aviso</div>
             <div class="channels-stack">
               <label class="toggle-card">
                 <div>
-                  <strong>Notificación en esta PC</strong>
-                  <small>La opción más simple para ver avisos locales.</small>
+                  <strong id="channelDesktopTitle">Notificación en esta PC</strong>
+                  <small id="channelDesktopCopy">La opción más simple para ver avisos locales.</small>
                 </div>
                 <input id="channelDesktop" type="checkbox" />
               </label>
 
               <div class="input-group">
-                <label for="channelDiscord">Discord webhook</label>
+                <label id="channelDiscordLabel" for="channelDiscord">Discord webhook</label>
                 <input id="channelDiscord" class="styled-input" type="text" placeholder="https://discord.com/api/webhooks/..." />
               </div>
 
               <div class="input-group">
-                <label for="channelTelegramToken">Telegram bot token</label>
+                <label id="channelTelegramTokenLabel" for="channelTelegramToken">Telegram bot token</label>
                 <input id="channelTelegramToken" class="styled-input" type="text" placeholder="123456:ABC..." />
               </div>
 
               <div class="input-group">
-                <label for="channelTelegramChat">Telegram chat id</label>
+                <label id="channelTelegramChatLabel" for="channelTelegramChat">Telegram chat id</label>
                 <input id="channelTelegramChat" class="styled-input" type="text" placeholder="-100..." />
+              </div>
+            </div>
+          </section>
+
+          <section class="panel-block supporters-block">
+            <div id="supportersLabel" class="section-label">Agradecimientos</div>
+            <div class="supporters-card">
+              <div class="supporters-copy">
+                <strong id="supportersTitle">Gracias por la inspiración y las referencias.</strong>
+                <small id="supportersCopy">Muchos conceptos de esta app nacieron mirando el trabajo de estas dos páginas.</small>
+              </div>
+              <div class="supporters-links">
+                <button id="supporterCooperButton" class="supporter-link-card" type="button" data-supporter-url="https://cooperinc.xyz/">
+                  <span class="supporter-link-logo-wrap">
+                    <img class="supporter-link-logo" src="../assets/supporters/cooperinc-favicon.ico" alt="CooperInc" />
+                  </span>
+                  <span class="supporter-link-copy">
+                    <span class="supporter-link-name">cooperinc.xyz</span>
+                    <span id="supporterCooperNote" class="supporter-link-note">Abrir sitio</span>
+                  </span>
+                </button>
+                <button id="supporterSimcoToolsButton" class="supporter-link-card" type="button" data-supporter-url="https://simcotools.com/">
+                  <span class="supporter-link-logo-wrap">
+                    <img class="supporter-link-logo" src="../assets/supporters/simcotools-logo192.png" alt="Simco Tools" />
+                  </span>
+                  <span class="supporter-link-copy">
+                    <span class="supporter-link-name">simcotools.com</span>
+                    <span id="supporterSimcoToolsNote" class="supporter-link-note">Abrir sitio</span>
+                  </span>
+                </button>
               </div>
             </div>
           </section>
@@ -124,7 +156,7 @@
         <main class="list-panel">
           <section class="panel-block">
             <div class="section-heading-row">
-              <div class="section-label">Mercado vigilado</div>
+              <div id="watchedMarketLabel" class="section-label">Mercado vigilado</div>
               <button id="notificationsButton" class="theme-toggle notifications-toggle" type="button" aria-label="Abrir notificaciones" title="Abrir notificaciones">
                 <span class="notification-toggle-icon" aria-hidden="true">
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" role="presentation">
@@ -140,11 +172,11 @@
                 <span class="search-icon">&#9906;</span>
                 <input id="searchInput" type="text" placeholder="Buscar por nombre o activo" />
               </div>
-              <button class="filter-btn active" data-filter="all" type="button">Todas</button>
-              <button class="filter-btn" data-filter="buy" type="button">Compra</button>
-              <button class="filter-btn" data-filter="sell" type="button">Venta</button>
-              <button class="filter-btn" data-filter="match" type="button">En zona</button>
-              <button class="filter-btn" data-filter="disabled" type="button">Pausadas</button>
+              <button id="filterAllButton" class="filter-btn active" data-filter="all" type="button">Todas</button>
+              <button id="filterBuyButton" class="filter-btn" data-filter="buy" type="button">Compra</button>
+              <button id="filterSellButton" class="filter-btn" data-filter="sell" type="button">Venta</button>
+              <button id="filterMatchButton" class="filter-btn" data-filter="match" type="button">En zona</button>
+              <button id="filterDisabledButton" class="filter-btn" data-filter="disabled" type="button">Pausadas</button>
               <button id="addAlertButton" class="filter-btn filter-btn-strong" type="button">Nueva alerta</button>
             </div>
             <div id="alertsCountInfo" class="results-info"></div>
@@ -156,28 +188,47 @@
 
       <div id="view-calculadora" class="layout view-panel calc-layout">
         <section class="calc-panel form">
-          <div class="section-label">Parámetros de compra</div>
+          <div id="calcPurchaseParamsLabel" class="section-label">Parámetros de compra</div>
           <div class="calc-primary-actions">
             <button id="calcAddButton" class="filter-btn filter-btn-strong" type="button">Nuevo cálculo</button>
           </div>
 
           <div class="input-group">
-            <label for="calc-buy-price">Costo por unidad</label>
+            <label><span id="calcProductLabel">Producto</span> <span id="calcProductOptionalLabel" class="label-note">opcional, autorrellena transporte</span></label>
+            <div class="hierarchy-selector calc-product-selector" id="calcProductSelector">
+              <button type="button" class="selector-summary" data-calc-product-action="toggle-product-selector">
+                <div class="selector-summary-main">
+                  <div id="calcProductSummary" class="selector-title">Sin producto seleccionado</div>
+                  <div id="calcProductSubtitle" class="selector-subtitle">Usalo para traer las unidades de transporte del activo.</div>
+                </div>
+                <div id="calcProductChevron" class="selector-chevron">▼</div>
+              </button>
+              <div class="selector-panel">
+                <input id="calcProductSearch" class="selector-search" type="text" placeholder="Buscar rubro o activo" />
+                <div id="calcProductCrumbs" class="selector-crumbs"></div>
+                <div id="calcProductActions" class="selector-actions"></div>
+                <div id="calcProductOptions" class="selector-list"></div>
+              </div>
+            </div>
+          </div>
+
+          <div class="input-group">
+            <label id="calcCostLabel" for="calc-buy-price">Costo por unidad</label>
             <input id="calc-buy-price" class="styled-input no-spinner" type="text" inputmode="decimal" />
           </div>
 
           <div class="input-group">
-            <label for="calc-qty">Cantidad <span class="label-note">unidades</span></label>
+            <label for="calc-qty"><span id="calcQtyLabel">Cantidad</span> <span id="calcQtyUnitsLabel" class="label-note">unidades</span></label>
             <input id="calc-qty" class="styled-input no-spinner" type="text" inputmode="numeric" />
           </div>
 
           <div class="calc-inline-row calc-transport-row">
             <div class="input-group">
-              <label for="calc-transport-price">Transporte <span class="label-note">precio unitario</span></label>
+              <label for="calc-transport-price"><span id="calcTransportLabel">Transporte</span> <span id="calcTransportPriceHint" class="label-note">precio unitario</span></label>
               <input id="calc-transport-price" class="styled-input no-spinner" type="text" inputmode="decimal" />
             </div>
             <div class="input-group">
-              <label for="calc-transport-units">Unidades/u</label>
+              <label id="calcTransportUnitsLabel" for="calc-transport-units">Unidades/u</label>
               <div class="hierarchy-selector calc-units-selector" id="calcUnitsSelector">
                 <input id="calc-transport-units" type="hidden" value="0" />
                 <button type="button" class="selector-summary" data-calc-action="toggle-units-selector">
@@ -193,10 +244,10 @@
             </div>
           </div>
 
-          <div class="section-label">Verificador de precio</div>
+          <div id="calcVerifierLabel" class="section-label">Verificador de precio</div>
 
           <div class="input-group">
-            <label for="calc-sell-check">Precio al que pensás vender <span class="label-note">por unidad</span></label>
+            <label for="calc-sell-check"><span id="calcSellCheckLabel">Precio al que pensás vender</span> <span id="calcSellCheckHint" class="label-note">por unidad</span></label>
             <input id="calc-sell-check" class="styled-input no-spinner" type="text" inputmode="decimal" />
           </div>
 
@@ -214,37 +265,37 @@
 
           <div id="calc-main-results" class="calc-results">
             <div class="calc-card animate-in">
-              <div class="calc-card-title">Precio mínimo de venta (breakeven)</div>
+              <div id="calcBreakevenTitle" class="calc-card-title">Precio mínimo de venta (breakeven)</div>
               <div id="calc-breakeven-price" class="calc-price">—</div>
               <div class="calc-detail">
-                <span>Costo base <b id="calc-d-cost">—</b></span>
-                <span>Fee 4% <b id="calc-d-fee">—</b></span>
-                <span>Transporte/u <b id="calc-d-freight">—</b></span>
+                <span><span id="calcCostBaseLabel">Costo base</span> <b id="calc-d-cost">—</b></span>
+                <span><span id="calcFeeLabel">Fee 4%</span> <b id="calc-d-fee">—</b></span>
+                <span><span id="calcFreightLabel">Transporte/u</span> <b id="calc-d-freight">—</b></span>
               </div>
             </div>
 
             <div class="calc-summary animate-in">
               <div class="calc-summary-item">
-                <div class="calc-summary-label">Inversión total</div>
+                <div id="calcInvestmentLabel" class="calc-summary-label">Inversión total</div>
                 <div id="calc-s-total" class="calc-summary-value">—</div>
               </div>
               <div class="calc-summary-item">
-                <div class="calc-summary-label">Fee total</div>
+                <div id="calcSummaryFeeLabel" class="calc-summary-label">Fee total</div>
                 <div id="calc-s-fee" class="calc-summary-value">—</div>
               </div>
               <div class="calc-summary-item">
-                <div class="calc-summary-label">Transporte total</div>
+                <div id="calcSummaryFreightLabel" class="calc-summary-label">Transporte total</div>
                 <div id="calc-s-freight" class="calc-summary-value">—</div>
               </div>
             </div>
 
             <div>
-              <div class="section-label calc-section-spacer">Objetivos de ganancia</div>
+              <div id="calcTargetsLabel" class="section-label calc-section-spacer">Objetivos de ganancia</div>
               <div id="calc-targets-grid" class="calc-grid"></div>
             </div>
 
             <div id="calc-checker-section" class="calc-checker animate-in">
-              <div class="section-label">Resultado de tu precio objetivo</div>
+              <div id="calcCheckerLabel" class="section-label">Resultado de tu precio objetivo</div>
               <div class="calc-checker-row">
                 <div id="calc-verdict" class="calc-verdict">Ingresá un precio</div>
                 <div id="calc-verdict-detail" class="calc-verdict-detail"></div>
@@ -260,7 +311,7 @@
       <div id="view-registro" class="layout view-panel">
         <aside class="form-panel">
           <section class="panel-block">
-            <div class="section-label">Nuevo contacto</div>
+            <div id="registroNewContactLabel" class="section-label">Nuevo contacto</div>
             <div id="contactStats" class="register-stats"></div>
             <div id="contactEditorContainer" class="editor-shell"></div>
           </section>
@@ -269,7 +320,7 @@
         <main class="list-panel">
           <section class="panel-block">
             <div class="section-label">
-              Archivo de contactos
+              <span id="registroArchiveLabel">Archivo de contactos</span>
               <span id="contactCountLabel" class="note-count">0 registros</span>
             </div>
             <div class="filters-row">
@@ -287,6 +338,64 @@
           </section>
         </main>
       </div>
+
+      <div id="view-ejecutivos" class="layout view-panel">
+        <aside class="form-panel">
+          <section class="panel-block">
+            <div id="executiveBaseLabel" class="section-label">Base de lectura</div>
+            <div id="executiveSummaryCard" class="summary-card"></div>
+          </section>
+
+          <section class="panel-block">
+            <div id="executiveEntryLabel" class="section-label">Entrada de feedback</div>
+            <div class="editor-card executive-entry-card">
+              <div class="input-group">
+                <label id="executiveFeedbackLabel" for="executiveFeedbackInput">Feedback del candidato</label>
+                <textarea
+                  id="executiveFeedbackInput"
+                  class="styled-input executive-feedback-input"
+                  placeholder="Pegá el feedback completo del candidato para abrir el radar."
+                ></textarea>
+              </div>
+
+              <div class="input-group">
+                <label for="executiveSalaryInput"><span id="executiveSalaryLabel">Salario observado</span> <span id="executiveSalaryOptional" class="label-note">opcional</span></label>
+                <input
+                  id="executiveSalaryInput"
+                  class="styled-input no-spinner"
+                  type="text"
+                  inputmode="numeric"
+                  placeholder="Ej: 1673"
+                />
+              </div>
+
+              <div class="editor-actions executive-entry-actions">
+                <button id="executiveAnalyzeButton" class="save-btn" type="button">Analizar perfil</button>
+                <button id="executiveClearButton" class="action-btn action-btn-secondary" type="button">Limpiar</button>
+              </div>
+            </div>
+          </section>
+
+          <section class="panel-block">
+            <div id="executiveHowToReadLabel" class="section-label">Cómo leerlo</div>
+            <div class="system-meta executive-guide-card">
+              <div id="executiveGuideLine1" class="executive-guide-item">1. Pegás el feedback del candidato tal como aparece en el juego.</div>
+              <div id="executiveGuideLine2" class="executive-guide-item">2. Si tenés salario observado, lo agregás para afinar la lectura.</div>
+              <div id="executiveGuideLine3" class="executive-guide-item">3. La app cruza texto, señales dominantes y observaciones salariales locales.</div>
+            </div>
+          </section>
+        </aside>
+
+        <main class="list-panel executive-results-panel">
+          <section class="panel-block">
+            <div class="section-heading-row">
+              <div id="executiveRadarLabel" class="section-label">Radar ejecutivo</div>
+            </div>
+            <div id="executiveResultsInfo" class="results-info"></div>
+            <div id="executiveResults" class="executive-results-shell"></div>
+          </section>
+        </main>
+      </div>
     </div>
 
     <div id="historyModal" class="modal-backdrop">
@@ -296,34 +405,34 @@
         <div class="history-layout">
           <div class="history-column">
             <div class="history-block">
-              <div class="history-block-title">Nueva interacción</div>
+              <div id="historyNewInteractionLabel" class="history-block-title">Nueva interacción</div>
               <div class="input-group">
-                <label for="historyDateInput">Fecha</label>
+                <label id="historyDateLabel" for="historyDateInput">Fecha</label>
                 <input id="historyDateInput" class="styled-input" type="text" placeholder="Ej: 21 days ago o 29 de mar de 2026" />
               </div>
               <div class="input-group modal-stack-gap">
-                <label for="historyNoteInput">Nota</label>
+                <label id="historyNoteLabel" for="historyNoteInput">Nota</label>
                 <textarea id="historyNoteInput" class="styled-input modal-note-input" placeholder="Escriba sus apreciaciones"></textarea>
               </div>
               <div class="input-group modal-stack-gap">
-                <label for="historyConversationInput">Pegar conversación</label>
+                <label id="historyConversationLabel" for="historyConversationInput">Pegar conversación</label>
                 <textarea id="historyConversationInput" class="styled-input modal-chat-input" placeholder="Pegá el chat copiado tal como sale del juego y se separará en mensajes."></textarea>
               </div>
               <div class="modal-actions">
-                <button type="button" class="ghost-btn" data-contact-action="clear-history-form">Limpiar</button>
-                <button type="button" class="save-btn modal-save-btn" data-contact-action="save-history-entry">Guardar interacción</button>
+                <button id="historyClearButton" type="button" class="ghost-btn" data-contact-action="clear-history-form">Limpiar</button>
+                <button id="historySaveButton" type="button" class="save-btn modal-save-btn" data-contact-action="save-history-entry">Guardar interacción</button>
               </div>
             </div>
           </div>
           <div class="history-column">
             <div class="history-block history-block-fill">
-              <div class="history-block-title">Historial guardado</div>
+              <div id="historySavedLabel" class="history-block-title">Historial guardado</div>
               <div id="historyList" class="history-list"></div>
             </div>
           </div>
         </div>
         <div class="modal-actions">
-          <button type="button" class="ghost-btn" data-contact-action="close-history-modal">Cerrar</button>
+          <button id="historyCloseButton" type="button" class="ghost-btn" data-contact-action="close-history-modal">Cerrar</button>
         </div>
       </div>
     </div>
@@ -332,14 +441,14 @@
       <div class="modal-card modal-wide">
         <div class="modal-header notifications-modal-header">
           <div>
-            <h2 class="notifications-modal-title">NOTIFICACIONES</h2>
-            <p class="notifications-modal-copy">Resumen reciente de disparos, salidas de zona y errores del monitor.</p>
+            <h2 id="notificationsModalTitle" class="notifications-modal-title">NOTIFICACIONES</h2>
+            <p id="notificationsModalCopy" class="notifications-modal-copy">Resumen reciente de disparos, salidas de zona y errores del monitor.</p>
           </div>
         </div>
         <div id="eventsFeed" class="events-feed"></div>
         <div class="modal-actions notifications-modal-actions">
-          <button type="button" class="ghost-btn" data-action="close-notifications-modal">Cerrar</button>
-          <button type="button" class="ghost-btn" data-action="clear-notifications">Limpiar casilla</button>
+          <button id="notificationsCloseButton" type="button" class="ghost-btn" data-action="close-notifications-modal">Cerrar</button>
+          <button id="notificationsClearButton" type="button" class="ghost-btn" data-action="clear-notifications">Limpiar casilla</button>
         </div>
       </div>
     </div>
@@ -364,7 +473,7 @@
 
     <div id="onboardingModal" class="modal-backdrop">
       <div class="modal-card onboarding-card">
-        <div class="onboarding-step">Primer recorrido</div>
+        <div id="onboardingStepLabel" class="onboarding-step">Primer recorrido</div>
         <h2 id="onboardingTitle">Bienvenido a SimMarket</h2>
         <p id="onboardingBody">Desde acá vigilás precios, armás alertas y decidís compras o ventas sin tocar archivos manualmente.</p>
         <div class="onboarding-points" id="onboardingPoints"></div>
@@ -378,6 +487,8 @@
     </div>
 
     <div id="statusMessage" class="status-toast" aria-live="polite"></div>
+    <script src="./contact-import-seed.js"></script>
+    <script src="../assets/executives/intel-dataset.js"></script>
     <script src="./app.js"></script>
   </body>
 </html>

@@ -10,9 +10,11 @@ const {
   clearEvents,
   deleteEvent,
   loadConfig,
+  loadPriceHistory,
   loadState,
   recentEvents,
   saveConfig,
+  savePriceHistory,
   saveState
 } = require("./storage");
 const {
@@ -72,10 +74,24 @@ let updateState = {
   error: "",
   promptVisible: false
 };
+let uiLanguage = "es";
 
 const RELEASE_FETCH_TIMEOUT_MS = 5000;
 const DISCORD_BRANDING_TIMEOUT_MS = 2500;
 const SCAN_INTERVAL_MS = DEFAULT_CONFIG.pollSeconds * 1000;
+const PRICE_HISTORY_MAX_POINTS = 120;
+const ALERT_CHART_POINT_COUNT = 10;
+const SIMTOOLS_HISTORY_REFRESH_INTERVAL_MS = 12 * 60 * 60 * 1000;
+const SIMTOOLS_HISTORY_REQUEST_DELAY_MS = 120;
+const SIMTOOLS_HISTORY_REQUEST_TIMEOUT_MS = 20_000;
+const SIMTOOLS_HISTORY_MAX_RETRIES = 4;
+const SIMTOOLS_HISTORY_DAYS = 180;
+const SIMTOOLS_HISTORY_GRANULARITY = "1d";
+let simtoolsHistoryCacheDir = "";
+let simtoolsManifestCache = null;
+const simtoolsArchiveCache = new Map();
+let simtoolsHistoryRefreshTimer = null;
+let simtoolsHistoryRefreshPromise = null;
 
 const STARTUP_WINDOW_COMPACT = {
   width: 430,
@@ -86,6 +102,38 @@ const STARTUP_WINDOW_EXPANDED = {
   width: 430,
   height: 322
 };
+
+function normalizeUiLanguage(locale) {
+  return locale === "en" ? "en" : "es";
+}
+
+function setUiLanguage(locale) {
+  uiLanguage = normalizeUiLanguage(locale);
+  return uiLanguage;
+}
+
+function isEnglishUi() {
+  return uiLanguage === "en";
+}
+
+function uiText(esText, enText) {
+  return isEnglishUi() ? enText : esText;
+}
+
+function defaultAlertLabel(index) {
+  return uiText(`Alerta ${index}`, `Alert ${index}`);
+}
+
+function resourceFallbackLabel(resourceId) {
+  return uiText(`Recurso ${resourceId}`, `Resource ${resourceId}`);
+}
+
+function localizedResourceName(resource) {
+  if (!resource) return "";
+  return isEnglishUi()
+    ? String(resource.labelEn || resource.apiName || resource.label || "").trim()
+    : String(resource.label || resource.labelEs || resource.apiName || "").trim();
+}
 
 if (IS_WINDOWS) {
   app.disableHardwareAcceleration();
@@ -164,6 +212,7 @@ function continueIntoApp() {
   }
   startupSequenceDone = true;
   revealMainWindowIfReady();
+  queueSimtoolsHistoryRefresh("startup");
   return updateState;
 }
 
@@ -412,7 +461,7 @@ async function checkMacUpdates({ showPrompt = true } = {}) {
         publishedAt: String(release.published_at || "").trim(),
         downloadUrl: "",
         lastCheckedAt: new Date().toISOString(),
-        error: "Hay una versión nueva, pero no hay un instalador compatible para esta Mac.",
+        error: uiText("Hay una versión nueva, pero no hay un instalador compatible para esta Mac.", "There is a new version, but there is no compatible installer for this Mac."),
         promptVisible: showPrompt
       });
     }
@@ -443,7 +492,7 @@ async function checkMacUpdates({ showPrompt = true } = {}) {
       downloaded: false,
       progress: 0,
       lastCheckedAt: new Date().toISOString(),
-      error: offline ? "Sin conexion a internet." : error.message,
+      error: offline ? uiText("Sin conexión a internet.", "No internet connection.") : error.message,
       promptVisible: offline ? true : false
     });
   }
@@ -543,7 +592,7 @@ function configureWindowsUpdater() {
       downloaded: false,
       progress: 0,
       lastCheckedAt: new Date().toISOString(),
-      error: offline ? "Sin conexion a internet." : error.message,
+      error: offline ? uiText("Sin conexión a internet.", "No internet connection.") : error.message,
       promptVisible: offline ? true : false
     });
   });
@@ -657,11 +706,11 @@ function buildConfigSnapshot(config) {
   const skippedAlerts = [];
   (Array.isArray(config.alerts) ? config.alerts : []).forEach((alert, index) => {
     try {
-      normalizedAlerts.push(normalizeRule(alert, index + 1));
+      normalizedAlerts.push(normalizeRule(alert, index + 1, uiLanguage));
     } catch (error) {
       skippedAlerts.push({
         index,
-        label: String(alert?.label || `Alerta ${index + 1}`),
+        label: String(alert?.label || defaultAlertLabel(index + 1)),
         error: error.message
       });
     }
@@ -686,8 +735,8 @@ function summarizeMarketStatus(scanErrors = []) {
   if (!errors.length) {
     return {
       state: "ok",
-      title: "Mercado conectado",
-      message: "Las lecturas del mercado están entrando normalmente.",
+      title: uiText("Mercado conectado", "Market connected"),
+      message: uiText("Las lecturas del mercado están entrando normalmente.", "Market readings are coming in normally."),
       affectedAlerts: 0
     };
   }
@@ -696,16 +745,16 @@ function summarizeMarketStatus(scanErrors = []) {
   if (rateLimited) {
     return {
       state: "rate-limited",
-      title: "SimCompanies limitó temporalmente las consultas",
-      message: "La app va a reintentar sola. No hace falta tocar nada.",
+      title: uiText("SimCompanies limitó temporalmente las consultas", "SimCompanies temporarily rate-limited requests"),
+      message: uiText("La app va a reintentar sola. No hace falta tocar nada.", "The app will retry on its own. You do not need to do anything."),
       affectedAlerts: errors.length
     };
   }
 
   return {
     state: "error",
-    title: "No se pudo leer el mercado",
-    message: "Hubo un problema temporal al consultar precios. Vamos a volver a intentar.",
+    title: uiText("No se pudo leer el mercado", "Could not read the market"),
+    message: uiText("Hubo un problema temporal al consultar precios. Vamos a volver a intentar.", "There was a temporary problem while reading prices. We will retry."),
     affectedAlerts: errors.length
   };
 }
@@ -723,12 +772,581 @@ function signedPercent(value) {
   return `${value > 0 ? "+" : "-"}${Math.abs(value).toFixed(2)}%`;
 }
 
+function readJsonFileSafe(filePath, fallback = null) {
+  try {
+    if (!filePath || !fs.existsSync(filePath)) {
+      return fallback;
+    }
+    return JSON.parse(fs.readFileSync(filePath, "utf8"));
+  } catch (_error) {
+    return fallback;
+  }
+}
+
+function writeJsonFileSafe(filePath, payload) {
+  fs.mkdirSync(path.dirname(filePath), { recursive: true });
+  fs.writeFileSync(filePath, JSON.stringify(payload, null, 2) + "\n", "utf8");
+}
+
+function simtoolsHistoryRoot(paths) {
+  return path.join(paths.baseDir, "simtools-history");
+}
+
+function simtoolsSyncMetaPath(paths) {
+  return path.join(simtoolsHistoryRoot(paths), "sync-meta.json");
+}
+
+function loadSimtoolsSyncMeta(paths) {
+  const payload = readJsonFileSafe(simtoolsSyncMetaPath(paths), {});
+  return payload && typeof payload === "object" ? payload : {};
+}
+
+function saveSimtoolsSyncMeta(paths, meta) {
+  writeJsonFileSafe(simtoolsSyncMetaPath(paths), meta);
+}
+
+function slugifyHistoryName(raw) {
+  return String(raw || "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "") || "recurso";
+}
+
+function defaultSimtoolsManifest(realmId) {
+  return {
+    version: 1,
+    source: "https://api.simcotools.com",
+    importedAt: "",
+    realmId: Number(realmId || 0),
+    granularity: SIMTOOLS_HISTORY_GRANULARITY,
+    days: SIMTOOLS_HISTORY_DAYS,
+    productCount: 0,
+    comboCount: 0,
+    products: []
+  };
+}
+
+function roundHistoryValue(value, digits = 4) {
+  const numeric = Number(value);
+  if (!Number.isFinite(numeric)) return null;
+  const factor = 10 ** digits;
+  return Math.round(numeric * factor) / factor;
+}
+
+function normalizeSimtoolsCandles(candles = []) {
+  return candles
+    .map((row) => {
+      const open = Number(row?.open);
+      const high = Number(row?.high);
+      const low = Number(row?.low);
+      const close = Number(row?.close);
+      const volume = Number(row?.volume);
+      const vwap = row?.vwap === null || row?.vwap === undefined ? close : Number(row?.vwap);
+      const date = String(row?.date || "").trim();
+      if (![open, high, low, close, volume, vwap].every(Number.isFinite) || !date) {
+        return null;
+      }
+      return { date, open, high, low, close, volume, vwap };
+    })
+    .filter(Boolean)
+    .sort((left, right) => String(left.date).localeCompare(String(right.date)));
+}
+
+function summarizeSimtoolsCandles(candles = []) {
+  if (!candles.length) return null;
+  const closes = candles.map((candle) => Number(candle.close)).filter(Number.isFinite);
+  const volumes = candles.map((candle) => Number(candle.volume)).filter(Number.isFinite);
+  if (!closes.length) return null;
+  const averageWindow = (size) => {
+    const slice = closes.slice(-Math.min(size, closes.length));
+    if (!slice.length) return null;
+    return roundHistoryValue(slice.reduce((total, value) => total + value, 0) / slice.length);
+  };
+  return {
+    count: candles.length,
+    firstDate: candles[0].date,
+    lastDate: candles[candles.length - 1].date,
+    latestClose: roundHistoryValue(closes[closes.length - 1]),
+    previousClose: roundHistoryValue(closes.length > 1 ? closes[closes.length - 2] : closes[closes.length - 1]),
+    minClose: roundHistoryValue(Math.min(...closes)),
+    maxClose: roundHistoryValue(Math.max(...closes)),
+    avg7: averageWindow(7),
+    avg30: averageWindow(30),
+    avg90: averageWindow(90),
+    avg180: averageWindow(180),
+    latestVolume: roundHistoryValue(volumes[volumes.length - 1], 3),
+    latestVWAP: roundHistoryValue(candles[candles.length - 1].vwap)
+  };
+}
+
+function qualitySummaryFromArchive(quality, archiveQuality) {
+  const stats = archiveQuality?.stats;
+  if (!stats) return null;
+  return {
+    quality: Number(quality),
+    ...stats
+  };
+}
+
+function rebuildManifestProducts(manifest, archivesByResourceId) {
+  const products = Array.isArray(manifest?.products) ? manifest.products : [];
+  const nextProducts = products
+    .map((product) => {
+      const archive = archivesByResourceId.get(Number(product.resourceId));
+      if (!archive) {
+        return product;
+      }
+      const qualities = Object.entries(archive.qualities || {})
+        .map(([quality, value]) => qualitySummaryFromArchive(quality, value))
+        .filter(Boolean)
+        .sort((left, right) => left.quality - right.quality);
+      return {
+        resourceId: Number(archive.resourceId),
+        name: String(archive.name || product.name || ""),
+        fileName: String(product.fileName || `${String(archive.resourceId).padStart(3, "0")}-${slugifyHistoryName(archive.name)}.json`),
+        qualities
+      };
+    })
+    .sort((left, right) => Number(left.resourceId) - Number(right.resourceId));
+  manifest.products = nextProducts;
+  manifest.productCount = nextProducts.length;
+  manifest.comboCount = nextProducts.reduce((total, product) => total + (product.qualities?.length || 0), 0);
+}
+
+function buildSimtoolsSyncTargets(config) {
+  const targets = new Map();
+  RESOURCE_CATALOG.forEach((resource) => {
+    targets.set(`${resource.id}:0`, {
+      resourceId: Number(resource.id),
+      quality: 0,
+      name: resource.label
+    });
+  });
+  (Array.isArray(config?.alerts) ? config.alerts : []).forEach((rule) => {
+    const resource = getResourceById(rule.resourceId);
+    const quality = Number(rule.quality || 0);
+    const key = `${Number(rule.resourceId)}:${quality}`;
+    if (!targets.has(key)) {
+      targets.set(key, {
+        resourceId: Number(rule.resourceId),
+        quality,
+        name: resource?.label || `Recurso ${rule.resourceId}`
+      });
+    }
+  });
+  return [...targets.values()];
+}
+
+function hasManifestQuality(manifest, target) {
+  const product = Array.isArray(manifest?.products)
+    ? manifest.products.find((item) => Number(item?.resourceId) === Number(target.resourceId))
+    : null;
+  return Array.isArray(product?.qualities)
+    && product.qualities.some((quality) => Number(quality?.quality) === Number(target.quality));
+}
+
+function selectSimtoolsSyncTargets(manifest, config, meta = {}, force = false) {
+  const targets = buildSimtoolsSyncTargets(config);
+  if (force || !Array.isArray(manifest?.products) || !manifest.products.length) {
+    return { targets, fullRefresh: true };
+  }
+  const lastSuccessAtMs = Date.parse(String(meta?.lastSuccessAt || ""));
+  if (!Number.isFinite(lastSuccessAtMs) || (Date.now() - lastSuccessAtMs) >= SIMTOOLS_HISTORY_REFRESH_INTERVAL_MS) {
+    return { targets, fullRefresh: true };
+  }
+  const missingTargets = targets.filter((target) => !hasManifestQuality(manifest, target));
+  if (missingTargets.length) {
+    return { targets: missingTargets, fullRefresh: false };
+  }
+  return { targets: [], fullRefresh: false };
+}
+
+async function fetchSimtoolsJson(url) {
+  let attempt = 0;
+  while (attempt <= SIMTOOLS_HISTORY_MAX_RETRIES) {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), SIMTOOLS_HISTORY_REQUEST_TIMEOUT_MS);
+    try {
+      const response = await fetch(url, {
+        headers: {
+          Accept: "application/json",
+          "User-Agent": "SimMarket Vito"
+        },
+        signal: controller.signal
+      });
+      if (!response.ok) {
+        const error = new Error(`HTTP ${response.status}`);
+        error.status = response.status;
+        throw error;
+      }
+      return await response.json();
+    } catch (error) {
+      const status = Number(error?.status);
+      const transient = [408, 425, 429, 500, 502, 503, 504].includes(status)
+        || isOfflineUpdateError(error)
+        || String(error?.name || "").toLowerCase() === "aborterror";
+      if (!transient || attempt === SIMTOOLS_HISTORY_MAX_RETRIES) {
+        throw error;
+      }
+      await wait(1200 * (attempt + 1));
+      attempt += 1;
+    } finally {
+      clearTimeout(timer);
+    }
+  }
+  throw new Error(uiText("No se pudo completar la consulta a SimTools.", "Could not complete the SimTools request."));
+}
+
+async function fetchSimtoolsCandles(realmId, resourceId, quality, startMs, endMs) {
+  const url = `https://api.simcotools.com/v1/realms/${realmId}/market/resources/${resourceId}/${quality}/candlesticks?granularity=${SIMTOOLS_HISTORY_GRANULARITY}&start=${startMs}&end=${endMs}`;
+  const payload = await fetchSimtoolsJson(url);
+  return normalizeSimtoolsCandles(Array.isArray(payload?.candlesticks) ? payload.candlesticks : []);
+}
+
+function simtoolsHistoryDirCandidates(paths) {
+  const appDataRoot = app.getPath("appData");
+  return [...new Set([
+    simtoolsHistoryRoot(paths),
+    path.join(appDataRoot, "simmarket-vito", "simtools-history"),
+    path.join(appDataRoot, "simmarket", "simtools-history")
+  ])];
+}
+
+function resolveSimtoolsHistoryDir(paths) {
+  return simtoolsHistoryDirCandidates(paths)
+    .find((candidate) => fs.existsSync(path.join(candidate, "manifest.json"))) || "";
+}
+
+function loadSimtoolsHistoryManifest(paths) {
+  const historyDir = resolveSimtoolsHistoryDir(paths);
+  if (!historyDir) return null;
+  if (simtoolsHistoryCacheDir !== historyDir) {
+    simtoolsHistoryCacheDir = historyDir;
+    simtoolsManifestCache = null;
+    simtoolsArchiveCache.clear();
+  }
+  if (simtoolsManifestCache) {
+    return simtoolsManifestCache;
+  }
+  simtoolsManifestCache = readJsonFileSafe(path.join(historyDir, "manifest.json"), null);
+  return simtoolsManifestCache;
+}
+
+function loadSimtoolsProductArchive(paths, resourceId) {
+  const manifest = loadSimtoolsHistoryManifest(paths);
+  if (!manifest?.products?.length) return null;
+  const numericResourceId = Number(resourceId);
+  const productMeta = manifest.products.find((item) => Number(item?.resourceId) === numericResourceId);
+  if (!productMeta?.fileName) return null;
+  const historyDir = simtoolsHistoryCacheDir || resolveSimtoolsHistoryDir(paths);
+  if (!historyDir) return null;
+  const archivePath = path.join(historyDir, productMeta.fileName);
+  if (simtoolsArchiveCache.has(archivePath)) {
+    return simtoolsArchiveCache.get(archivePath);
+  }
+  const archive = readJsonFileSafe(archivePath, null);
+  simtoolsArchiveCache.set(archivePath, archive);
+  return archive;
+}
+
+async function refreshSimtoolsHistoryIfNeeded(paths, config, { force = false, reason = "background" } = {}) {
+  if (simtoolsHistoryRefreshPromise) {
+    return simtoolsHistoryRefreshPromise;
+  }
+
+  simtoolsHistoryRefreshPromise = (async () => {
+    const historyDir = simtoolsHistoryRoot(paths);
+    fs.mkdirSync(historyDir, { recursive: true });
+
+    const manifest = loadSimtoolsHistoryManifest(paths) || defaultSimtoolsManifest(config.realmId);
+    const meta = loadSimtoolsSyncMeta(paths);
+    const syncPlan = selectSimtoolsSyncTargets(manifest, config, meta, force);
+
+    if (!syncPlan.targets.length) {
+      return {
+        skipped: true,
+        reason,
+        updatedTargets: 0,
+        failedTargets: 0
+      };
+    }
+
+    const nowIso = new Date().toISOString();
+    saveSimtoolsSyncMeta(paths, {
+      ...meta,
+      lastAttemptAt: nowIso,
+      lastReason: reason,
+      status: "running"
+    });
+
+    const nextManifest = structuredClone(manifest);
+    const archivesByResourceId = new Map();
+    const updatedTargets = [];
+    const failedTargets = [];
+    const endMs = Date.now();
+    const startMs = endMs - (SIMTOOLS_HISTORY_DAYS * 24 * 60 * 60 * 1000);
+
+    for (let index = 0; index < syncPlan.targets.length; index += 1) {
+      const target = syncPlan.targets[index];
+      const productMeta = Array.isArray(nextManifest.products)
+        ? nextManifest.products.find((item) => Number(item?.resourceId) === Number(target.resourceId))
+        : null;
+      const fileName = String(productMeta?.fileName || `${String(target.resourceId).padStart(3, "0")}-${slugifyHistoryName(target.name)}.json`);
+      const archivePath = path.join(historyDir, fileName);
+      const archive = archivesByResourceId.get(Number(target.resourceId))
+        || readJsonFileSafe(archivePath, null)
+        || {
+          version: 1,
+          source: "https://api.simcotools.com",
+          realmId: Number(config.realmId || 0),
+          resourceId: Number(target.resourceId),
+          name: String(target.name || productMeta?.name || uiText(`Recurso ${target.resourceId}`, `Resource ${target.resourceId}`)),
+          importedAt: nowIso,
+          granularity: SIMTOOLS_HISTORY_GRANULARITY,
+          days: SIMTOOLS_HISTORY_DAYS,
+          qualities: {}
+        };
+
+      try {
+        const candles = await fetchSimtoolsCandles(config.realmId, target.resourceId, target.quality, startMs, endMs);
+        if (!candles.length) {
+          throw new Error(uiText("SimTools no devolvió velas.", "SimTools returned no candles."));
+        }
+        archive.version = 1;
+        archive.source = "https://api.simcotools.com";
+        archive.realmId = Number(config.realmId || 0);
+        archive.resourceId = Number(target.resourceId);
+        archive.name = String(target.name || archive.name || uiText(`Recurso ${target.resourceId}`, `Resource ${target.resourceId}`));
+        archive.importedAt = nowIso;
+        archive.granularity = SIMTOOLS_HISTORY_GRANULARITY;
+        archive.days = SIMTOOLS_HISTORY_DAYS;
+        archive.qualities = {
+          ...(archive.qualities || {}),
+          [String(target.quality)]: {
+            candles,
+            stats: summarizeSimtoolsCandles(candles)
+          }
+        };
+        archivesByResourceId.set(Number(target.resourceId), archive);
+        writeJsonFileSafe(archivePath, archive);
+        updatedTargets.push(`${target.resourceId}:q${target.quality}`);
+      } catch (error) {
+        failedTargets.push({
+          resourceId: Number(target.resourceId),
+          quality: Number(target.quality),
+          error: String(error?.message || error || uiText("Error desconocido", "Unknown error"))
+        });
+      }
+
+      if (index < syncPlan.targets.length - 1) {
+        await wait(SIMTOOLS_HISTORY_REQUEST_DELAY_MS);
+      }
+    }
+
+    if (archivesByResourceId.size) {
+      archivesByResourceId.forEach((archive, resourceId) => {
+        const existingMeta = Array.isArray(nextManifest.products)
+          ? nextManifest.products.find((item) => Number(item?.resourceId) === Number(resourceId))
+          : null;
+        if (!existingMeta) {
+          nextManifest.products.push({
+            resourceId: Number(resourceId),
+            name: String(archive.name || `Recurso ${resourceId}`),
+            fileName: `${String(resourceId).padStart(3, "0")}-${slugifyHistoryName(archive.name)}.json`,
+            qualities: []
+          });
+        }
+      });
+      nextManifest.importedAt = nowIso;
+      nextManifest.realmId = Number(config.realmId || 0);
+      nextManifest.granularity = SIMTOOLS_HISTORY_GRANULARITY;
+      nextManifest.days = SIMTOOLS_HISTORY_DAYS;
+      rebuildManifestProducts(nextManifest, archivesByResourceId);
+      writeJsonFileSafe(path.join(historyDir, "manifest.json"), nextManifest);
+      simtoolsHistoryCacheDir = historyDir;
+      simtoolsManifestCache = null;
+      simtoolsArchiveCache.clear();
+    }
+
+    saveSimtoolsSyncMeta(paths, {
+      ...meta,
+      lastAttemptAt: nowIso,
+      lastSuccessAt: updatedTargets.length ? nowIso : meta?.lastSuccessAt || "",
+      lastReason: reason,
+      status: failedTargets.length ? "completed-with-errors" : "completed",
+      updatedTargets,
+      failedTargets
+    });
+
+    return {
+      skipped: false,
+      reason,
+      updatedTargets: updatedTargets.length,
+      failedTargets: failedTargets.length
+    };
+  })()
+    .finally(() => {
+      simtoolsHistoryRefreshPromise = null;
+    });
+
+  return simtoolsHistoryRefreshPromise;
+}
+
+function startSimtoolsHistoryAutoRefresh() {
+  clearInterval(simtoolsHistoryRefreshTimer);
+  simtoolsHistoryRefreshTimer = setInterval(() => {
+    const paths = dataPaths();
+    const config = buildConfigSnapshot(loadConfig(paths));
+    refreshSimtoolsHistoryIfNeeded(paths, config, { reason: "interval" })
+      .then((result) => {
+        if (!result?.updatedTargets) return;
+        if (mainWindow && !mainWindow.isDestroyed()) {
+          mainWindow.webContents.send("dashboard:updated");
+        }
+      })
+      .catch(() => {});
+  }, SIMTOOLS_HISTORY_REFRESH_INTERVAL_MS);
+}
+
+function queueSimtoolsHistoryRefresh(reason = "startup", { force = false } = {}) {
+  const paths = dataPaths();
+  const config = buildConfigSnapshot(loadConfig(paths));
+  startSimtoolsHistoryAutoRefresh();
+  refreshSimtoolsHistoryIfNeeded(paths, config, { reason, force })
+    .then((result) => {
+      if (!result?.updatedTargets) return;
+      if (mainWindow && !mainWindow.isDestroyed()) {
+        mainWindow.webContents.send("dashboard:updated");
+      }
+    })
+    .catch(() => {});
+}
+
+function buildExternalChartSeries(paths, rule) {
+  const archive = loadSimtoolsProductArchive(paths, rule.resourceId);
+  const qualityBucket = archive?.qualities?.[String(rule.quality)];
+  const candles = Array.isArray(qualityBucket?.candles) ? qualityBucket.candles : [];
+  return candles
+    .slice(-ALERT_CHART_POINT_COUNT)
+    .map((candle) => normalizeHistoryPoint({
+      price: candle?.close,
+      time: candle?.date
+    }))
+    .filter(Boolean);
+}
+
+function mergeChartSeries(baseSeries = [], overlaySeries = [], fallbackPoint = null) {
+  const merged = [];
+  const seen = new Set();
+  const pushPoint = (point) => {
+    const normalized = normalizeHistoryPoint(point);
+    if (!normalized) return;
+    const key = `${normalized.time}|${normalized.price}`;
+    if (seen.has(key)) return;
+    seen.add(key);
+    merged.push(normalized);
+  };
+
+  baseSeries.forEach(pushPoint);
+  const baseLastTime = merged.length ? Date.parse(merged[merged.length - 1].time) : -Infinity;
+  overlaySeries
+    .filter(Boolean)
+    .filter((point) => {
+      const parsed = Date.parse(String(point?.time || ""));
+      return !Number.isFinite(baseLastTime) || !merged.length || !Number.isFinite(parsed) || parsed >= baseLastTime;
+    })
+    .forEach(pushPoint);
+  pushPoint(fallbackPoint);
+  return merged.slice(-ALERT_CHART_POINT_COUNT);
+}
+
+function alertSeriesKey(resourceId, quality) {
+  return `${Number(resourceId) || 0}:q${Number(quality) || 0}`;
+}
+
+function normalizeHistoryPoint(point) {
+  const price = Number(point?.price);
+  const time = String(point?.time || "").trim();
+  if (!Number.isFinite(price) || !time) return null;
+  return { price, time };
+}
+
+function buildAlertHistoryMap(paths, config, historyBySeries = {}, state = {}, liveResults = {}) {
+  const chartByAlertId = new Map();
+  config.alerts.forEach((rawRule, index) => {
+    const rule = normalizeRule(rawRule, index + 1);
+    const seriesKey = alertSeriesKey(rule.resourceId, rule.quality);
+    const runtime = liveResults?.[rule.id] || {};
+    const persisted = state?.[rule.id] || {};
+    const externalSeries = buildExternalChartSeries(paths, rule);
+    const localSeries = Array.isArray(historyBySeries?.[seriesKey])
+      ? historyBySeries[seriesKey].map(normalizeHistoryPoint).filter(Boolean)
+      : [];
+    const fallbackPrice = Number.isFinite(Number(runtime?.price))
+      ? Number(runtime.price)
+      : Number(persisted?.lastSeenPrice);
+    const fallbackTime = String(runtime?.sourceTime || persisted?.resourceTime || persisted?.lastSeenAt || "").trim();
+    const fallbackPoint = Number.isFinite(fallbackPrice) && fallbackTime
+      ? { price: fallbackPrice, time: fallbackTime }
+      : null;
+    const series = mergeChartSeries(externalSeries, localSeries, fallbackPoint);
+    if (!series.length) {
+      return;
+    }
+    const points = series.slice(-ALERT_CHART_POINT_COUNT);
+    const values = points.map((point) => point.price).filter(Number.isFinite);
+    if (!values.length) {
+      return;
+    }
+    chartByAlertId.set(rule.id, {
+      points,
+      minPrice: Math.min(...values),
+      maxPrice: Math.max(...values),
+      targetPrice: Number.isFinite(Number(rule.targetPrice)) ? Number(rule.targetPrice) : null,
+      targetPriceMax: Number.isFinite(Number(rule.targetPriceMax)) ? Number(rule.targetPriceMax) : null
+    });
+  });
+  return chartByAlertId;
+}
+
+function updatePriceHistory(paths, config, liveResults = {}, scannedAt = null) {
+  const historyBySeries = loadPriceHistory(paths);
+  config.alerts.forEach((rawRule, index) => {
+    const rule = normalizeRule(rawRule, index + 1);
+    const runtime = liveResults?.[rule.id];
+    const price = Number(runtime?.price);
+    if (!Number.isFinite(price)) {
+      return;
+    }
+    const seriesKey = alertSeriesKey(rule.resourceId, rule.quality);
+    const nextPoint = {
+      price,
+      time: String(runtime?.sourceTime || scannedAt || new Date().toISOString())
+    };
+    if (!nextPoint.time) {
+      return;
+    }
+    const currentSeries = Array.isArray(historyBySeries[seriesKey])
+      ? historyBySeries[seriesKey].map(normalizeHistoryPoint).filter(Boolean)
+      : [];
+    const previousPoint = currentSeries[currentSeries.length - 1];
+    if (!previousPoint || previousPoint.time !== nextPoint.time || Number(previousPoint.price) !== nextPoint.price) {
+      currentSeries.push(nextPoint);
+    }
+    historyBySeries[seriesKey] = currentSeries.slice(-PRICE_HISTORY_MAX_POINTS);
+  });
+  savePriceHistory(paths, historyBySeries);
+  return historyBySeries;
+}
+
 function priceGap(rule, price) {
   if (!Number.isFinite(price)) {
     return {
       gapDisplay: "-",
       gapPercentDisplay: "-",
-      gapSentence: "Todavía no hay una lectura cargada para esta alerta."
+      gapSentence: uiText("Todavía no hay una lectura cargada para esta alerta.", "There is no reading loaded for this alert yet.")
     };
   }
   if (rule.condition === "<=" || rule.condition === "<") {
@@ -738,12 +1356,12 @@ function priceGap(rule, price) {
       ? {
           gapDisplay: formatMarketNumber(diff),
           gapPercentDisplay: signedPercent(pct),
-          gapSentence: `Le faltan ${formatMarketNumber(diff)} para entrar en compra.`
+          gapSentence: uiText(`Le faltan ${formatMarketNumber(diff)} para entrar en compra.`, `${formatMarketNumber(diff)} away from entering the buy zone.`)
         }
       : {
           gapDisplay: formatMarketNumber(Math.abs(diff)),
           gapPercentDisplay: signedPercent(pct),
-          gapSentence: `Ya está ${formatMarketNumber(Math.abs(diff))} abajo de tu precio de compra.`
+          gapSentence: uiText(`Ya está ${formatMarketNumber(Math.abs(diff))} abajo de tu precio de compra.`, `Already ${formatMarketNumber(Math.abs(diff))} below your buy price.`)
         };
   }
   if (rule.condition === ">=" || rule.condition === ">") {
@@ -753,12 +1371,12 @@ function priceGap(rule, price) {
       ? {
           gapDisplay: formatMarketNumber(diff),
           gapPercentDisplay: signedPercent(pct),
-          gapSentence: `Le faltan ${formatMarketNumber(diff)} para entrar en venta.`
+          gapSentence: uiText(`Le faltan ${formatMarketNumber(diff)} para entrar en venta.`, `${formatMarketNumber(diff)} away from entering the sell zone.`)
         }
       : {
           gapDisplay: formatMarketNumber(Math.abs(diff)),
           gapPercentDisplay: signedPercent(pct),
-          gapSentence: `Ya está ${formatMarketNumber(Math.abs(diff))} arriba de tu precio de venta.`
+          gapSentence: uiText(`Ya está ${formatMarketNumber(Math.abs(diff))} arriba de tu precio de venta.`, `Already ${formatMarketNumber(Math.abs(diff))} above your sell price.`)
         };
   }
   if (rule.condition === "between") {
@@ -768,7 +1386,7 @@ function priceGap(rule, price) {
       return {
         gapDisplay: "0",
         gapPercentDisplay: "0.00%",
-        gapSentence: "El precio ya está dentro del rango."
+        gapSentence: uiText("El precio ya está dentro del rango.", "The price is already inside the range.")
       };
     }
     const edge = price < low ? low : high;
@@ -777,7 +1395,7 @@ function priceGap(rule, price) {
     return {
       gapDisplay: formatMarketNumber(diff),
       gapPercentDisplay: signedPercent(pct),
-      gapSentence: `Le faltan ${formatMarketNumber(diff)} para entrar al rango.`
+      gapSentence: uiText(`Le faltan ${formatMarketNumber(diff)} para entrar al rango.`, `${formatMarketNumber(diff)} away from entering the range.`)
     };
   }
   const diff = Math.abs(price - rule.targetPrice);
@@ -785,20 +1403,20 @@ function priceGap(rule, price) {
   return {
     gapDisplay: formatMarketNumber(diff),
     gapPercentDisplay: signedPercent(pct),
-    gapSentence: `Le faltan ${formatMarketNumber(diff)} para tocar tu precio objetivo.`
+    gapSentence: uiText(`Le faltan ${formatMarketNumber(diff)} para tocar tu precio objetivo.`, `${formatMarketNumber(diff)} away from your target price.`)
   };
 }
 
-function buildAlertRows(config, state, liveResults = {}) {
+function buildAlertRows(config, state, liveResults = {}, chartByAlertId = new Map()) {
   return config.alerts.map((rawRule, index) => {
-    const rule = normalizeRule(rawRule, index + 1);
+    const rule = normalizeRule(rawRule, index + 1, uiLanguage);
     const runtime = liveResults[rule.id] || {};
     const persisted = state[rule.id] || {};
     const resource = getResourceById(rule.resourceId);
-    const resourceName = runtime.resourceName || resource?.label || `Recurso ${rule.resourceId}`;
+    const resourceName = localizedResourceName(resource) || runtime.resourceName || resourceFallbackLabel(rule.resourceId);
     const price = Number.isFinite(runtime.price) ? runtime.price : Number(persisted.lastSeenPrice);
     const matched = typeof runtime.matched === "boolean" ? runtime.matched : Boolean(persisted.matched);
-    const action = classifyRule(rule);
+    const action = classifyRule(rule, uiLanguage);
     const gap = priceGap(rule, price);
     return {
       index,
@@ -819,25 +1437,34 @@ function buildAlertRows(config, state, liveResults = {}) {
       actionLabel: action.label,
       price,
       priceDisplay: Number.isFinite(price) ? formatMarketNumber(price) : "-",
-      targetDisplay: describeCondition(rule),
+      targetDisplay: describeCondition(rule, uiLanguage),
       triggerSentence:
-        rule.condition === "<=" ? `Avisa si baja a ${formatMarketNumber(rule.targetPrice)} o menos` :
-        rule.condition === "<" ? `Avisa si baja de ${formatMarketNumber(rule.targetPrice)}` :
-        rule.condition === ">=" ? `Avisa si sube a ${formatMarketNumber(rule.targetPrice)} o más` :
-        rule.condition === ">" ? `Avisa si sube de ${formatMarketNumber(rule.targetPrice)}` :
-        rule.condition === "between" ? `Avisa si entra entre ${formatMarketNumber(rule.targetPrice)} y ${formatMarketNumber(rule.targetPriceMax)}` :
-        `Avisa si toca ${formatMarketNumber(rule.targetPrice)}`,
+        rule.condition === "<=" ? uiText(`Avisa si baja a ${formatMarketNumber(rule.targetPrice)} o menos`, `Alert me if it drops to ${formatMarketNumber(rule.targetPrice)} or below`) :
+        rule.condition === "<" ? uiText(`Avisa si baja de ${formatMarketNumber(rule.targetPrice)}`, `Alert me if it drops below ${formatMarketNumber(rule.targetPrice)}`) :
+        rule.condition === ">=" ? uiText(`Avisa si sube a ${formatMarketNumber(rule.targetPrice)} o más`, `Alert me if it rises to ${formatMarketNumber(rule.targetPrice)} or above`) :
+        rule.condition === ">" ? uiText(`Avisa si sube de ${formatMarketNumber(rule.targetPrice)}`, `Alert me if it rises above ${formatMarketNumber(rule.targetPrice)}`) :
+        rule.condition === "between" ? uiText(`Avisa si entra entre ${formatMarketNumber(rule.targetPrice)} y ${formatMarketNumber(rule.targetPriceMax)}`, `Alert me if it enters the range ${formatMarketNumber(rule.targetPrice)} to ${formatMarketNumber(rule.targetPriceMax)}`) :
+        uiText(`Avisa si toca ${formatMarketNumber(rule.targetPrice)}`, `Alert me if it hits ${formatMarketNumber(rule.targetPrice)}`),
       gapDisplay: gap.gapDisplay,
       gapPercentDisplay: gap.gapPercentDisplay,
       gapSentence: gap.gapSentence,
       matched,
-      statusText: !rule.enabled ? "Pausada" : matched ? (action.key === "buy" ? "Momento de compra" : action.key === "sell" ? "Momento de venta" : "Dentro del rango") : "Todavía no llegó",
+      statusText: !rule.enabled
+        ? uiText("Pausada", "Paused")
+        : matched
+          ? (action.key === "buy"
+            ? uiText("Momento de compra", "Buy moment")
+            : action.key === "sell"
+              ? uiText("Momento de venta", "Sell moment")
+              : uiText("Dentro del rango", "Inside range"))
+          : uiText("Todavía no llegó", "Not there yet"),
       statusTone: !rule.enabled ? "muted" : matched ? "match" : "watch",
       lastSeenAt: runtime.sourceTime || persisted.lastSeenAt || "",
       lastSeenLocal: isoLocal(runtime.sourceTime || persisted.lastSeenAt),
       sourceTime: runtime.sourceTime || persisted.resourceTime || "",
       sourceTimeLocal: isoLocal(runtime.sourceTime || persisted.resourceTime),
-      lastNotifiedAt: persisted.lastNotifiedAt || null
+      lastNotifiedAt: persisted.lastNotifiedAt || null,
+      chart: chartByAlertId.get(rule.id) || null
     };
   });
 }
@@ -846,7 +1473,9 @@ function buildDashboard(liveResults = {}, scanErrors = [], scannedAt = null) {
   const paths = dataPaths();
   const config = buildConfigSnapshot(loadConfig(paths));
   const state = loadState(paths);
-  const alerts = buildAlertRows(config, state, liveResults);
+  const historyBySeries = loadPriceHistory(paths);
+  const chartByAlertId = buildAlertHistoryMap(paths, config, historyBySeries, state, liveResults);
+  const alerts = buildAlertRows(config, state, liveResults, chartByAlertId);
   const events = recentEvents(paths);
   const effectiveErrors = Array.isArray(scanErrors) && (scanErrors.length || scannedAt)
     ? scanErrors
@@ -869,7 +1498,7 @@ function buildDashboard(liveResults = {}, scanErrors = [], scannedAt = null) {
       matchedAlerts: alerts.filter((item) => item.enabled && item.matched).length
     },
     monitor: {
-      statusLabel: scanInFlight ? "Escaneando" : config.scanEnabled === false ? "Pausado" : "Activo",
+      statusLabel: scanInFlight ? uiText("Escaneando", "Scanning") : config.scanEnabled === false ? uiText("Pausado", "Paused") : uiText("Activo", "Active"),
       intervalSeconds: config.pollSeconds,
       scanEnabled: config.scanEnabled !== false,
       marketState: marketStatus.state,
@@ -906,6 +1535,7 @@ async function runScan(triggerNotifications = true, options = {}) {
       appendEvent: append,
       allowNetwork: options.allowNetwork !== false,
       triggerNotifications,
+      locale: uiLanguage,
       onTrigger: (payload) => {
         if (mainWindow && !mainWindow.isDestroyed()) {
           mainWindow.webContents.send("alert:triggered", payload);
@@ -918,6 +1548,7 @@ async function runScan(triggerNotifications = true, options = {}) {
       }
     });
     saveState(paths, state);
+    updatePriceHistory(paths, config, result.results, result.scannedAt);
     lastScanSnapshot = {
       scannedAt: result.scannedAt,
       errors: result.errors
@@ -1096,6 +1727,8 @@ app.whenReady().then(() => {
   }
 
   ipcMain.handle("dashboard:get", async () => buildDashboard());
+  ipcMain.handle("catalog:get", async () => RESOURCE_CATALOG);
+  ipcMain.handle("ui:set-language", async (_event, locale) => setUiLanguage(locale));
   ipcMain.handle("updates:get-state", async () => updateState);
   ipcMain.handle("updates:check", async () => checkForUpdates({ showPrompt: true }));
   ipcMain.handle("updates:primary-action", async () => runUpdatePrimaryAction());
@@ -1107,6 +1740,14 @@ app.whenReady().then(() => {
     const previousConfig = buildConfigSnapshot(loadConfig(paths));
     const nextConfig = normalizeIncomingConfig(payload);
     saveConfig(paths, nextConfig);
+    refreshSimtoolsHistoryIfNeeded(paths, buildConfigSnapshot(nextConfig), { reason: "config-save" })
+      .then((result) => {
+        if (!result?.updatedTargets) return;
+        if (mainWindow && !mainWindow.isDestroyed()) {
+          mainWindow.webContents.send("dashboard:updated");
+        }
+      })
+      .catch(() => {});
     if (nextConfig.channels?.discordWebhookUrl) {
       configureDiscordWebhookBranding(nextConfig.channels.discordWebhookUrl).catch(() => {});
     } else {
@@ -1122,7 +1763,7 @@ app.whenReady().then(() => {
     return buildDashboard();
   });
 
-  ipcMain.handle("scan:now", async () => runScan(false, { allowNetwork: false }));
+  ipcMain.handle("scan:now", async () => runScan(false, { allowNetwork: true }));
 
   ipcMain.handle("monitor:set-enabled", async (_event, enabled) => {
     const paths = dataPaths();
@@ -1146,6 +1787,14 @@ app.whenReady().then(() => {
   ipcMain.handle("events:clear", async () => {
     clearEvents(dataPaths());
     return buildDashboard();
+  });
+
+  ipcMain.handle("external:open", async (_event, url) => {
+    if (typeof url !== "string" || !/^https?:\/\//i.test(url)) {
+      return { ok: false };
+    }
+    await shell.openExternal(url);
+    return { ok: true };
   });
 
   ipcMain.handle("data:open-directory", async () => {
@@ -1175,6 +1824,7 @@ app.whenReady().then(() => {
 });
 
 app.on("window-all-closed", () => {
+  clearInterval(simtoolsHistoryRefreshTimer);
   if (process.platform !== "darwin") {
     app.quit();
   }
