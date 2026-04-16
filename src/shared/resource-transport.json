@@ -1,0 +1,716 @@
+{
+  "realmId": 0,
+  "generatedAt": "2026-04-09T09:03:11Z",
+  "transports": [
+    {
+      "id": 100,
+      "label": "Investigación aeroespacial",
+      "transportUnits": 0.0
+    },
+    {
+      "id": 2,
+      "label": "Agua",
+      "transportUnits": 0.0
+    },
+    {
+      "id": 18,
+      "label": "Aluminio",
+      "transportUnits": 1.0
+    },
+    {
+      "id": 125,
+      "label": "Sidra de manzana",
+      "transportUnits": 1.0
+    },
+    {
+      "id": 154,
+      "label": "Helado de manzana",
+      "transportUnits": 1.0
+    },
+    {
+      "id": 123,
+      "label": "Tarta de manzana",
+      "transportUnits": 2.0
+    },
+    {
+      "id": 3,
+      "label": "Manzanas",
+      "transportUnits": 1.0
+    },
+    {
+      "id": 82,
+      "label": "Control de actitud",
+      "transportUnits": 1.0
+    },
+    {
+      "id": 58,
+      "label": "Investigación automotriz",
+      "transportUnits": 0.0
+    },
+    {
+      "id": 50,
+      "label": "Interior básico",
+      "transportUnits": 2.0
+    },
+    {
+      "id": 22,
+      "label": "Baterías",
+      "transportUnits": 1.0
+    },
+    {
+      "id": 15,
+      "label": "Bauxita",
+      "transportUnits": 1.0
+    },
+    {
+      "id": 121,
+      "label": "Pan",
+      "transportUnits": 1.0
+    },
+    {
+      "id": 33,
+      "label": "Investigación ganadera",
+      "transportUnits": 0.0
+    },
+    {
+      "id": 102,
+      "label": "Bloques",
+      "transportUnits": 1.0
+    },
+    {
+      "id": 112,
+      "label": "Excavadora",
+      "transportUnits": 5.0
+    },
+    {
+      "id": 134,
+      "label": "Mantequilla",
+      "transportUnits": 1.0
+    },
+    {
+      "id": 51,
+      "label": "Carrocería",
+      "transportUnits": 2.0
+    },
+    {
+      "id": 76,
+      "label": "Compuesto de carbono",
+      "transportUnits": 1.0
+    },
+    {
+      "id": 75,
+      "label": "Fibras de carbono",
+      "transportUnits": 0.1
+    },
+    {
+      "id": 103,
+      "label": "Cemento",
+      "transportUnits": 1.0
+    },
+    {
+      "id": 122,
+      "label": "Queso",
+      "transportUnits": 1.0
+    },
+    {
+      "id": 17,
+      "label": "Químicos",
+      "transportUnits": 1.0
+    },
+    {
+      "id": 34,
+      "label": "Investigación química",
+      "transportUnits": 0.0
+    },
+    {
+      "id": 140,
+      "label": "Chocolate",
+      "transportUnits": 1.0
+    },
+    {
+      "id": 153,
+      "label": "Helado de chocolate",
+      "transportUnits": 1.0
+    },
+    {
+      "id": 104,
+      "label": "Arcilla",
+      "transportUnits": 1.0
+    },
+    {
+      "id": 81,
+      "label": "Cabina",
+      "transportUnits": 1.0
+    },
+    {
+      "id": 132,
+      "label": "Cócteles",
+      "transportUnits": 2.0
+    },
+    {
+      "id": 136,
+      "label": "Cacao",
+      "transportUnits": 0.1
+    },
+    {
+      "id": 118,
+      "label": "Granos de café",
+      "transportUnits": 0.1
+    },
+    {
+      "id": 119,
+      "label": "Café en polvo",
+      "transportUnits": 1.0
+    },
+    {
+      "id": 52,
+      "label": "Motor de combustión",
+      "transportUnits": 2.0
+    },
+    {
+      "id": 40,
+      "label": "Algodón",
+      "transportUnits": 0.5
+    },
+    {
+      "id": 115,
+      "label": "Vacas",
+      "transportUnits": 1.0
+    },
+    {
+      "id": 155,
+      "label": "Cream egg",
+      "transportUnits": 1.0
+    },
+    {
+      "id": 10,
+      "label": "Petróleo",
+      "transportUnits": 1.0
+    },
+    {
+      "id": 12,
+      "label": "Diésel",
+      "transportUnits": 1.0
+    },
+    {
+      "id": 23,
+      "label": "Pantallas",
+      "transportUnits": 1.0
+    },
+    {
+      "id": 137,
+      "label": "Masa",
+      "transportUnits": 1.0
+    },
+    {
+      "id": 62,
+      "label": "Vestido",
+      "transportUnits": 1.0
+    },
+    {
+      "id": 151,
+      "label": "Conejo de Pascua",
+      "transportUnits": 1.0
+    },
+    {
+      "id": 55,
+      "label": "Coche económico",
+      "transportUnits": 5.0
+    },
+    {
+      "id": 53,
+      "label": "E-car económico",
+      "transportUnits": 5.0
+    },
+    {
+      "id": 9,
+      "label": "Huevos",
+      "transportUnits": 0.1
+    },
+    {
+      "id": 48,
+      "label": "Motor eléctrico",
+      "transportUnits": 2.0
+    },
+    {
+      "id": 21,
+      "label": "Componentes electrónicos",
+      "transportUnits": 1.0
+    },
+    {
+      "id": 32,
+      "label": "Investigación electrónica",
+      "transportUnits": 0.0
+    },
+    {
+      "id": 30,
+      "label": "Investigación energética",
+      "transportUnits": 0.0
+    },
+    {
+      "id": 73,
+      "label": "Etanol",
+      "transportUnits": 1.0
+    },
+    {
+      "id": 41,
+      "label": "Tela",
+      "transportUnits": 0.5
+    },
+    {
+      "id": 59,
+      "label": "Investigación de moda",
+      "transportUnits": 0.0
+    },
+    {
+      "id": 80,
+      "label": "Computadora de vuelo",
+      "transportUnits": 1.0
+    },
+    {
+      "id": 133,
+      "label": "Harina",
+      "transportUnits": 0.1
+    },
+    {
+      "id": 139,
+      "label": "Forraje",
+      "transportUnits": 1.0
+    },
+    {
+      "id": 127,
+      "label": "Pizza congelada",
+      "transportUnits": 1.0
+    },
+    {
+      "id": 77,
+      "label": "Fuselaje",
+      "transportUnits": 2.0
+    },
+    {
+      "id": 126,
+      "label": "Cerveza de jengibre",
+      "transportUnits": 1.0
+    },
+    {
+      "id": 45,
+      "label": "Vidrio",
+      "transportUnits": 1.0
+    },
+    {
+      "id": 61,
+      "label": "Guantes",
+      "transportUnits": 1.0
+    },
+    {
+      "id": 68,
+      "label": "Mineral de oro",
+      "transportUnits": 10.0
+    },
+    {
+      "id": 69,
+      "label": "Barras de oro",
+      "transportUnits": 1000.0
+    },
+    {
+      "id": 6,
+      "label": "Grano",
+      "transportUnits": 0.1
+    },
+    {
+      "id": 5,
+      "label": "Uvas",
+      "transportUnits": 1.0
+    },
+    {
+      "id": 129,
+      "label": "Hamburguesa",
+      "transportUnits": 2.0
+    },
+    {
+      "id": 64,
+      "label": "Bolsos de mano",
+      "transportUnits": 1.0
+    },
+    {
+      "id": 87,
+      "label": "Escudo térmico",
+      "transportUnits": 1.0
+    },
+    {
+      "id": 79,
+      "label": "Electrónicos de alto grado",
+      "transportUnits": 1.0
+    },
+    {
+      "id": 88,
+      "label": "Propulsor iónico",
+      "transportUnits": 1.0
+    },
+    {
+      "id": 42,
+      "label": "Mineral de hierro",
+      "transportUnits": 1.0
+    },
+    {
+      "id": 147,
+      "label": "Calabaza de Halloween",
+      "transportUnits": 1.0
+    },
+    {
+      "id": 89,
+      "label": "Motor de turbina",
+      "transportUnits": 1.0
+    },
+    {
+      "id": 26,
+      "label": "Laptops",
+      "transportUnits": 2.0
+    },
+    {
+      "id": 130,
+      "label": "Lasaña",
+      "transportUnits": 2.0
+    },
+    {
+      "id": 46,
+      "label": "Cuero",
+      "transportUnits": 1.0
+    },
+    {
+      "id": 105,
+      "label": "Caliza",
+      "transportUnits": 1.0
+    },
+    {
+      "id": 56,
+      "label": "Coche de lujo",
+      "transportUnits": 5.0
+    },
+    {
+      "id": 49,
+      "label": "Interior de coche de lujo",
+      "transportUnits": 2.0
+    },
+    {
+      "id": 54,
+      "label": "E-car de lujo",
+      "transportUnits": 5.0
+    },
+    {
+      "id": 70,
+      "label": "Reloj de lujo",
+      "transportUnits": 1.0
+    },
+    {
+      "id": 1,
+      "label": "Electricidad",
+      "transportUnits": 0.0
+    },
+    {
+      "id": 113,
+      "label": "Investigación de materiales",
+      "transportUnits": 0.0
+    },
+    {
+      "id": 131,
+      "label": "Albóndigas",
+      "transportUnits": 2.0
+    },
+    {
+      "id": 74,
+      "label": "Metano",
+      "transportUnits": 1.0
+    },
+    {
+      "id": 117,
+      "label": "Leche",
+      "transportUnits": 1.0
+    },
+    {
+      "id": 14,
+      "label": "Minerales",
+      "transportUnits": 1.0
+    },
+    {
+      "id": 31,
+      "label": "Investigación minera",
+      "transportUnits": 0.0
+    },
+    {
+      "id": 27,
+      "label": "Monitores",
+      "transportUnits": 2.0
+    },
+    {
+      "id": 71,
+      "label": "Collar",
+      "transportUnits": 1.0
+    },
+    {
+      "id": 47,
+      "label": "Computadora a bordo",
+      "transportUnits": 1.0
+    },
+    {
+      "id": 124,
+      "label": "Jugo de naranja",
+      "transportUnits": 1.0
+    },
+    {
+      "id": 4,
+      "label": "Naranjas",
+      "transportUnits": 1.0
+    },
+    {
+      "id": 128,
+      "label": "Pasta",
+      "transportUnits": 1.0
+    },
+    {
+      "id": 11,
+      "label": "Gasolina",
+      "transportUnits": 1.0
+    },
+    {
+      "id": 116,
+      "label": "Cerdos",
+      "transportUnits": 1.0
+    },
+    {
+      "id": 108,
+      "label": "Tablones",
+      "transportUnits": 1.0
+    },
+    {
+      "id": 29,
+      "label": "Investigación agrícola",
+      "transportUnits": 0.0
+    },
+    {
+      "id": 19,
+      "label": "Plástico",
+      "transportUnits": 1.0
+    },
+    {
+      "id": 20,
+      "label": "Procesadores",
+      "transportUnits": 1.0
+    },
+    {
+      "id": 84,
+      "label": "Tanque de propelente",
+      "transportUnits": 1.0
+    },
+    {
+      "id": 146,
+      "label": "Calabaza",
+      "transportUnits": 1.0
+    },
+    {
+      "id": 149,
+      "label": "Sopa de calabaza",
+      "transportUnits": 2.0
+    },
+    {
+      "id": 98,
+      "label": "Cuadricóptero",
+      "transportUnits": 2.0
+    },
+    {
+      "id": 152,
+      "label": "dulces de ramadán",
+      "transportUnits": 1.0
+    },
+    {
+      "id": 145,
+      "label": "Recetas",
+      "transportUnits": 0.0
+    },
+    {
+      "id": 101,
+      "label": "Concreto reforzado",
+      "transportUnits": 10.0
+    },
+    {
+      "id": 114,
+      "label": "Robots",
+      "transportUnits": 2.0
+    },
+    {
+      "id": 86,
+      "label": "Motor cohete",
+      "transportUnits": 1.0
+    },
+    {
+      "id": 83,
+      "label": "Combustible para cohetes",
+      "transportUnits": 1.0
+    },
+    {
+      "id": 142,
+      "label": "Ensalada",
+      "transportUnits": 2.0
+    },
+    {
+      "id": 143,
+      "label": "Samosa",
+      "transportUnits": 2.0
+    },
+    {
+      "id": 44,
+      "label": "Arena",
+      "transportUnits": 1.0
+    },
+    {
+      "id": 138,
+      "label": "Salsa",
+      "transportUnits": 2.0
+    },
+    {
+      "id": 8,
+      "label": "Salchichas",
+      "transportUnits": 0.1
+    },
+    {
+      "id": 66,
+      "label": "Semillas",
+      "transportUnits": 0.1
+    },
+    {
+      "id": 16,
+      "label": "Silicio",
+      "transportUnits": 1.0
+    },
+    {
+      "id": 24,
+      "label": "Teléfonos inteligentes",
+      "transportUnits": 2.0
+    },
+    {
+      "id": 65,
+      "label": "Zapatillas",
+      "transportUnits": 1.0
+    },
+    {
+      "id": 35,
+      "label": "Software",
+      "transportUnits": 0.0
+    },
+    {
+      "id": 85,
+      "label": "Propulsor sólido",
+      "transportUnits": 1.0
+    },
+    {
+      "id": 7,
+      "label": "Bistec",
+      "transportUnits": 1.0
+    },
+    {
+      "id": 43,
+      "label": "Acero",
+      "transportUnits": 1.0
+    },
+    {
+      "id": 107,
+      "label": "Vigas de acero",
+      "transportUnits": 5.0
+    },
+    {
+      "id": 63,
+      "label": "Tacón",
+      "transportUnits": 1.0
+    },
+    {
+      "id": 135,
+      "label": "Azúcar",
+      "transportUnits": 1.0
+    },
+    {
+      "id": 72,
+      "label": "Caña de azúcar",
+      "transportUnits": 0.1
+    },
+    {
+      "id": 25,
+      "label": "Tabletas",
+      "transportUnits": 2.0
+    },
+    {
+      "id": 28,
+      "label": "Televisores",
+      "transportUnits": 2.0
+    },
+    {
+      "id": 110,
+      "label": "Herramientas",
+      "transportUnits": 1.0
+    },
+    {
+      "id": 13,
+      "label": "Transporte",
+      "transportUnits": 0.0
+    },
+    {
+      "id": 150,
+      "label": "Árbol",
+      "transportUnits": 1.0
+    },
+    {
+      "id": 57,
+      "label": "Camión",
+      "transportUnits": 5.0
+    },
+    {
+      "id": 60,
+      "label": "Ropa interior",
+      "transportUnits": 1.0
+    },
+    {
+      "id": 111,
+      "label": "Unidades de construcción",
+      "transportUnits": 0.0
+    },
+    {
+      "id": 141,
+      "label": "Aceite vegetal",
+      "transportUnits": 1.0
+    },
+    {
+      "id": 120,
+      "label": "Verduras",
+      "transportUnits": 0.2
+    },
+    {
+      "id": 109,
+      "label": "Ventanas",
+      "transportUnits": 1.0
+    },
+    {
+      "id": 78,
+      "label": "Ala",
+      "transportUnits": 2.0
+    },
+    {
+      "id": 148,
+      "label": "Disfraz de bruja",
+      "transportUnits": 1.0
+    },
+    {
+      "id": 106,
+      "label": "Madera",
+      "transportUnits": 1.0
+    },
+    {
+      "id": 67,
+      "label": "Sorpresas navideñas",
+      "transportUnits": 0.5
+    },
+    {
+      "id": 144,
+      "label": "adorno de navidad",
+      "transportUnits": 0.5
+    }
+  ]
+}

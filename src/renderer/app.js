@@ -1,7 +1,10 @@
 const VIEW_STORAGE_KEY = "simco-desktop-view";
 const CALC_STORAGE_KEY = "simco-desktop-calculator";
 const THEME_STORAGE_KEY = "simco-desktop-theme";
+const LANGUAGE_STORAGE_KEY = "simco-desktop-language";
 const CONTACTS_STORAGE_KEY = "simco-desktop-contacts";
+const EXECUTIVE_STORAGE_KEY = "simco-desktop-executive-intel";
+const CONTACT_IMPORT_BATCHES_STORAGE_KEY = "simco-desktop-contact-import-batches";
 const ONBOARDING_STORAGE_KEY = "simco-desktop-onboarding-completed";
 const NOTIFICATIONS_SEEN_STORAGE_KEY = "simco-desktop-last-seen-event";
 const CONTACTS_PER_PAGE = 4;
@@ -9,28 +12,274 @@ const ALERTS_PER_PAGE = 5;
 const CALC_TARGET_PCTS = [2, 5, 10, 15, 20, 25, 30, 50];
 const CALC_TRANSPORT_UNIT_OPTIONS = ["0", "0.1", "0.2", "0.5", "1", "2", "5", "10", "1000"];
 const VARIOS_LABEL = "Varios";
+const VARIOS_LABEL_EN = "Miscellaneous";
 const CONTACT_TYPE_OPTIONS = ["Proveedor", "Cliente", "Desconocido", "Social", "Socio"];
-const CONTACT_TYPE_FILTER_OPTIONS = [
-  { value: "todos", label: "Todos" },
-  { value: "Proveedor", label: "Proveedores" },
-  { value: "Cliente", label: "Clientes" },
-  { value: "Desconocido", label: "Desconocidos" },
-  { value: "Social", label: "Social" },
-  { value: "Socio", label: "Socios" }
-];
-const CONTACT_TRUST_FILTER_OPTIONS = [
-  { value: "todos", label: "Toda confianza" },
-  { value: "Alto", label: "Alta" },
-  { value: "Medio", label: "Media" },
-  { value: "Bajo", label: "Baja" },
-  { value: "Neutro", label: "Neutro" }
-];
 const CONTACT_TRUST_OPTIONS = [
   { value: "Alto", tone: "alto" },
   { value: "Medio", tone: "medio" },
   { value: "Bajo", tone: "bajo" },
   { value: "Neutro", tone: "neutro" }
 ];
+const EXECUTIVE_ROLE_META = {
+  mgmt: { labelEs: "Operaciones", labelEn: "Operations", short: "COO", accent: "gold" },
+  acct: { labelEs: "Finanzas", labelEn: "Finance", short: "CFO", accent: "emerald" },
+  comm: { labelEs: "Comercial", labelEn: "Commercial", short: "CMO", accent: "blue" },
+  tech: { labelEs: "Tecnologia", labelEn: "Technology", short: "CTO", accent: "crimson" }
+};
+const EXECUTIVE_BAND_META = {
+  elite: { labelEs: "Calibre elite", labelEn: "Elite caliber", copyEs: "Patron muy fuerte en la base observada.", copyEn: "Very strong pattern in the observed base." },
+  alto: { labelEs: "Alta señal", labelEn: "High signal", copyEs: "Perfil consistente para decisiones exigentes.", copyEn: "Consistent profile for demanding decisions." },
+  solido: { labelEs: "Base solida", labelEn: "Solid base", copyEs: "Señal estable y aprovechable.", copyEn: "Stable signal with practical value." },
+  desarrollo: { labelEs: "Potencial en desarrollo", labelEn: "Developing potential", copyEs: "Puede servir con lectura mas cuidadosa.", copyEn: "Useful with a more careful read." },
+  riesgoso: { labelEs: "Lectura incierta", labelEn: "Uncertain read", copyEs: "Conviene validar antes de mover fichas.", copyEn: "Best validated before making a move." }
+};
+const EXECUTIVE_CONFIDENCE_META = {
+  exacta: { labelEs: "Coincidencia exacta", labelEn: "Exact match", min: 0.96 },
+  muyAlta: { labelEs: "Coincidencia muy alta", labelEn: "Very high match", min: 0.8 },
+  alta: { labelEs: "Coincidencia alta", labelEn: "High match", min: 0.64 },
+  media: { labelEs: "Coincidencia util", labelEn: "Useful match", min: 0.44 },
+  baja: { labelEs: "Coincidencia exploratoria", labelEn: "Exploratory match", min: 0 }
+};
+const GROUP_TRANSLATIONS = {
+  Agricultura: { en: "Agriculture" },
+  Alimento: { en: "Food" },
+  "Construcción": { en: "Construction" },
+  Moda: { en: "Fashion" },
+  "Energía": { en: "Energy" },
+  "Electrónica": { en: "Electronics" },
+  Automotor: { en: "Automotive" },
+  Aeroespacial: { en: "Aerospace" },
+  Recursos: { en: "Resources" },
+  "Investigación": { en: "Research" },
+  Estacional: { en: "Seasonal" },
+  Varios: { en: "Miscellaneous" }
+};
+const I18N = {
+  es: {
+    tabMercado: "Mercado",
+    tabCalculadora: "Calculadora",
+    tabEjecutivos: "Ejecutivos",
+    tabRegistro: "Registro",
+    toggleThemeLight: "Activar modo claro",
+    toggleThemeDark: "Activar modo oscuro",
+    languageButton: "EN",
+    statsMonitor: "Monitor",
+    statsAlerts: "Alertas",
+    statsInZone: "En zona",
+    statsLastReview: "Última revisión",
+    noData: "Sin datos",
+    scanMarket: "Escanear mercado",
+    checkUpdates: "Buscar updates",
+    saveChanges: "Guardar cambios",
+    savePendingChanges: "Guardar cambios pendientes",
+    discard: "Descartar",
+    startScan: "Iniciar escaneo",
+    stopScan: "Parar escaneo",
+    viewMercadoTitle: "ALERTAS DE MERCADO",
+    viewCalculadoraTitle: "CALCULADORA DE COSTOS",
+    viewEjecutivosTitle: "RADAR DE EJECUTIVOS",
+    viewRegistroTitle: "REGISTRO DE CONTACTOS",
+    sectionCurrentReading: "Lectura actual",
+    sectionEditAlert: "Editar alerta",
+    sectionChannels: "Canales de aviso",
+    sectionThanks: "Agradecimientos",
+    thanksTitle: "Gracias por la inspiración y las referencias.",
+    thanksCopy: "Muchos conceptos de esta app nacieron mirando el trabajo de estas dos páginas.",
+    openSite: "Abrir sitio",
+    sectionWatchedMarket: "Mercado vigilado",
+    searchNameOrAsset: "Buscar por nombre o activo",
+    filterAll: "Todas",
+    filterBuy: "Compra",
+    filterSell: "Venta",
+    filterMatch: "En zona",
+    filterDisabled: "Pausadas",
+    newAlert: "Nueva alerta",
+    sectionPurchaseParams: "Parámetros de compra",
+    newCalculation: "Nuevo cálculo",
+    labelProduct: "Producto",
+    optionalAutofill: "opcional, autorrellena transporte",
+    noProductSelected: "Sin producto seleccionado",
+    productAutofillCopy: "Usalo para traer las unidades de transporte del activo.",
+    searchGroupOrAsset: "Buscar rubro o activo",
+    searchAssetByNameId: "Buscar activo por nombre o ID",
+    labelCostPerUnit: "Costo por unidad",
+    labelQuantity: "Cantidad",
+    unitsLabel: "unidades",
+    labelTransportPrice: "Transporte",
+    transportUnitPrice: "precio unitario",
+    labelUnitsPerUnit: "Unidades/u",
+    sectionPriceCheck: "Verificador de precio",
+    labelSellCheck: "Precio al que pensás vender",
+    perUnit: "por unidad",
+    deleteCalculation: "Eliminar cálculo",
+    calcPage: "Cálculo {current} de {total}",
+    calcEmpty: "Ingresá el precio de compra<br />para ver los cálculos",
+    breakEvenTitle: "Precio mínimo de venta (breakeven)",
+    baseCost: "Costo base",
+    sellFee: "Fee 4%",
+    freightPerUnit: "Transporte/u",
+    totalInvestment: "Inversión total",
+    totalFee: "Fee total",
+    totalFreight: "Transporte total",
+    profitTargets: "Objetivos de ganancia",
+    targetPriceResult: "Resultado de tu precio objetivo",
+    enterPrice: "Ingresá un precio",
+    newContact: "Nuevo contacto",
+    contactArchive: "Archivo de contactos",
+    recordsCount: "{count} registros",
+    searchContact: "Buscar contacto...",
+    executiveBase: "Base de lectura",
+    executiveEntry: "Entrada de feedback",
+    executiveFeedback: "Feedback del candidato",
+    executiveFeedbackPlaceholder: "Pegá el feedback completo del candidato para abrir el radar.",
+    executiveObservedSalary: "Salario observado",
+    optional: "opcional",
+    executiveSalaryPlaceholder: "Ej: 1673",
+    analyzeProfile: "Analizar perfil",
+    clear: "Limpiar",
+    howToRead: "Cómo leerlo",
+    executiveGuide1: "1. Pegás el feedback del candidato tal como aparece en el juego.",
+    executiveGuide2: "2. Si tenés salario observado, lo agregás para afinar la lectura.",
+    executiveGuide3: "3. La app cruza texto, señales dominantes y observaciones salariales locales.",
+    executiveRadar: "Radar ejecutivo",
+    historyTitle: "Historial del contacto",
+    historySubtitle: "Pegá una conversación o cargá una interacción manual. Cada entrada queda guardada dentro del contacto y puede editarse agregando nuevas interacciones cuando quieras.",
+    newInteraction: "Nueva interacción",
+    date: "Fecha",
+    datePlaceholder: "Ej: 21 days ago o 29 de mar de 2026",
+    note: "Nota",
+    notePlaceholder: "Escriba sus apreciaciones",
+    pasteConversation: "Pegar conversación",
+    pasteConversationPlaceholder: "Pegá el chat copiado tal como sale del juego y se separará en mensajes.",
+    clearForm: "Limpiar",
+    saveInteraction: "Guardar interacción",
+    savedHistory: "Historial guardado",
+    close: "Cerrar",
+    notificationsTitle: "NOTIFICACIONES",
+    notificationsSubtitle: "Resumen reciente de disparos, salidas de zona y errores del monitor.",
+    clearInbox: "Limpiar casilla",
+    checkingUpdates: "Buscando updates",
+    notNow: "Ahora no",
+    download: "Descargar",
+    onboardingStep: "Primer recorrido",
+    onboardingSkip: "Saltar",
+    onboardingBack: "Atrás",
+    onboardingNext: "Siguiente",
+    onboardingCreateAlert: "Crear primera alerta"
+  },
+  en: {
+    tabMercado: "Market",
+    tabCalculadora: "Calculator",
+    tabEjecutivos: "Executives",
+    tabRegistro: "Registry",
+    toggleThemeLight: "Enable light mode",
+    toggleThemeDark: "Enable dark mode",
+    languageButton: "ES",
+    statsMonitor: "Monitor",
+    statsAlerts: "Alerts",
+    statsInZone: "In zone",
+    statsLastReview: "Last review",
+    noData: "No data",
+    scanMarket: "Scan market",
+    checkUpdates: "Check updates",
+    saveChanges: "Save changes",
+    savePendingChanges: "Save pending changes",
+    discard: "Discard",
+    startScan: "Start scan",
+    stopScan: "Stop scan",
+    viewMercadoTitle: "MARKET ALERTS",
+    viewCalculadoraTitle: "COST CALCULATOR",
+    viewEjecutivosTitle: "EXECUTIVE RADAR",
+    viewRegistroTitle: "CONTACT REGISTRY",
+    sectionCurrentReading: "Current reading",
+    sectionEditAlert: "Edit alert",
+    sectionChannels: "Notification channels",
+    sectionThanks: "Credits",
+    thanksTitle: "Thanks for the inspiration and references.",
+    thanksCopy: "Many concepts in this app were born from studying the work of these two sites.",
+    openSite: "Open site",
+    sectionWatchedMarket: "Watched market",
+    searchNameOrAsset: "Search by name or asset",
+    filterAll: "All",
+    filterBuy: "Buy",
+    filterSell: "Sell",
+    filterMatch: "In zone",
+    filterDisabled: "Paused",
+    newAlert: "New alert",
+    sectionPurchaseParams: "Purchase parameters",
+    newCalculation: "New calculation",
+    labelProduct: "Product",
+    optionalAutofill: "optional, auto-fills transport",
+    noProductSelected: "No product selected",
+    productAutofillCopy: "Use it to bring the asset transport units automatically.",
+    searchGroupOrAsset: "Search group or asset",
+    searchAssetByNameId: "Search asset by name or ID",
+    labelCostPerUnit: "Cost per unit",
+    labelQuantity: "Quantity",
+    unitsLabel: "units",
+    labelTransportPrice: "Transport",
+    transportUnitPrice: "unit price",
+    labelUnitsPerUnit: "Units/u",
+    sectionPriceCheck: "Price checker",
+    labelSellCheck: "Planned sell price",
+    perUnit: "per unit",
+    deleteCalculation: "Delete calculation",
+    calcPage: "Calculation {current} of {total}",
+    calcEmpty: "Enter the purchase price<br />to see the calculations",
+    breakEvenTitle: "Minimum selling price (breakeven)",
+    baseCost: "Base cost",
+    sellFee: "4% fee",
+    freightPerUnit: "Freight/u",
+    totalInvestment: "Total investment",
+    totalFee: "Total fee",
+    totalFreight: "Total freight",
+    profitTargets: "Profit targets",
+    targetPriceResult: "Result for your target price",
+    enterPrice: "Enter a price",
+    newContact: "New contact",
+    contactArchive: "Contact archive",
+    recordsCount: "{count} records",
+    searchContact: "Search contact...",
+    executiveBase: "Reading base",
+    executiveEntry: "Feedback input",
+    executiveFeedback: "Candidate feedback",
+    executiveFeedbackPlaceholder: "Paste the full candidate feedback to open the radar.",
+    executiveObservedSalary: "Observed salary",
+    optional: "optional",
+    executiveSalaryPlaceholder: "Ex: 1673",
+    analyzeProfile: "Analyze profile",
+    clear: "Clear",
+    howToRead: "How to read it",
+    executiveGuide1: "1. Paste the candidate feedback exactly as it appears in the game.",
+    executiveGuide2: "2. If you have an observed salary, add it to refine the read.",
+    executiveGuide3: "3. The app crosses text, dominant signals, and local salary observations.",
+    executiveRadar: "Executive radar",
+    historyTitle: "Contact history",
+    historySubtitle: "Paste a conversation or load a manual interaction. Each entry stays saved inside the contact and can be extended with new interactions whenever you want.",
+    newInteraction: "New interaction",
+    date: "Date",
+    datePlaceholder: "Ex: 21 days ago or Mar 29, 2026",
+    note: "Note",
+    notePlaceholder: "Write your notes",
+    pasteConversation: "Paste conversation",
+    pasteConversationPlaceholder: "Paste the copied chat exactly as it appears in the game and it will be split into messages.",
+    clearForm: "Clear",
+    saveInteraction: "Save interaction",
+    savedHistory: "Saved history",
+    close: "Close",
+    notificationsTitle: "NOTIFICATIONS",
+    notificationsSubtitle: "Recent summary of triggers, exits from zone, and monitor errors.",
+    clearInbox: "Clear inbox",
+    checkingUpdates: "Checking updates",
+    notNow: "Not now",
+    download: "Download",
+    onboardingStep: "First tour",
+    onboardingSkip: "Skip",
+    onboardingBack: "Back",
+    onboardingNext: "Next",
+    onboardingCreateAlert: "Create first alert"
+  }
+};
 
 function svgDataUri(svg) {
   return `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(String(svg || "").trim())}`;
@@ -123,9 +372,11 @@ const SPLASH_PROGRESS_SEGMENTS = [
 ];
 
 const initialCalculatorBook = loadCalculatorBook();
+const initialExecutiveState = loadExecutiveState();
 
 const state = {
   dashboard: null,
+  resourceCatalogCache: [],
   draft: {
     alerts: [],
     channels: {},
@@ -148,6 +399,9 @@ const state = {
   contactDraft: emptyContactDraft(),
   contactSelectorOpen: false,
   contactTypeSelectorOpen: false,
+  calculatorResourceSelectorOpen: false,
+  calculatorResourceSearch: "",
+  calculatorResourceActiveGroup: null,
   calculatorUnitsSelectorOpen: false,
   contactActiveGroup: null,
   contactResourceSearch: "",
@@ -160,12 +414,14 @@ const state = {
   platform: window.simcoDesktop?.platform || "unknown",
   activeView: localStorage.getItem(VIEW_STORAGE_KEY) || "mercado",
   theme: localStorage.getItem(THEME_STORAGE_KEY) || "dark",
+  language: localStorage.getItem(LANGUAGE_STORAGE_KEY) === "en" ? "en" : "es",
   calculatorBook: initialCalculatorBook,
   calculator: activeCalculatorFromBook(initialCalculatorBook),
+  executive: initialExecutiveState,
   updates: {
     platform: window.simcoDesktop?.platform || "unknown",
     strategy: "manual",
-    currentVersion: "1.0.5",
+    currentVersion: "1.0.6",
     status: "idle",
     checking: false,
     available: false,
@@ -189,40 +445,180 @@ const state = {
   toastTimer: null
 };
 
-const ONBOARDING_STEPS = [
-  {
-    title: "Bienvenido a SimMarket",
-    body: "La app está pensada para que vigiles mercado, armes alertas y tomes decisiones de compra o venta desde un solo panel.",
-    points: [
-      "Seguís activos por rubro y por su precio mínimo actual.",
-      "Las alertas entran en zona cuando el precio cumple tu regla.",
-      "No necesitás tocar archivos ni JSON manuales."
-    ]
-  },
-  {
-    title: "Creá tu primera alerta",
-    body: "Empezá por el botón Nueva alerta. Elegí activo, tipo de alerta y precio gatillo.",
-    points: [
-      "Menor que: zona de compra.",
-      "Mayor que: zona de venta.",
-      "Entre dos precios: vigilancia por rango."
-    ]
-  },
-  {
-    title: "Probá el mercado al instante",
-    body: "Usá Iniciar escaneo para traer el primer ticker completo y, desde ahí, dejar el monitoreo corriendo cada 5 minutos.",
-    points: [
-      "Si el mercado está limitado, SimMarket te lo va a indicar.",
-      "Las notificaciones salen cuando una alerta entra en zona.",
-      "Podés pausar o reanudar el escaneo automático cuando quieras."
-    ],
-    finalAction: true
-  }
-];
-
 const byId = (id) => document.getElementById(id);
 
 const wait = (ms) => new Promise((resolve) => window.setTimeout(resolve, ms));
+
+function localeCode() {
+  return state.language === "en" ? "en" : "es";
+}
+
+function numberLocale() {
+  return state.language === "en" ? "en-US" : "es-AR";
+}
+
+function t(key, params = {}) {
+  const bundle = I18N[localeCode()] || I18N.es;
+  const fallback = I18N.es[key] || key;
+  return String(bundle[key] || fallback).replace(/\{(\w+)\}/g, (_match, token) => {
+    return Object.prototype.hasOwnProperty.call(params, token) ? String(params[token]) : "";
+  });
+}
+
+function langText(esText, enText) {
+  return state.language === "en" ? enText : esText;
+}
+
+function onboardingSteps() {
+  return [
+    {
+      title: langText("Bienvenido a SimMarket", "Welcome to SimMarket"),
+      body: langText(
+        "La app está pensada para que vigiles mercado, armes alertas y tomes decisiones de compra o venta desde un solo panel.",
+        "The app is designed so you can watch the market, build alerts, and make buy or sell decisions from a single panel."
+      ),
+      points: state.language === "en"
+        ? [
+            "You track assets by group and by their current lowest price.",
+            "Alerts enter the zone when the price meets your rule.",
+            "You do not need to touch files or JSON manually."
+          ]
+        : [
+            "Seguís activos por rubro y por su precio mínimo actual.",
+            "Las alertas entran en zona cuando el precio cumple tu regla.",
+            "No necesitás tocar archivos ni JSON manuales."
+          ]
+    },
+    {
+      title: langText("Creá tu primera alerta", "Create your first alert"),
+      body: langText(
+        "Empezá por el botón Nueva alerta. Elegí activo, tipo de alerta y precio gatillo.",
+        "Start with the New alert button. Choose the asset, alert type, and trigger price."
+      ),
+      points: state.language === "en"
+        ? [
+            "Lower than: buy zone.",
+            "Higher than: sell zone.",
+            "Between two prices: range monitoring."
+          ]
+        : [
+            "Menor que: zona de compra.",
+            "Mayor que: zona de venta.",
+            "Entre dos precios: vigilancia por rango."
+          ]
+    },
+    {
+      title: langText("Probá el mercado al instante", "Try the market right away"),
+      body: langText(
+        "Usá Iniciar escaneo para traer el primer ticker completo y, desde ahí, dejar el monitoreo corriendo cada 5 minutos.",
+        "Use Start scan to pull the first full ticker and, from there, leave monitoring running every 5 minutes."
+      ),
+      points: state.language === "en"
+        ? [
+            "If the market is limited, SimMarket will tell you.",
+            "Notifications appear when an alert enters the zone.",
+            "You can pause or resume automatic scanning whenever you want."
+          ]
+        : [
+            "Si el mercado está limitado, SimMarket te lo va a indicar.",
+            "Las notificaciones salen cuando una alerta entra en zona.",
+            "Podés pausar o reanudar el escaneo automático cuando quieras."
+          ],
+      finalAction: true
+    }
+  ];
+}
+
+function currentThemeToggleLabel() {
+  return state.theme === "light" ? t("toggleThemeDark") : t("toggleThemeLight");
+}
+
+function toggleLanguage(nextLanguage) {
+  state.language = nextLanguage === "en" ? "en" : "es";
+  localStorage.setItem(LANGUAGE_STORAGE_KEY, state.language);
+}
+
+function contactTypeLabel(type, plural = false) {
+  const labels = {
+    Proveedor: { es: plural ? "Proveedores" : "Proveedor", en: plural ? "Suppliers" : "Supplier" },
+    Cliente: { es: plural ? "Clientes" : "Cliente", en: plural ? "Customers" : "Customer" },
+    Desconocido: { es: plural ? "Desconocidos" : "Desconocido", en: plural ? "Unknown contacts" : "Unknown" },
+    Social: { es: "Social", en: "Social" },
+    Socio: { es: plural ? "Socios" : "Socio", en: plural ? "Partners" : "Partner" }
+  };
+  const entry = labels[type] || labels.Proveedor;
+  return state.language === "en" ? entry.en : entry.es;
+}
+
+function contactTrustLabel(value, plural = false) {
+  const labels = {
+    Alto: { es: plural ? "Alta" : "Alta", en: plural ? "High" : "High" },
+    Medio: { es: plural ? "Media" : "Media", en: plural ? "Medium" : "Medium" },
+    Bajo: { es: plural ? "Baja" : "Baja", en: plural ? "Low" : "Low" },
+    Neutro: { es: "Neutro", en: "Neutral" }
+  };
+  const entry = labels[value] || labels.Neutro;
+  return state.language === "en" ? entry.en : entry.es;
+}
+
+function executiveRoleMeta(roleKey) {
+  const meta = EXECUTIVE_ROLE_META[roleKey] || EXECUTIVE_ROLE_META.mgmt;
+  return {
+    ...meta,
+    label: state.language === "en" ? meta.labelEn : meta.labelEs
+  };
+}
+
+function executiveBandMeta(bandKey) {
+  const meta = EXECUTIVE_BAND_META[bandKey] || EXECUTIVE_BAND_META.riesgoso;
+  return {
+    ...meta,
+    label: state.language === "en" ? meta.labelEn : meta.labelEs,
+    copy: state.language === "en" ? meta.copyEn : meta.copyEs
+  };
+}
+
+function displayConfidenceMeta(score) {
+  const meta = executiveConfidenceMeta(score);
+  return {
+    ...meta,
+    label: state.language === "en" ? meta.labelEn : meta.labelEs
+  };
+}
+
+function displayGroupName(value) {
+  if (!value) return state.language === "en" ? VARIOS_LABEL_EN : VARIOS_LABEL;
+  const translation = GROUP_TRANSLATIONS[value];
+  if (translation) {
+    return state.language === "en" ? translation.en : value;
+  }
+  if (value === VARIOS_LABEL_EN || value === VARIOS_LABEL) {
+    return state.language === "en" ? VARIOS_LABEL_EN : VARIOS_LABEL;
+  }
+  return value;
+}
+
+function localizedProductName(value) {
+  const raw = String(value || "").trim();
+  if (!raw) return raw;
+  const match = resourceCatalog().find((item) => item.label === raw || item.apiName === raw || item.labelEn === raw);
+  return match ? catalogItemLabel(match) : raw;
+}
+
+function catalogItemLabel(item) {
+  if (!item) return "";
+  return state.language === "en"
+    ? String(item.labelEn || item.apiName || item.label || "").trim()
+    : String(item.label || item.labelEs || item.apiName || "").trim();
+}
+
+function catalogItemGroup(item) {
+  if (!item) return state.language === "en" ? VARIOS_LABEL_EN : VARIOS_LABEL;
+  if (state.language === "en") {
+    return String(item.groupEn || displayGroupName(item.group) || VARIOS_LABEL_EN).trim();
+  }
+  return String(item.group || VARIOS_LABEL).trim();
+}
 
 function createCalculatorPageId() {
   return `calc-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`;
@@ -231,6 +627,7 @@ function createCalculatorPageId() {
 function emptyCalculatorState(id = createCalculatorPageId()) {
   return {
     id,
+    resourceId: "",
     buyPrice: "",
     quantity: "",
     transportPrice: "",
@@ -241,15 +638,15 @@ function emptyCalculatorState(id = createCalculatorPageId()) {
 
 function normalizeCalculatorState(saved, fallbackId = createCalculatorPageId()) {
   const normalized = emptyCalculatorState(String(saved?.id || fallbackId));
-  const transportUnits = CALC_TRANSPORT_UNIT_OPTIONS.includes(String(saved?.transportUnits ?? "0"))
-    ? String(saved?.transportUnits ?? "0")
-    : "0";
   return {
     ...normalized,
+    resourceId: saved?.resourceId === "" || saved?.resourceId === null || saved?.resourceId === undefined
+      ? ""
+      : Number(saved?.resourceId),
     buyPrice: saved?.buyPrice ?? "",
     quantity: saved?.quantity ?? "",
     transportPrice: saved?.transportPrice ?? "",
-    transportUnits,
+    transportUnits: String(saved?.transportUnits ?? "0"),
     sellCheck: saved?.sellCheck ?? ""
   };
 }
@@ -296,6 +693,32 @@ function emptyContactDraft() {
   };
 }
 
+function emptyExecutiveState() {
+  return {
+    feedback: "",
+    salary: "",
+    lastQuery: "",
+    lastSalary: "",
+    analysis: null
+  };
+}
+
+function loadExecutiveState() {
+  try {
+    const saved = JSON.parse(localStorage.getItem(EXECUTIVE_STORAGE_KEY) || "{}");
+    return {
+      ...emptyExecutiveState(),
+      feedback: String(saved.feedback || ""),
+      salary: String(saved.salary || ""),
+      lastQuery: String(saved.lastQuery || ""),
+      lastSalary: String(saved.lastSalary || ""),
+      analysis: null
+    };
+  } catch (error) {
+    return emptyExecutiveState();
+  }
+}
+
 function uniqueList(values) {
   return [...new Set((Array.isArray(values) ? values : []).map((value) => String(value || "").trim()).filter(Boolean))];
 }
@@ -305,7 +728,7 @@ function normalizeContactHistory(contact) {
   return contact.history.map((entry, index) => ({
     id: entry.id || `history-${Date.now()}-${index}`,
     date: String(entry.date || contact.date || "").trim(),
-    summary: String(entry.summary || "Interacción guardada").trim(),
+    summary: String(entry.summary || langText("Interacción guardada", "Saved interaction")).trim(),
     note: String(entry.note || "").trim(),
     messages: Array.isArray(entry.messages)
       ? entry.messages
@@ -395,13 +818,171 @@ function normalizeContactRecord(contact) {
   };
 }
 
+function importedContactBatches() {
+  const batches = Array.isArray(window.SIMMARKET_CONTACT_IMPORT_BATCHES)
+    ? window.SIMMARKET_CONTACT_IMPORT_BATCHES
+    : [];
+  return batches.filter((batch) => batch && batch.id && Array.isArray(batch.contacts));
+}
+
+function readAppliedContactImportBatches() {
+  try {
+    const parsed = JSON.parse(localStorage.getItem(CONTACT_IMPORT_BATCHES_STORAGE_KEY) || "[]");
+    return uniqueList(parsed);
+  } catch (error) {
+    return [];
+  }
+}
+
+function writeAppliedContactImportBatches(batchIds) {
+  localStorage.setItem(CONTACT_IMPORT_BATCHES_STORAGE_KEY, JSON.stringify(uniqueList(batchIds)));
+}
+
+function mergeDistinctText(existingValue, importedValue) {
+  const existing = String(existingValue || "").trim();
+  const imported = String(importedValue || "").trim();
+  if (!existing) return imported;
+  if (!imported) return existing;
+  const existingKey = normalizeSearch(existing);
+  const importedKey = normalizeSearch(imported);
+  if (!existingKey) return imported;
+  if (!importedKey) return existing;
+  if (existingKey === importedKey || existingKey.includes(importedKey)) return existing;
+  if (importedKey.includes(existingKey)) return imported;
+  return `${existing}\n\n${imported}`;
+}
+
+function trustScore(value) {
+  if (value === "Alto") return 4;
+  if (value === "Medio") return 3;
+  if (value === "Neutro") return 2;
+  if (value === "Bajo") return 1;
+  return 0;
+}
+
+function mergeContactTrust(existingTrust, importedTrust) {
+  return trustScore(importedTrust) > trustScore(existingTrust) ? importedTrust : existingTrust;
+}
+
+function mergeContactType(existingType, importedType) {
+  if (!CONTACT_TYPE_OPTIONS.includes(importedType)) {
+    return CONTACT_TYPE_OPTIONS.includes(existingType) ? existingType : "Proveedor";
+  }
+  if (!CONTACT_TYPE_OPTIONS.includes(existingType)) return importedType;
+  if (existingType === importedType) return existingType;
+  if (existingType === "Socio" || importedType === "Socio") return "Socio";
+  const genericTypes = new Set(["Social", "Desconocido"]);
+  if (genericTypes.has(existingType) && !genericTypes.has(importedType)) return importedType;
+  return existingType;
+}
+
+function normalizeImportedHistoryEntry(entry, fallbackDate = "") {
+  const conversationText = String(entry?.conversationText || entry?.conversation || "").trim();
+  const messages = conversationText ? parseConversationText(conversationText) : [];
+  const note = String(entry?.note || "").trim();
+  const summary = String(entry?.summary || "").trim() || buildHistorySummary(messages, note) || langText("Interacción importada", "Imported interaction");
+  return {
+    id: entry?.id || `history-import-${Date.now()}-${Math.round(Math.random() * 1000)}`,
+    date: String(entry?.date || fallbackDate || "").trim(),
+    summary,
+    note,
+    messages
+  };
+}
+
+function historyEntrySignature(entry) {
+  return normalizeSearch([
+    entry?.date,
+    entry?.summary,
+    entry?.note,
+    ...(entry?.messages || []).map((message) => `${message.speaker}|${message.time}|${message.text}`)
+  ].join(" || "));
+}
+
+function mergeContactSelections(existingSelections, importedSelections) {
+  const merged = new Map();
+  [...(Array.isArray(existingSelections) ? existingSelections : []), ...(Array.isArray(importedSelections) ? importedSelections : [])]
+    .forEach((selection) => {
+      if (!selection?.rubro) return;
+      const rubro = String(selection.rubro || "").trim();
+      if (!rubro) return;
+      const currentProducts = merged.get(rubro) || [];
+      merged.set(rubro, uniqueList([...currentProducts, ...(Array.isArray(selection.products) ? selection.products : [])]));
+    });
+  return Array.from(merged.entries()).map(([rubro, products]) => ({ rubro, products }));
+}
+
+function normalizeImportedContactSeed(contact) {
+  return normalizeContactRecord({
+    ...contact,
+    history: (Array.isArray(contact.history) ? contact.history : []).map((entry) => normalizeImportedHistoryEntry(entry, contact.date))
+  });
+}
+
+function mergeImportedContactRecord(existingContact, importedContact) {
+  const existingHistory = Array.isArray(existingContact.history) ? existingContact.history : [];
+  const importedHistory = Array.isArray(importedContact.history) ? importedContact.history : [];
+  const seenHistory = new Set(existingHistory.map(historyEntrySignature));
+  const mergedHistory = [...existingHistory];
+  importedHistory.forEach((entry) => {
+    const signature = historyEntrySignature(entry);
+    if (seenHistory.has(signature)) return;
+    seenHistory.add(signature);
+    mergedHistory.unshift(entry);
+  });
+
+  return normalizeContactRecord({
+    ...existingContact,
+    type: mergeContactType(existingContact.type, importedContact.type),
+    trust: mergeContactTrust(existingContact.trust, importedContact.trust),
+    perception: mergeDistinctText(existingContact.perception, importedContact.perception),
+    notes: mergeDistinctText(existingContact.notes, importedContact.notes),
+    selections: mergeContactSelections(existingContact.selections, importedContact.selections),
+    history: mergedHistory,
+    date: existingContact.date || importedContact.date,
+    createdAt: existingContact.createdAt || importedContact.createdAt
+  });
+}
+
+function applyImportedContactBatches(savedContacts) {
+  const batches = importedContactBatches();
+  if (!batches.length) return savedContacts;
+
+  const applied = new Set(readAppliedContactImportBatches());
+  let changed = false;
+  let contacts = savedContacts.map(normalizeContactRecord).filter((contact) => contact.name);
+
+  batches.forEach((batch) => {
+    if (applied.has(batch.id)) return;
+    batch.contacts.forEach((seed) => {
+      const imported = normalizeImportedContactSeed(seed);
+      if (!imported.name) return;
+      const existingIndex = contacts.findIndex((contact) => normalizeSearch(contact.name) === normalizeSearch(imported.name));
+      if (existingIndex === -1) {
+        contacts.unshift(imported);
+      } else {
+        contacts[existingIndex] = mergeImportedContactRecord(contacts[existingIndex], imported);
+      }
+      changed = true;
+    });
+    applied.add(batch.id);
+  });
+
+  if (changed) {
+    localStorage.setItem(CONTACTS_STORAGE_KEY, JSON.stringify(contacts));
+    writeAppliedContactImportBatches([...applied]);
+  }
+
+  return contacts;
+}
+
 function loadContacts() {
   try {
     const parsed = JSON.parse(localStorage.getItem(CONTACTS_STORAGE_KEY) || "[]");
     if (!Array.isArray(parsed)) return [];
-    return parsed.map(normalizeContactRecord).filter((contact) => contact.name);
+    return applyImportedContactBatches(parsed);
   } catch (error) {
-    return [];
+    return applyImportedContactBatches([]);
   }
 }
 
@@ -423,7 +1004,313 @@ function normalizeSearch(value) {
     .toLowerCase()
     .normalize("NFD")
     .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-z0-9\s]/g, " ")
+    .replace(/\s+/g, " ")
     .trim();
+}
+
+function executiveDataset() {
+  const fallback = {
+    generatedAt: "",
+    summary: {
+      profileCount: 0,
+      sampleCount: 0,
+      salaryMin: null,
+      salaryMax: null
+    },
+    profiles: []
+  };
+  const data = window.EXECUTIVE_INTEL_DATA;
+  return data && Array.isArray(data.profiles) ? data : fallback;
+}
+
+function executiveProfiles() {
+  return executiveDataset().profiles || [];
+}
+
+function executiveNeedsRefresh() {
+  return normalizeSearch(state.executive.feedback) !== normalizeSearch(state.executive.lastQuery)
+    || String(state.executive.salary || "").trim() !== String(state.executive.lastSalary || "").trim();
+}
+
+function persistExecutiveState() {
+  localStorage.setItem(
+    EXECUTIVE_STORAGE_KEY,
+    JSON.stringify({
+      feedback: state.executive.feedback,
+      salary: state.executive.salary,
+      lastQuery: state.executive.lastQuery,
+      lastSalary: state.executive.lastSalary
+    })
+  );
+}
+
+function executiveTrigrams(value) {
+  const input = normalizeSearch(value).replace(/\s+/g, " ");
+  if (!input) return [];
+  if (input.length <= 3) return [input];
+  const grams = [];
+  for (let index = 0; index < input.length - 2; index += 1) {
+    grams.push(input.slice(index, index + 3));
+  }
+  return grams;
+}
+
+function executiveDiceCoefficient(leftValue, rightValue) {
+  const left = executiveTrigrams(leftValue);
+  const right = executiveTrigrams(rightValue);
+  if (!left.length || !right.length) return 0;
+  const rightCounts = new Map();
+  right.forEach((gram) => {
+    rightCounts.set(gram, (rightCounts.get(gram) || 0) + 1);
+  });
+  let matches = 0;
+  left.forEach((gram) => {
+    const count = rightCounts.get(gram) || 0;
+    if (count > 0) {
+      matches += 1;
+      rightCounts.set(gram, count - 1);
+    }
+  });
+  return (2 * matches) / (left.length + right.length);
+}
+
+function executiveTokenMetrics(queryTokens, profileTokens) {
+  const querySet = new Set(queryTokens.filter((token) => token.length > 1));
+  const profileSet = new Set(profileTokens.filter((token) => token.length > 1));
+  if (!querySet.size || !profileSet.size) {
+    return {
+      recall: 0,
+      jaccard: 0
+    };
+  }
+  let overlap = 0;
+  querySet.forEach((token) => {
+    if (profileSet.has(token)) overlap += 1;
+  });
+  const union = new Set([...querySet, ...profileSet]).size || 1;
+  return {
+    recall: overlap / querySet.size,
+    jaccard: overlap / union
+  };
+}
+
+function executiveMatchScore(query, profile) {
+  const normalizedQuery = normalizeSearch(query);
+  if (!normalizedQuery) return 0;
+  if (normalizedQuery === profile.normalized) return 1;
+  const tokenMetrics = executiveTokenMetrics(normalizedQuery.split(" "), profile.tokens || []);
+  const substringScore = profile.normalized.includes(normalizedQuery)
+    ? Math.min(1, 0.72 + (normalizedQuery.length / Math.max(profile.normalized.length, 1)) * 0.28)
+    : 0;
+  const diceScore = executiveDiceCoefficient(normalizedQuery, profile.normalized);
+  const prefixScore = profile.normalized.startsWith(normalizedQuery.slice(0, Math.min(18, normalizedQuery.length))) ? 0.18 : 0;
+  return Math.max(
+    substringScore * 0.5
+      + tokenMetrics.recall * 0.28
+      + tokenMetrics.jaccard * 0.12
+      + diceScore * 0.1
+      + prefixScore,
+    substringScore ? 0.52 : 0
+  );
+}
+
+function executiveConfidenceMeta(score) {
+  return Object.values(EXECUTIVE_CONFIDENCE_META).find((item) => score >= item.min) || EXECUTIVE_CONFIDENCE_META.baja;
+}
+
+function executiveAverageSkills(rows) {
+  if (!rows.length) {
+    return { mgmt: 0, acct: 0, comm: 0, tech: 0, avgSkill: 0 };
+  }
+  const sums = rows.reduce((accumulator, row) => ({
+    mgmt: accumulator.mgmt + Number(row.mgmt || 0),
+    acct: accumulator.acct + Number(row.acct || 0),
+    comm: accumulator.comm + Number(row.comm || 0),
+    tech: accumulator.tech + Number(row.tech || 0)
+  }), { mgmt: 0, acct: 0, comm: 0, tech: 0 });
+  const count = rows.length || 1;
+  const averaged = {
+    mgmt: sums.mgmt / count,
+    acct: sums.acct / count,
+    comm: sums.comm / count,
+    tech: sums.tech / count
+  };
+  return {
+    ...averaged,
+    avgSkill: (averaged.mgmt + averaged.acct + averaged.comm + averaged.tech) / 4
+  };
+}
+
+function executiveSalaryAnalysis(profile, salaryRaw) {
+  const salary = parseIntegerInput(salaryRaw);
+  if (!Number.isFinite(salary) || salary <= 0) {
+    return {
+      mode: "general",
+      salary: null,
+      title: langText("Lectura general", "General read"),
+      copy: langText("La lectura se apoya en el feedback agregado del dataset local.", "The read is based on the aggregated feedback inside the local dataset."),
+      referenceRows: profile.samples.slice(0, 8),
+      skills: profile.skills,
+      exactCount: 0
+    };
+  }
+
+  const exactRows = profile.samples.filter((row) => row.salary === salary);
+  if (exactRows.length) {
+    return {
+      mode: "exact",
+      salary,
+      title: langText("Coincidencia salarial exacta", "Exact salary match"),
+      copy: langText(
+        `${exactRows.length} observacion${exactRows.length === 1 ? "" : "es"} para salario ${salary}.`,
+        `${exactRows.length} observation${exactRows.length === 1 ? "" : "s"} for salary ${salary}.`
+      ),
+      referenceRows: exactRows.slice(0, 10),
+      skills: executiveAverageSkills(exactRows),
+      exactCount: exactRows.length
+    };
+  }
+
+  const grouped = new Map();
+  profile.samples.forEach((row) => {
+    const key = row.salary;
+    if (!grouped.has(key)) {
+      grouped.set(key, []);
+    }
+    grouped.get(key).push(row);
+  });
+  const nearestGroups = [...grouped.entries()]
+    .map(([groupSalary, rows]) => ({
+      salary: Number(groupSalary),
+      distance: Math.abs(Number(groupSalary) - salary),
+      rows
+    }))
+    .sort((left, right) => left.distance - right.distance)
+    .slice(0, 3);
+  const nearbyRows = nearestGroups.flatMap((group) => group.rows).slice(0, 12);
+  const closest = nearestGroups[0];
+  return {
+    mode: "near",
+    salary,
+    title: langText("Salarios cercanos", "Nearby salaries"),
+    copy: closest
+      ? langText(
+          `No hay match exacto para ${salary}. Se usan las observaciones más próximas alrededor de ${closest.salary}.`,
+          `There is no exact match for ${salary}. The closest observations around ${closest.salary} are being used.`
+        )
+      : langText("No hay observaciones salariales cercanas para este feedback.", "There are no nearby salary observations for this feedback."),
+    referenceRows: nearbyRows,
+    nearbySalaries: nearestGroups.map((group) => group.salary),
+    skills: executiveAverageSkills(nearbyRows.length ? nearbyRows : profile.samples),
+    exactCount: 0
+  };
+}
+
+function executiveDominantRoleFromSkills(skills) {
+  return Object.entries(EXECUTIVE_ROLE_META)
+    .map(([key, meta]) => ({ key, meta, value: Number(skills?.[key] || 0) }))
+    .sort((left, right) => right.value - left.value)[0] || { key: "mgmt", meta: EXECUTIVE_ROLE_META.mgmt, value: 0 };
+}
+
+function executiveRoleAccentClass(roleKey) {
+  return `executive-accent-${executiveRoleMeta(roleKey).accent}`;
+}
+
+function executiveSkillCardsMarkup(skills, sourceLabel = "Señal agregada") {
+  return Object.entries(EXECUTIVE_ROLE_META).map(([key, meta]) => {
+    const value = Number(skills?.[key] || 0);
+    const width = Math.max(8, Math.min(100, (value / 3) * 100));
+    return `
+      <article class="executive-skill-card ${executiveRoleAccentClass(key)}">
+        <div class="executive-skill-head">
+          <span class="executive-skill-name">${escapeHtml(meta.label)}</span>
+          <span class="executive-skill-value">${value.toFixed(2)}</span>
+        </div>
+        <div class="executive-skill-bar">
+          <span class="executive-skill-fill" style="width:${width}%"></span>
+        </div>
+        <div class="executive-skill-source">${escapeHtml(sourceLabel)}</div>
+      </article>
+    `;
+  }).join("");
+}
+
+function executiveSampleRowsMarkup(rows) {
+  if (!rows.length) {
+    return `<div class="selector-empty">${escapeHtml(langText("Todavía no hay observaciones salariales para este feedback.", "There are no salary observations for this feedback yet."))}</div>`;
+  }
+  return rows.map((row) => {
+    const dominant = executiveDominantRoleFromSkills(row);
+    return `
+      <div class="executive-sample-row">
+        <div>
+          <div class="executive-sample-salary">$${Number(row.salary).toLocaleString(numberLocale())}</div>
+          <div class="executive-sample-role">${escapeHtml(dominant.meta.label)} · ${dominant.value.toFixed(0)} pts</div>
+        </div>
+        <div class="executive-sample-chips">
+          <span class="tag">${state.language === "en" ? "Ops" : "O"} ${Number(row.mgmt || 0).toFixed(0)}</span>
+          <span class="tag">${state.language === "en" ? "Fin" : "F"} ${Number(row.acct || 0).toFixed(0)}</span>
+          <span class="tag">${state.language === "en" ? "Com" : "C"} ${Number(row.comm || 0).toFixed(0)}</span>
+          <span class="tag">${state.language === "en" ? "Tech" : "T"} ${Number(row.tech || 0).toFixed(0)}</span>
+        </div>
+      </div>
+    `;
+  }).join("");
+}
+
+function executiveAlternativesMarkup(items) {
+  if (!items.length) {
+    return `<div class="selector-empty">${escapeHtml(langText("No hay alternativas cercanas para comparar.", "There are no close alternatives to compare."))}</div>`;
+  }
+  return items.map((item) => {
+    const roleMeta = executiveRoleMeta(item.profile.dominantRole);
+    return `
+      <article class="executive-alt-card">
+        <div class="executive-alt-head">
+          <div class="executive-alt-role">${escapeHtml(roleMeta.label)}</div>
+          <div class="executive-alt-score">${Math.round(item.score * 100)}%</div>
+        </div>
+        <div class="executive-alt-copy">${escapeHtml(item.profile.feedback)}</div>
+      </article>
+    `;
+  }).join("");
+}
+
+function analyzeExecutiveQuery(feedbackText, salaryRaw) {
+  const normalizedQuery = normalizeSearch(feedbackText);
+  if (!normalizedQuery || normalizedQuery.length < 12) {
+    return null;
+  }
+  const ranked = executiveProfiles()
+    .map((profile) => ({ profile, score: executiveMatchScore(normalizedQuery, profile) }))
+    .filter((item) => item.score >= 0.18)
+    .sort((left, right) => right.score - left.score);
+  if (!ranked.length) {
+    return {
+      type: "no-match",
+      query: feedbackText,
+      salaryRaw,
+      totalMatches: 0
+    };
+  }
+  const primary = ranked[0];
+  const salaryIntel = executiveSalaryAnalysis(primary.profile, salaryRaw);
+  const role = executiveDominantRoleFromSkills(salaryIntel.skills || primary.profile.skills);
+  return {
+    type: "match",
+    query: feedbackText,
+    salaryRaw,
+    totalMatches: ranked.length,
+    score: primary.score,
+    confidence: executiveConfidenceMeta(primary.score),
+    best: primary.profile,
+    alternatives: ranked.slice(1, 5),
+    salaryIntel,
+    displaySkills: salaryIntel.skills || primary.profile.skills,
+    displayRole: role,
+    band: executiveBandMeta(primary.profile.band)
+  };
 }
 
 function formatNumber(value) {
@@ -444,7 +1331,7 @@ function formatCurrency(value) {
   if (value === null || value === undefined || value === "" || Number.isNaN(Number(value))) return "—";
   const number = Number(value);
   const maxFractionDigits = Math.abs(number) >= 100 ? 2 : 5;
-  return `$${number.toLocaleString("es-AR", { minimumFractionDigits: 0, maximumFractionDigits: maxFractionDigits })}`;
+  return `$${number.toLocaleString(numberLocale(), { minimumFractionDigits: 0, maximumFractionDigits: maxFractionDigits })}`;
 }
 
 function parseLocaleDecimal(value) {
@@ -479,22 +1366,22 @@ function formatDateTime(raw) {
   if (!raw) return "-";
   const date = new Date(raw);
   if (Number.isNaN(date.getTime())) return raw;
-  return date.toLocaleString();
+  return date.toLocaleString(numberLocale());
 }
 
 function formatCompactReading(raw) {
   if (!raw) return "-";
   const date = new Date(raw);
   if (Number.isNaN(date.getTime())) return raw;
-  const datePart = date.toLocaleDateString("en-US", {
+  const datePart = date.toLocaleDateString(numberLocale(), {
     month: "numeric",
     day: "numeric",
     year: "2-digit"
   });
-  const timePart = date.toLocaleTimeString("en-US", {
+  const timePart = date.toLocaleTimeString(numberLocale(), {
     hour: "numeric",
     minute: "2-digit",
-    hour12: true
+    hour12: state.language === "en"
   });
   return `${datePart} · ${timePart}`;
 }
@@ -503,7 +1390,7 @@ function formatContactDate(raw) {
   if (!raw) return "-";
   const date = new Date(raw);
   if (Number.isNaN(date.getTime())) return raw;
-  return date.toLocaleDateString("es-AR", {
+  return date.toLocaleDateString(numberLocale(), {
     day: "2-digit",
     month: "short",
     year: "numeric"
@@ -514,7 +1401,7 @@ function formatHeaderTime(raw) {
   if (!raw) return "-";
   const date = new Date(raw);
   if (Number.isNaN(date.getTime())) return raw;
-  return date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+  return date.toLocaleTimeString(numberLocale(), { hour: "2-digit", minute: "2-digit", hour12: state.language === "en" });
 }
 
 function themeToggleMarkup() {
@@ -549,11 +1436,21 @@ function renderThemeToggle() {
   const button = byId("themeToggleButton");
   const icon = byId("themeToggleIcon");
   if (!button || !icon) return;
-  const nextTheme = state.theme === "light" ? "dark" : "light";
   button.dataset.theme = state.theme;
-  button.setAttribute("aria-label", nextTheme === "light" ? "Activar modo claro" : "Activar modo oscuro");
-  button.setAttribute("title", nextTheme === "light" ? "Activar modo claro" : "Activar modo oscuro");
-  icon.innerHTML = themeToggleMarkup();
+  button.setAttribute("aria-label", currentThemeToggleLabel());
+  button.setAttribute("title", currentThemeToggleLabel());
+  if (!icon.firstElementChild) {
+    icon.innerHTML = themeToggleMarkup();
+  }
+}
+
+function renderLanguageToggle() {
+  const button = byId("languageToggleButton");
+  if (!button) return;
+  button.textContent = t("languageButton");
+  button.dataset.language = state.language;
+  button.setAttribute("aria-label", langText("Cambiar idioma a inglés", "Switch language to Spanish"));
+  button.setAttribute("title", langText("Cambiar idioma a inglés", "Switch language to Spanish"));
 }
 
 function showToast(message, tone = "neutral") {
@@ -573,21 +1470,21 @@ function showToast(message, tone = "neutral") {
 function validateAlertDraft(alert) {
   const errors = {};
   if (!Number.isFinite(Number(alert.resourceId)) || Number(alert.resourceId) <= 0) {
-    errors.resourceId = "Elegí un activo válido.";
+    errors.resourceId = langText("Elegí un activo válido.", "Choose a valid asset.");
   }
   const qualityRaw = String(alert.quality ?? "").trim();
   const quality = Number(qualityRaw);
   if (!qualityRaw.length || !Number.isInteger(quality) || quality < 0 || quality > 12) {
-    errors.quality = "La calidad tiene que estar entre Q0 y Q12.";
+    errors.quality = langText("La calidad tiene que estar entre Q0 y Q12.", "Quality must be between Q0 and Q12.");
   }
   const targetPriceRaw = String(alert.targetPrice ?? "").trim();
   if (!targetPriceRaw.length || !Number.isFinite(Number(targetPriceRaw))) {
-    errors.targetPrice = "Cargá un precio gatillo válido.";
+    errors.targetPrice = langText("Cargá un precio gatillo válido.", "Enter a valid trigger price.");
   }
   if (editorConditionValue(alert.condition) === "between") {
     const targetPriceMaxRaw = String(alert.targetPriceMax ?? "").trim();
     if (!targetPriceMaxRaw.length || !Number.isFinite(Number(targetPriceMaxRaw))) {
-      errors.targetPriceMax = "Cargá el precio máximo del rango.";
+      errors.targetPriceMax = langText("Cargá el precio máximo del rango.", "Enter the range maximum price.");
     }
   }
   return errors;
@@ -635,9 +1532,18 @@ function warningSignature(warnings = []) {
 
 async function callDesktop(method, payload) {
   if (!window.simcoDesktop?.[method]) {
-    throw new Error("La API de escritorio no está disponible.");
+    throw new Error(langText("La API de escritorio no está disponible.", "The desktop API is not available."));
   }
   return window.simcoDesktop[method](payload);
+}
+
+async function openSupporterUrl(url) {
+  if (!url) return;
+  try {
+    await callDesktop("openExternalUrl", url);
+  } catch (error) {
+    showToast(langText("No se pudo abrir el enlace externo.", "The external link could not be opened."), "warn");
+  }
 }
 
 function persistContacts() {
@@ -721,7 +1627,19 @@ async function runVitoIntro() {
 }
 
 function resourceCatalog() {
-  return state.dashboard?.resourceCatalog || [];
+  if (Array.isArray(state.dashboard?.resourceCatalog) && state.dashboard.resourceCatalog.length) {
+    return state.dashboard.resourceCatalog;
+  }
+  return Array.isArray(state.resourceCatalogCache) ? state.resourceCatalogCache : [];
+}
+
+function cacheResourceCatalog(items) {
+  if (!Array.isArray(items) || !items.length) return;
+  state.resourceCatalogCache = items.map((item) => ({
+    ...item,
+    id: Number(item.id),
+    transportUnits: Number(item.transportUnits || 0)
+  }));
 }
 
 function resourceEntry(resourceId) {
@@ -729,8 +1647,9 @@ function resourceEntry(resourceId) {
 }
 
 function resourceLabel(resourceId) {
-  if (resourceId === "" || resourceId === null || resourceId === undefined) return "Sin activo";
-  return resourceEntry(resourceId)?.label || `Recurso ${resourceId}`;
+  if (resourceId === "" || resourceId === null || resourceId === undefined) return state.language === "en" ? "No asset" : "Sin activo";
+  const entry = resourceEntry(resourceId);
+  return catalogItemLabel(entry) || (state.language === "en" ? `Resource ${resourceId}` : `Recurso ${resourceId}`);
 }
 
 function resourceChoice(alert) {
@@ -739,7 +1658,7 @@ function resourceChoice(alert) {
 }
 
 function resourceSearchTokens(item) {
-  return normalizeSearch([item.group, item.label, item.apiName, item.id].filter(Boolean).join(" "));
+  return normalizeSearch([item.group, item.groupEn, item.label, item.labelEn, item.apiName, item.id].filter(Boolean).join(" "));
 }
 
 function filteredResourceCatalog(query = state.resourceSearch) {
@@ -757,13 +1676,17 @@ function resetResourceSelectorState({ keepOpen = false } = {}) {
 function resourceGroups() {
   const groups = new Map();
   resourceCatalog().forEach((item) => {
-    const group = item.group || "Varios";
-    if (!groups.has(group)) {
-      groups.set(group, []);
+    const groupKey = item.groupKey || item.group || VARIOS_LABEL;
+    if (!groups.has(groupKey)) {
+      groups.set(groupKey, []);
     }
-    groups.get(group).push(item);
+    groups.get(groupKey).push(item);
   });
-  return Array.from(groups.entries()).map(([name, items]) => ({ name, items }));
+  return Array.from(groups.entries()).map(([key, items]) => ({
+    key,
+    name: catalogItemGroup(items[0]),
+    items
+  }));
 }
 
 function filteredGroupsByQuery(query = "") {
@@ -786,7 +1709,7 @@ function filteredGroupsByQuery(query = "") {
 
 function filteredResourcesForGroup(group, query = "") {
   if (!group) return [];
-  const items = resourceCatalog().filter((item) => item.group === group);
+  const items = resourceCatalog().filter((item) => (item.groupKey || item.group) === group);
   const normalized = normalizeSearch(query);
   if (!normalized) return items;
   return items.filter((item) => resourceSearchTokens(item).includes(normalized));
@@ -802,12 +1725,12 @@ function filteredResourcesInActiveGroup(query = state.resourceSearch) {
 
 function resourceCrumbsMarkup() {
   if (!state.resourceActiveGroup) {
-    return `<span class="selector-tag">Rubros</span>`;
+    return `<span class="selector-tag">${escapeHtml(state.language === "en" ? "Groups" : "Rubros")}</span>`;
   }
   return [
-    `<span class="selector-tag">Rubro</span>`,
-    `<span class="selector-tag">${escapeHtml(state.resourceActiveGroup)}</span>`,
-    `<span class="selector-tag">Activos</span>`
+    `<span class="selector-tag">${escapeHtml(state.language === "en" ? "Group" : "Rubro")}</span>`,
+    `<span class="selector-tag">${escapeHtml(resourceGroups().find((entry) => entry.key === state.resourceActiveGroup)?.name || displayGroupName(state.resourceActiveGroup))}</span>`,
+    `<span class="selector-tag">${escapeHtml(state.language === "en" ? "Assets" : "Activos")}</span>`
   ].join("");
 }
 
@@ -850,17 +1773,149 @@ function contactTypeIconMarkup(type, size = "md") {
   return `<span class="contact-type-icon contact-type-icon-${normalizedSize}" aria-hidden="true"><img class="contact-type-icon-image" src="${iconUri}" alt="" draggable="false" /></span>`;
 }
 
+function calculatorSelectedResource() {
+  return resourceEntry(state.calculator?.resourceId) || null;
+}
+
+function formatTransportUnitsValue(value) {
+  const number = Number(value);
+  if (!Number.isFinite(number)) return "0";
+  if (Number.isInteger(number)) return String(number);
+  if (Math.abs(number) >= 100) return number.toFixed(2).replace(/\.?0+$/, "");
+  return number.toFixed(3).replace(/\.?0+$/, "");
+}
+
+function calculatorTransportUnitsValue() {
+  const raw = String(state.calculator.transportUnits ?? "").trim();
+  if (!raw.length) return "0";
+  const parsed = parseLocaleDecimal(raw);
+  return Number.isFinite(parsed) ? formatTransportUnitsValue(parsed) : raw;
+}
+
+function calculatorProductSummary() {
+  const item = calculatorSelectedResource();
+  if (!item) {
+    return {
+      title: t("noProductSelected"),
+      subtitle: t("productAutofillCopy")
+    };
+  }
+  const transport = formatTransportUnitsValue(item.transportUnits || 0);
+  return {
+    title: catalogItemLabel(item),
+    subtitle: `${catalogItemGroup(item)} · ${transport} ${state.language === "en" ? "transport/u" : "transporte/u"}`
+  };
+}
+
+function calculatorProductCrumbsMarkup() {
+  if (!state.calculatorResourceActiveGroup) {
+    return `<span class="selector-tag">${escapeHtml(state.language === "en" ? "Groups" : "Rubros")}</span>`;
+  }
+  return [
+    `<span class="selector-tag">${escapeHtml(state.language === "en" ? "Group" : "Rubro")}</span>`,
+    `<span class="selector-tag">${escapeHtml(resourceGroups().find((entry) => entry.key === state.calculatorResourceActiveGroup)?.name || displayGroupName(state.calculatorResourceActiveGroup))}</span>`,
+    `<span class="selector-tag">${escapeHtml(state.language === "en" ? "Assets" : "Activos")}</span>`
+  ].join("");
+}
+
+function resetCalculatorResourceSelectorState({ keepOpen = false } = {}) {
+  state.calculatorResourceSearch = "";
+  state.calculatorResourceSelectorOpen = keepOpen;
+  state.calculatorResourceActiveGroup = null;
+}
+
+function focusCalculatorResourceSearch() {
+  window.requestAnimationFrame(() => {
+    const input = byId("calcProductSearch");
+    if (!input) return;
+    input.focus();
+    const end = input.value.length;
+    input.setSelectionRange(end, end);
+  });
+}
+
+function calculatorResourceSelectorOptionsMarkup() {
+  if (!state.calculatorResourceActiveGroup) {
+    const groups = filteredGroupsByQuery(state.calculatorResourceSearch);
+    if (!groups.length) {
+      return `<div class="selector-empty">${escapeHtml(state.language === "en" ? "No groups match the search." : "No hay rubros que coincidan con la búsqueda.")}</div>`;
+    }
+    return groups.map((entry) => {
+      const totalItems = entry.items?.length || 0;
+      const visibleItems = entry.visibleCount ?? totalItems;
+      const helper = totalItems === visibleItems
+        ? `${totalItems} ${state.language === "en" ? `asset${totalItems === 1 ? "" : "s"}` : `activo${totalItems === 1 ? "" : "s"}`}`
+        : state.language === "en"
+          ? `${visibleItems} of ${totalItems} assets`
+          : `${visibleItems} de ${totalItems} activos`;
+      return `
+        <button class="selector-option" type="button" data-calc-product-action="open-group" data-resource-group="${escapeHtml(entry.name)}">
+          <div class="selector-option-main">
+            <span>${escapeHtml(entry.name)}</span>
+          </div>
+          <small>${escapeHtml(helper)}</small>
+        </button>
+      `;
+    }).join("");
+  }
+
+  const items = filteredResourcesForGroup(state.calculatorResourceActiveGroup, state.calculatorResourceSearch);
+  if (!items.length) {
+    return `<div class="selector-empty">${escapeHtml(state.language === "en" ? "No assets match the search." : "No hay activos que coincidan con la búsqueda.")}</div>`;
+  }
+
+  return items.map((item) => {
+    const active = Number(item.id) === Number(state.calculator.resourceId);
+    return `
+      <button class="selector-option${active ? " active" : ""}" type="button" data-calc-product-action="select-product" data-resource-id="${item.id}">
+        <div class="selector-option-main">
+          ${avatarMarkup({ resourceId: item.id, resourceName: catalogItemLabel(item), logoUrl: item.logoUrl }, "A")}
+          <span>${escapeHtml(catalogItemLabel(item))}</span>
+        </div>
+        <small>${escapeHtml(item.apiName)} · ${formatTransportUnitsValue(item.transportUnits || 0)} ${escapeHtml(state.language === "en" ? "transport/u" : "transporte/u")}</small>
+      </button>
+    `;
+  }).join("");
+}
+
+function renderCalculatorResourceSelector() {
+  const selector = byId("calcProductSelector");
+  const summary = byId("calcProductSummary");
+  const subtitle = byId("calcProductSubtitle");
+  const chevron = byId("calcProductChevron");
+  const crumbs = byId("calcProductCrumbs");
+  const actions = byId("calcProductActions");
+  const options = byId("calcProductOptions");
+  const input = byId("calcProductSearch");
+  if (!selector || !summary || !subtitle || !chevron || !crumbs || !actions || !options || !input) return;
+  const summaryState = calculatorProductSummary();
+  const visibleGroups = filteredGroupsByQuery(state.calculatorResourceSearch).length;
+  const visibleItems = state.calculatorResourceActiveGroup
+    ? filteredResourcesForGroup(state.calculatorResourceActiveGroup, state.calculatorResourceSearch).length
+    : visibleGroups;
+  selector.classList.toggle("open", state.calculatorResourceSelectorOpen);
+  summary.textContent = summaryState.title;
+  subtitle.textContent = summaryState.subtitle;
+  chevron.textContent = state.calculatorResourceSelectorOpen ? "▲" : "▼";
+  input.value = state.calculatorResourceSearch;
+  input.placeholder = state.calculatorResourceActiveGroup ? t("searchAssetByNameId") : t("searchGroupOrAsset");
+  crumbs.innerHTML = `${calculatorProductCrumbsMarkup()}<span class="selector-tag">${visibleItems} ${escapeHtml(state.language === "en" ? "visible" : "visibles")}</span>`;
+  actions.innerHTML = [
+    state.calculatorResourceActiveGroup ? `<button type="button" class="selector-action-btn" data-calc-product-action="back-groups">${escapeHtml(state.language === "en" ? "Back to groups" : "Volver a rubros")}</button>` : "",
+    state.calculator.resourceId !== "" ? `<button type="button" class="selector-action-btn" data-calc-product-action="clear-product">${escapeHtml(state.language === "en" ? "Clear product" : "Quitar producto")}</button>` : ""
+  ].filter(Boolean).join("");
+  options.innerHTML = calculatorResourceSelectorOptionsMarkup();
+}
+
 function calculatorUnitsSummary() {
-  return CALC_TRANSPORT_UNIT_OPTIONS.includes(String(state.calculator.transportUnits || ""))
-    ? String(state.calculator.transportUnits)
-    : "0";
+  return calculatorTransportUnitsValue();
 }
 
 function calculatorUnitOptionsMarkup() {
   const current = calculatorUnitsSummary();
   const options = CALC_TRANSPORT_UNIT_OPTIONS.filter((option) => option !== current);
   if (!options.length) {
-    return `<div class="selector-empty">No hay otras unidades disponibles.</div>`;
+    return `<div class="selector-empty">${escapeHtml(langText("No hay otras unidades disponibles.", "There are no other units available."))}</div>`;
   }
   return options.map((option) => `
     <button class="selector-option" type="button" data-calc-action="select-transport-units" data-calc-unit="${escapeHtml(option)}">
@@ -944,9 +1999,9 @@ function paginationMarkup(totalPages, currentPage, scope = "contact") {
     `;
   }).join("");
   return `
-    <button class="pagination-btn nav" type="button" data-pagination-scope="${scope}" data-page-nav="prev"${prevDisabled ? " disabled" : ""}>Anterior</button>
+    <button class="pagination-btn nav" type="button" data-pagination-scope="${scope}" data-page-nav="prev"${prevDisabled ? " disabled" : ""}>${escapeHtml(langText("Anterior", "Previous"))}</button>
     <div class="pagination-pages">${pageButtons}</div>
-    <button class="pagination-btn nav" type="button" data-pagination-scope="${scope}" data-page-nav="next"${nextDisabled ? " disabled" : ""}>Siguiente</button>
+    <button class="pagination-btn nav" type="button" data-pagination-scope="${scope}" data-page-nav="next"${nextDisabled ? " disabled" : ""}>${escapeHtml(langText("Siguiente", "Next"))}</button>
   `;
 }
 
@@ -965,6 +2020,7 @@ function setActiveCalculatorPage(pageId) {
   if (!page) return;
   state.calculator = page;
   state.calculatorBook.activeId = page.id;
+  resetCalculatorResourceSelectorState();
   state.calculatorUnitsSelectorOpen = false;
   persistCalculatorState();
   renderCalculatorPages();
@@ -977,12 +2033,13 @@ function addCalculatorPage() {
   state.calculatorBook.pages.push(nextPage);
   state.calculator = nextPage;
   state.calculatorBook.activeId = nextPage.id;
+  resetCalculatorResourceSelectorState();
   state.calculatorUnitsSelectorOpen = false;
   persistCalculatorState();
   renderCalculatorPages();
   syncCalculatorInputs();
   recalculateCalculator();
-  showToast("Nuevo cálculo creado");
+  showToast(langText("Nuevo cálculo creado", "New calculation created"));
 }
 
 function deleteActiveCalculatorPage() {
@@ -991,11 +2048,12 @@ function deleteActiveCalculatorPage() {
     state.calculatorBook.pages = [cleared];
     state.calculatorBook.activeId = cleared.id;
     state.calculator = cleared;
+    resetCalculatorResourceSelectorState();
     state.calculatorUnitsSelectorOpen = false;
     persistCalculatorState();
     syncCalculatorInputs();
     recalculateCalculator();
-    showToast("Cálculo eliminado");
+    showToast(langText("Cálculo eliminado", "Calculation deleted"));
     return;
   }
   const index = calculatorPageIndex();
@@ -1004,33 +2062,165 @@ function deleteActiveCalculatorPage() {
   const nextPage = state.calculatorBook.pages[nextIndex];
   state.calculator = nextPage;
   state.calculatorBook.activeId = nextPage.id;
+  resetCalculatorResourceSelectorState();
   state.calculatorUnitsSelectorOpen = false;
   persistCalculatorState();
   syncCalculatorInputs();
   recalculateCalculator();
-  showToast("Cálculo eliminado");
+  showToast(langText("Cálculo eliminado", "Calculation deleted"));
+}
+
+function applyCalculatorProductSelection(resourceId) {
+  const resource = resourceEntry(resourceId);
+  if (!resource) return;
+  state.calculator.resourceId = Number(resource.id);
+  state.calculator.transportUnits = formatTransportUnitsValue(resource.transportUnits || 0);
+  resetCalculatorResourceSelectorState();
+  persistCalculatorState();
+  syncCalculatorInputs();
+  recalculateCalculator();
 }
 
 function viewMeta(view = state.activeView) {
   if (view === "calculadora") {
     return {
       id: "calculadora",
-      title: "CALCULADORA DE COSTOS",
+      title: t("viewCalculadoraTitle"),
+      toolbarVisible: false
+    };
+  }
+  if (view === "ejecutivos") {
+    return {
+      id: "ejecutivos",
+      title: t("viewEjecutivosTitle"),
       toolbarVisible: false
     };
   }
   if (view === "registro") {
     return {
       id: "registro",
-      title: "REGISTRO DE CONTACTOS",
+      title: t("viewRegistroTitle"),
       toolbarVisible: false
     };
   }
   return {
     id: "mercado",
-    title: "ALERTAS DE MERCADO",
+    title: t("viewMercadoTitle"),
     toolbarVisible: true
   };
+}
+
+function setText(id, value) {
+  const node = byId(id);
+  if (node) node.textContent = value;
+}
+
+function setPlaceholder(id, value) {
+  const node = byId(id);
+  if (node) node.setAttribute("placeholder", value);
+}
+
+function renderStaticLanguage() {
+  document.documentElement.lang = localeCode();
+  setText("tab-mercado", t("tabMercado"));
+  setText("tab-calculadora", t("tabCalculadora"));
+  setText("tab-ejecutivos", t("tabEjecutivos"));
+  setText("tab-registro", t("tabRegistro"));
+  setText("headerMonitorLabel", t("statsMonitor"));
+  setText("headerAlertsLabel", t("statsAlerts"));
+  setText("headerInZoneLabel", t("statsInZone"));
+  setText("headerLastReviewLabel", t("statsLastReview"));
+  setText("scanNowButton", t("scanMarket"));
+  setText("checkUpdatesButton", updateButtonLabel());
+  setText("saveButton", state.dirty ? t("savePendingChanges") : t("saveChanges"));
+  setText("resetButton", t("discard"));
+  setText("mercadoCurrentLabel", t("sectionCurrentReading"));
+  setText("mercadoEditorLabel", t("sectionEditAlert"));
+  setText("mercadoChannelsLabel", t("sectionChannels"));
+  setText("channelDesktopTitle", langText("Notificación en esta PC", "Notifications on this PC"));
+  setText("channelDesktopCopy", langText("La opción más simple para ver avisos locales.", "The simplest option for local alerts."));
+  setText("channelDiscordLabel", "Discord webhook");
+  setText("channelTelegramTokenLabel", "Telegram bot token");
+  setText("channelTelegramChatLabel", "Telegram chat id");
+  setText("supportersLabel", t("sectionThanks"));
+  setText("supportersTitle", t("thanksTitle"));
+  setText("supportersCopy", t("thanksCopy"));
+  setText("supporterCooperNote", t("openSite"));
+  setText("supporterSimcoToolsNote", t("openSite"));
+  setText("watchedMarketLabel", t("sectionWatchedMarket"));
+  setPlaceholder("searchInput", t("searchNameOrAsset"));
+  setText("filterAllButton", t("filterAll"));
+  setText("filterBuyButton", t("filterBuy"));
+  setText("filterSellButton", t("filterSell"));
+  setText("filterMatchButton", t("filterMatch"));
+  setText("filterDisabledButton", t("filterDisabled"));
+  setText("addAlertButton", t("newAlert"));
+  setText("calcPurchaseParamsLabel", t("sectionPurchaseParams"));
+  setText("calcAddButton", t("newCalculation"));
+  setText("calcProductLabel", `${t("labelProduct")} `);
+  setText("calcProductOptionalLabel", t("optionalAutofill"));
+  setText("calcCostLabel", t("labelCostPerUnit"));
+  setText("calcQtyLabel", `${t("labelQuantity")} `);
+  setText("calcQtyUnitsLabel", t("unitsLabel"));
+  setText("calcTransportLabel", `${t("labelTransportPrice")} `);
+  setText("calcTransportPriceHint", t("transportUnitPrice"));
+  setText("calcTransportUnitsLabel", t("labelUnitsPerUnit"));
+  setText("calcVerifierLabel", t("sectionPriceCheck"));
+  setText("calcSellCheckLabel", `${t("labelSellCheck")} `);
+  setText("calcSellCheckHint", t("perUnit"));
+  setText("calcDeleteButton", t("deleteCalculation"));
+  setText("calcBreakevenTitle", t("breakEvenTitle"));
+  setText("calcCostBaseLabel", t("baseCost"));
+  setText("calcFeeLabel", t("sellFee"));
+  setText("calcFreightLabel", t("freightPerUnit"));
+  setText("calcInvestmentLabel", t("totalInvestment"));
+  setText("calcSummaryFeeLabel", t("totalFee"));
+  setText("calcSummaryFreightLabel", t("totalFreight"));
+  setText("calcTargetsLabel", t("profitTargets"));
+  setText("calcCheckerLabel", t("targetPriceResult"));
+  setText("registroNewContactLabel", t("newContact"));
+  setText("registroArchiveLabel", t("contactArchive"));
+  setPlaceholder("contactSearchInput", t("searchContact"));
+  setText("executiveBaseLabel", t("executiveBase"));
+  setText("executiveEntryLabel", t("executiveEntry"));
+  setText("executiveFeedbackLabel", t("executiveFeedback"));
+  setPlaceholder("executiveFeedbackInput", t("executiveFeedbackPlaceholder"));
+  setText("executiveSalaryLabel", `${t("executiveObservedSalary")} `);
+  setText("executiveSalaryOptional", t("optional"));
+  setPlaceholder("executiveSalaryInput", t("executiveSalaryPlaceholder"));
+  setText("executiveAnalyzeButton", t("analyzeProfile"));
+  setText("executiveClearButton", t("clear"));
+  setText("executiveHowToReadLabel", t("howToRead"));
+  setText("executiveGuideLine1", t("executiveGuide1"));
+  setText("executiveGuideLine2", t("executiveGuide2"));
+  setText("executiveGuideLine3", t("executiveGuide3"));
+  setText("executiveRadarLabel", t("executiveRadar"));
+  setText("historyModalTitle", t("historyTitle"));
+  setText("historyModalSubtitle", t("historySubtitle"));
+  setText("historyNewInteractionLabel", t("newInteraction"));
+  setText("historyDateLabel", t("date"));
+  setPlaceholder("historyDateInput", t("datePlaceholder"));
+  setText("historyNoteLabel", t("note"));
+  setPlaceholder("historyNoteInput", t("notePlaceholder"));
+  setText("historyConversationLabel", t("pasteConversation"));
+  setPlaceholder("historyConversationInput", t("pasteConversationPlaceholder"));
+  setText("historyClearButton", t("clearForm"));
+  setText("historySaveButton", t("saveInteraction"));
+  setText("historySavedLabel", t("savedHistory"));
+  setText("historyCloseButton", t("close"));
+  setText("notificationsModalTitle", t("notificationsTitle"));
+  setText("notificationsModalCopy", t("notificationsSubtitle"));
+  setText("notificationsCloseButton", t("close"));
+  setText("notificationsClearButton", t("clearInbox"));
+  setText("updateDismissButton", t("notNow"));
+  setText("onboardingStepLabel", t("onboardingStep"));
+  setText("onboardingSkipButton", t("onboardingSkip"));
+  setText("onboardingBackButton", t("onboardingBack"));
+  setText("onboardingTitle", onboardingSteps()[state.onboardingStep]?.title || "");
+  setText("onboardingBody", onboardingSteps()[state.onboardingStep]?.body || "");
+  byId("onboardingNextButton").textContent = onboardingSteps()[state.onboardingStep]?.finalAction ? t("onboardingCreateAlert") : t("onboardingNext");
+  renderLanguageToggle();
+  renderThemeToggle();
 }
 
 function inferActionKey(alert) {
@@ -1042,10 +2232,10 @@ function inferActionKey(alert) {
 
 function actionLabel(alert) {
   const key = inferActionKey(alert);
-  if (key === "buy") return "Compra";
-  if (key === "sell") return "Venta";
-  if (key === "range") return "Rango";
-  return "Control";
+  if (key === "buy") return state.language === "en" ? "Buy" : "Compra";
+  if (key === "sell") return state.language === "en" ? "Sell" : "Venta";
+  if (key === "range") return state.language === "en" ? "Range" : "Rango";
+  return state.language === "en" ? "Check" : "Control";
 }
 
 function actionBadgeClass(key) {
@@ -1053,6 +2243,123 @@ function actionBadgeClass(key) {
   if (key === "sell") return "badge-sell";
   if (key === "range") return "badge-range";
   return "badge-idle";
+}
+
+function alertChartToneClass(actionKey) {
+  if (actionKey === "buy") return "buy";
+  if (actionKey === "sell") return "sell";
+  return "";
+}
+
+function buildAlertSparklineGeometry(chart) {
+  const rawPoints = Array.isArray(chart?.points) ? chart.points : [];
+  const normalizedPoints = rawPoints
+    .map((point) => ({
+      price: Number(point?.price),
+      time: String(point?.time || "")
+    }))
+    .filter((point) => Number.isFinite(point.price));
+
+  if (!normalizedPoints.length) return null;
+
+  const points = normalizedPoints.length === 1
+    ? [normalizedPoints[0], normalizedPoints[0]]
+    : normalizedPoints;
+
+  const width = 184;
+  const height = 52;
+  const targetValues = [chart?.targetPrice, chart?.targetPriceMax]
+    .map(Number)
+    .filter(Number.isFinite);
+  const seriesValues = points.map((point) => point.price).filter(Number.isFinite);
+  const seriesMin = Math.min(...seriesValues);
+  const seriesMax = Math.max(...seriesValues);
+  let minPrice = seriesMin;
+  let maxPrice = seriesMax;
+
+  if (!Number.isFinite(minPrice) || !Number.isFinite(maxPrice)) {
+    return null;
+  }
+
+  if (minPrice === maxPrice) {
+    const offset = Math.max(Math.abs(minPrice) * 0.04, 0.5);
+    minPrice -= offset;
+    maxPrice += offset;
+  } else {
+    const range = maxPrice - minPrice;
+    const offset = Math.max(range * 0.08, Math.abs(maxPrice || 1) * 0.002, 0.001);
+    minPrice -= offset;
+    maxPrice += offset;
+  }
+
+  const stepX = points.length > 1 ? width / (points.length - 1) : 0;
+  const toY = (value) => {
+    const ratio = (value - minPrice) / (maxPrice - minPrice);
+    return height - (ratio * height);
+  };
+  const clampY = (value) => Math.min(height - 4, Math.max(4, value));
+
+  const coordinates = points.map((point, index) => ({
+    x: stepX * index,
+    y: clampY(toY(point.price)),
+    price: point.price,
+    time: point.time
+  }));
+
+  const linePath = coordinates
+    .map((point, index) => `${index === 0 ? "M" : "L"}${point.x.toFixed(2)} ${point.y.toFixed(2)}`)
+    .join(" ");
+
+  const areaPath = `${linePath} L${coordinates[coordinates.length - 1].x.toFixed(2)} ${height.toFixed(2)} L${coordinates[0].x.toFixed(2)} ${height.toFixed(2)} Z`;
+
+  return {
+    width,
+    height,
+    linePath,
+    areaPath,
+    targetLines: targetValues.map((value) => ({
+      value,
+      y: clampY(toY(value)),
+      outOfRange: value < seriesMin || value > seriesMax
+    })),
+    latest: coordinates[coordinates.length - 1],
+    minLabel: formatNumber(seriesMin),
+    maxLabel: formatNumber(seriesMax)
+  };
+}
+
+function alertSparklineMarkup(chart, actionKey) {
+  const geometry = buildAlertSparklineGeometry(chart);
+  if (!geometry) return "";
+  const hasTargetMax = Number.isFinite(Number(chart?.targetPriceMax));
+  const hasTarget = Number.isFinite(Number(chart?.targetPrice));
+  const targetLabel = hasTargetMax
+    ? `${formatNumber(chart?.targetPrice)}-${formatNumber(chart?.targetPriceMax)}`
+    : hasTarget
+      ? formatNumber(chart?.targetPrice)
+      : "";
+  return `
+    <div class="alert-sparkline-shell ${alertChartToneClass(actionKey)}">
+      <div class="alert-sparkline-head">
+        <span class="alert-sparkline-kicker">${escapeHtml(langText("Gráfico 10 días", "10-day chart"))}</span>
+        <span class="alert-sparkline-target-copy">${targetLabel ? `${escapeHtml(langText("Meta", "Target"))}: ${escapeHtml(targetLabel)}` : ""}</span>
+      </div>
+      <svg class="alert-sparkline-svg" viewBox="0 0 ${geometry.width} ${geometry.height}" role="img" aria-label="${escapeHtml(langText("Serie compacta de 10 días", "Compact 10-day series"))}">
+        <line class="alert-sparkline-grid" x1="0" y1="14" x2="${geometry.width}" y2="14"></line>
+        <line class="alert-sparkline-grid" x1="0" y1="28" x2="${geometry.width}" y2="28"></line>
+        <line class="alert-sparkline-grid" x1="0" y1="42" x2="${geometry.width}" y2="42"></line>
+        ${geometry.targetLines.map((line) => `
+          <line class="alert-sparkline-target" x1="0" y1="${line.y.toFixed(2)}" x2="${geometry.width}" y2="${line.y.toFixed(2)}"></line>
+        `).join("")}
+        <text class="alert-sparkline-label" x="1" y="11">${escapeHtml(geometry.maxLabel)}</text>
+        <text class="alert-sparkline-label" x="1" y="50">${escapeHtml(geometry.minLabel)}</text>
+        <text class="alert-sparkline-time-label" x="165" y="50">${escapeHtml(langText("hoy", "today"))}</text>
+        <path class="alert-sparkline-area" d="${geometry.areaPath}"></path>
+        <path class="alert-sparkline-line" d="${geometry.linePath}"></path>
+        <circle class="alert-sparkline-dot" cx="${geometry.latest.x.toFixed(2)}" cy="${geometry.latest.y.toFixed(2)}" r="2.2"></circle>
+      </svg>
+    </div>
+  `;
 }
 
 function statusBadgeClass(tone, enabled = true) {
@@ -1081,6 +2388,7 @@ function editableAlert(alert) {
 function syncDraftFromDashboard(dashboard) {
   syncNotificationState(dashboard);
   state.dashboard = dashboard;
+  cacheResourceCatalog(dashboard.resourceCatalog);
   state.updates = {
     ...state.updates,
     ...(dashboard.updates || {})
@@ -1141,7 +2449,9 @@ function setDirty(nextValue) {
   state.dirty = nextValue;
   const pill = byId("draftStatPill");
   if (pill) {
-    pill.innerHTML = nextValue ? "Estado <span>Pendiente</span>" : "Estado <span>Guardado</span>";
+    pill.innerHTML = nextValue
+      ? (state.language === "en" ? "Status <span>Pending</span>" : "Estado <span>Pendiente</span>")
+      : (state.language === "en" ? "Status <span>Saved</span>" : "Estado <span>Guardado</span>");
     pill.classList.toggle("attention", nextValue);
   }
   renderSaveButtonState();
@@ -1152,12 +2462,14 @@ function renderSaveButtonState() {
   if (!button) return;
   const validation = draftValidationSummary();
   if (!validation.isValid) {
-    button.textContent = validation.invalidCount === 1 ? "Corregir 1 alerta" : `Corregir ${validation.invalidCount} alertas`;
+    button.textContent = validation.invalidCount === 1
+      ? (state.language === "en" ? "Fix 1 alert" : "Corregir 1 alerta")
+      : (state.language === "en" ? `Fix ${validation.invalidCount} alerts` : `Corregir ${validation.invalidCount} alertas`);
     button.disabled = true;
     return;
   }
   button.disabled = false;
-  button.textContent = state.dirty ? "Guardar cambios pendientes" : "Guardar cambios";
+  button.textContent = state.dirty ? t("savePendingChanges") : t("saveChanges");
 }
 
 function selectedAlert() {
@@ -1180,13 +2492,15 @@ function mergedAlert(alert) {
     actionLabel: runtime.actionLabel || actionLabel(alert),
     priceDisplay: runtime.priceDisplay || "-",
     targetDisplay: runtime.targetDisplay || (editorConditionValue(alert.condition) === "between"
-      ? `entre ${formatNumber(alert.targetPrice)} y ${formatNumber(alert.targetPriceMax)}`
+      ? (state.language === "en"
+        ? `between ${formatNumber(alert.targetPrice)} and ${formatNumber(alert.targetPriceMax)}`
+        : `entre ${formatNumber(alert.targetPrice)} y ${formatNumber(alert.targetPriceMax)}`)
       : formatNumber(alert.targetPrice)),
-    triggerSentence: runtime.triggerSentence || "Sin lectura",
+    triggerSentence: runtime.triggerSentence || (state.language === "en" ? "No reading yet" : "Sin lectura"),
     gapDisplay: runtime.gapDisplay || "-",
     gapPercentDisplay: runtime.gapPercentDisplay || "-",
-    gapSentence: runtime.gapSentence || "Todavía no hay una lectura cargada para esta alerta.",
-    statusText: runtime.statusText || (alert.enabled ? "Sin lectura" : "Pausada"),
+    gapSentence: runtime.gapSentence || (state.language === "en" ? "There is no reading loaded for this alert yet." : "Todavía no hay una lectura cargada para esta alerta."),
+    statusText: runtime.statusText || (alert.enabled ? (state.language === "en" ? "No reading" : "Sin lectura") : (state.language === "en" ? "Paused" : "Pausada")),
     statusTone: runtime.statusTone || (alert.enabled ? "idle" : "muted"),
     lastSeenLocal: runtime.lastSeenLocal || "-",
     lastSeenCompact: formatCompactReading(runtime.lastSeenAt || runtime.sourceTime || ""),
@@ -1197,24 +2511,25 @@ function mergedAlert(alert) {
 
 function validateDraftPayload() {
   const alerts = state.draft.alerts.map((alert, index) => {
-    const label = String(alert.label || `Alerta ${index + 1}`).trim() || `Alerta ${index + 1}`;
+    const fallbackLabel = state.language === "en" ? `Alert ${index + 1}` : `Alerta ${index + 1}`;
+    const label = String(alert.label || fallbackLabel).trim() || fallbackLabel;
     const resourceId = Number(alert.resourceId);
     const qualityRaw = String(alert.quality ?? "").trim();
     const quality = Number(qualityRaw);
     const targetRaw = String(alert.targetPrice ?? "").trim();
     if (!Number.isFinite(resourceId) || resourceId <= 0) {
-      throw new Error(`La alerta "${label}" tiene un activo inválido.`);
+      throw new Error(langText(`La alerta "${label}" tiene un activo inválido.`, `Alert "${label}" has an invalid asset.`));
     }
     if (!qualityRaw.length || !Number.isInteger(quality) || quality < 0 || quality > 12) {
-      throw new Error(`Completa una calidad válida entre Q0 y Q12 para "${label}".`);
+      throw new Error(langText(`Completa una calidad válida entre Q0 y Q12 para "${label}".`, `Enter a valid quality between Q0 and Q12 for "${label}".`));
     }
     if (!targetRaw.length || !Number.isFinite(Number(targetRaw))) {
-      throw new Error(`Completa el precio gatillo de "${label}".`);
+      throw new Error(langText(`Completa el precio gatillo de "${label}".`, `Enter the trigger price for "${label}".`));
     }
     if (editorConditionValue(alert.condition) === "between") {
       const targetMaxRaw = String(alert.targetPriceMax ?? "").trim();
       if (!targetMaxRaw.length || !Number.isFinite(Number(targetMaxRaw))) {
-        throw new Error(`Completa el precio máximo de "${label}".`);
+        throw new Error(langText(`Completa el precio máximo de "${label}".`, `Enter the maximum price for "${label}".`));
       }
     }
     return {
@@ -1245,22 +2560,24 @@ async function persistDraft(showSuccessMessage = true) {
   const dashboard = await callDesktop("saveConfig", draftPayload());
   syncDraftFromDashboard(dashboard);
   renderAll();
-  if (showSuccessMessage) showToast("Cambios guardados");
+  if (showSuccessMessage) showToast(state.language === "en" ? "Changes saved" : "Cambios guardados");
 }
 
 function renderActiveView() {
   const active = viewMeta();
-  ["mercado", "calculadora", "registro"].forEach((view) => {
+  ["mercado", "calculadora", "ejecutivos", "registro"].forEach((view) => {
     byId(`view-${view}`)?.classList.toggle("active", active.id === view);
     byId(`tab-${view}`)?.classList.toggle("active", active.id === view);
   });
   byId("marketToolbar").style.display = active.toolbarVisible ? "" : "none";
   byId("viewTitle").textContent = active.title;
+  renderCalculatorResourceSelector();
   renderCalculatorUnitsSelector();
+  renderExecutiveView();
 }
 
 function switchView(view) {
-  state.activeView = ["mercado", "calculadora", "registro"].includes(view) ? view : "mercado";
+  state.activeView = ["mercado", "calculadora", "ejecutivos", "registro"].includes(view) ? view : "mercado";
   localStorage.setItem(VIEW_STORAGE_KEY, state.activeView);
   renderActiveView();
 }
@@ -1268,7 +2585,7 @@ function switchView(view) {
 function renderHeader() {
   const dashboard = state.dashboard;
   if (!dashboard) return;
-  byId("headerMonitorStat").textContent = dashboard.monitor?.statusLabel || "Sin datos";
+  byId("headerMonitorStat").textContent = dashboard.monitor?.statusLabel || t("noData");
   byId("headerAlertsStat").textContent = String(dashboard.summary?.enabledAlerts || 0);
   byId("headerOpportunityStat").textContent = String(dashboard.summary?.matchedAlerts || 0);
   byId("headerScanStat").textContent = formatHeaderTime(dashboard.scan?.scannedAt);
@@ -1281,18 +2598,18 @@ function renderScanToggleButton() {
   const button = byId("scanToggleButton");
   if (!button) return;
   const scanEnabled = state.dashboard?.monitor?.scanEnabled !== false;
-  button.textContent = scanEnabled ? "Parar escaneo" : "Iniciar escaneo";
+  button.textContent = scanEnabled ? t("stopScan") : t("startScan");
   button.classList.toggle("action-btn-danger", scanEnabled);
   button.classList.toggle("action-btn-success", !scanEnabled);
 }
 
 function updateButtonLabel() {
   const updates = state.updates;
-  if (updates.checking) return "Buscando update";
-  if (updates.downloaded) return "Instalar update";
-  if (updates.downloading) return `Descargando ${Math.round(updates.progress || 0)}%`;
-  if (updates.available) return updates.platform === "win32" ? "Descargar update" : "Descargar update";
-  return "Buscar updates";
+  if (updates.checking) return state.language === "en" ? "Checking update" : "Buscando update";
+  if (updates.downloaded) return state.language === "en" ? "Install update" : "Instalar update";
+  if (updates.downloading) return state.language === "en" ? `Downloading ${Math.round(updates.progress || 0)}%` : `Descargando ${Math.round(updates.progress || 0)}%`;
+  if (updates.available) return state.language === "en" ? "Download update" : "Descargar update";
+  return t("checkUpdates");
 }
 
 function renderUpdateButton() {
@@ -1310,41 +2627,53 @@ function renderUpdateButton() {
 
 function updateModalTitle() {
   const updates = state.updates;
-  if (updates.error) return "No se pudo revisar updates";
-  if (updates.downloaded) return "Update lista para instalar";
-  if (updates.downloading) return "Descargando update";
-  if (updates.available) return "Hay una update disponible";
-  if (updates.checking) return "Buscando updates";
-  return "SimMarket actualizado";
+  if (updates.error) return state.language === "en" ? "Could not check for updates" : "No se pudo revisar updates";
+  if (updates.downloaded) return state.language === "en" ? "Update ready to install" : "Update lista para instalar";
+  if (updates.downloading) return state.language === "en" ? "Downloading update" : "Descargando update";
+  if (updates.available) return state.language === "en" ? "An update is available" : "Hay una update disponible";
+  if (updates.checking) return state.language === "en" ? "Checking updates" : "Buscando updates";
+  return state.language === "en" ? "SimMarket up to date" : "SimMarket actualizado";
 }
 
 function updateModalBody() {
   const updates = state.updates;
   if (updates.error) return updates.error;
   if (updates.downloaded) {
-    return `SimMarket ${updates.latestVersion || ""} ya está descargada y lista para instalar.`;
+    return state.language === "en"
+      ? `SimMarket ${updates.latestVersion || ""} is already downloaded and ready to install.`
+      : `SimMarket ${updates.latestVersion || ""} ya está descargada y lista para instalar.`;
   }
   if (updates.downloading) {
-    return `Se está descargando SimMarket ${updates.latestVersion || ""}. Cuando termine vas a poder instalarla.`;
+    return state.language === "en"
+      ? `SimMarket ${updates.latestVersion || ""} is downloading. Once it finishes you will be able to install it.`
+      : `Se está descargando SimMarket ${updates.latestVersion || ""}. Cuando termine vas a poder instalarla.`;
   }
   if (updates.available) {
     if (updates.platform === "win32") {
-      return `Se detectó SimMarket ${updates.latestVersion || ""} y Windows va a descargarla automáticamente.`;
+      return state.language === "en"
+        ? `SimMarket ${updates.latestVersion || ""} was detected and Windows will download it automatically.`
+        : `Se detectó SimMarket ${updates.latestVersion || ""} y Windows va a descargarla automáticamente.`;
     }
-    return `Se detectó SimMarket ${updates.latestVersion || ""}. Si querés, abrimos la descarga oficial desde GitHub.`;
+    return state.language === "en"
+      ? `SimMarket ${updates.latestVersion || ""} was detected. We can open the official GitHub download if you want.`
+      : `Se detectó SimMarket ${updates.latestVersion || ""}. Si querés, abrimos la descarga oficial desde GitHub.`;
   }
   if (updates.checking) {
-    return "Estamos consultando GitHub para ver si hay una versión más nueva.";
+    return state.language === "en"
+      ? "We are checking GitHub to see if there is a newer version."
+      : "Estamos consultando GitHub para ver si hay una versión más nueva.";
   }
-  return `Ya estás en la última versión disponible (${updates.currentVersion || "actual"}).`;
+  return state.language === "en"
+    ? `You are already on the latest available version (${updates.currentVersion || "current"}).`
+    : `Ya estás en la última versión disponible (${updates.currentVersion || "actual"}).`;
 }
 
 function updatePrimaryButtonLabel() {
   const updates = state.updates;
-  if (updates.error) return "Cerrar";
-  if (updates.downloaded) return updates.platform === "win32" ? "Instalar ahora" : "Cerrar";
-  if (updates.available) return updates.platform === "win32" ? "Descargando..." : "Descargar";
-  return "Cerrar";
+  if (updates.error) return t("close");
+  if (updates.downloaded) return updates.platform === "win32" ? (state.language === "en" ? "Install now" : "Instalar ahora") : t("close");
+  if (updates.available) return updates.platform === "win32" ? (state.language === "en" ? "Downloading..." : "Descargando...") : t("download");
+  return t("close");
 }
 
 function renderUpdateModal() {
@@ -1368,9 +2697,9 @@ function renderUpdateModal() {
   body.textContent = updateModalBody();
 
   const metaBits = [];
-  if (updates.currentVersion) metaBits.push(`Actual ${updates.currentVersion}`);
-  if (updates.latestVersion) metaBits.push(`Nueva ${updates.latestVersion}`);
-  if (updates.lastCheckedAt) metaBits.push(`Revisado ${formatCompactReading(updates.lastCheckedAt)}`);
+  if (updates.currentVersion) metaBits.push(state.language === "en" ? `Current ${updates.currentVersion}` : `Actual ${updates.currentVersion}`);
+  if (updates.latestVersion) metaBits.push(state.language === "en" ? `New ${updates.latestVersion}` : `Nueva ${updates.latestVersion}`);
+  if (updates.lastCheckedAt) metaBits.push(state.language === "en" ? `Checked ${formatCompactReading(updates.lastCheckedAt)}` : `Revisado ${formatCompactReading(updates.lastCheckedAt)}`);
   meta.textContent = metaBits.join(" · ");
 
   const showProgress = Boolean(updates.downloading || updates.downloaded);
@@ -1380,7 +2709,9 @@ function renderUpdateModal() {
 
   primary.textContent = updatePrimaryButtonLabel();
   primary.disabled = Boolean((updates.platform === "win32" && updates.downloading) || (!updates.downloaded && !updates.available && !updates.error));
-  dismiss.textContent = updates.downloaded && updates.platform === "win32" ? "Más tarde" : "Ahora no";
+  dismiss.textContent = updates.downloaded && updates.platform === "win32"
+    ? (state.language === "en" ? "Later" : "Más tarde")
+    : t("notNow");
 }
 
 function renderMarketHealthBanner() {
@@ -1394,10 +2725,14 @@ function renderMarketHealthBanner() {
   }
 
   const toneClass = monitor.marketState === "rate-limited" ? "rate-limited" : "error";
-  const suffix = monitor.affectedAlerts ? ` · ${monitor.affectedAlerts} alerta${monitor.affectedAlerts === 1 ? "" : "s"} afectada${monitor.affectedAlerts === 1 ? "" : "s"}` : "";
+  const suffix = monitor.affectedAlerts
+    ? (state.language === "en"
+      ? ` · ${monitor.affectedAlerts} affected alert${monitor.affectedAlerts === 1 ? "" : "s"}`
+      : ` · ${monitor.affectedAlerts} alerta${monitor.affectedAlerts === 1 ? "" : "s"} afectada${monitor.affectedAlerts === 1 ? "" : "s"}`)
+    : "";
   banner.className = `market-health-banner ${toneClass}`;
   banner.innerHTML = `
-    <div class="market-health-title">${escapeHtml(monitor.marketTitle || "Estado del mercado")}</div>
+    <div class="market-health-title">${escapeHtml(monitor.marketTitle || (state.language === "en" ? "Market status" : "Estado del mercado"))}</div>
     <div class="market-health-copy">${escapeHtml(monitor.marketMessage || "")}${escapeHtml(suffix)}</div>
   `;
 }
@@ -1416,19 +2751,20 @@ function renderOnboarding() {
   modal.classList.toggle("visible", visible);
   if (!visible) return;
 
-  const step = ONBOARDING_STEPS[state.onboardingStep] || ONBOARDING_STEPS[0];
+  const steps = onboardingSteps();
+  const step = steps[state.onboardingStep] || steps[0];
   title.textContent = step.title;
   body.textContent = step.body;
   points.innerHTML = step.points.map((point) => `<div class="onboarding-point">${escapeHtml(point)}</div>`).join("");
-  progress.innerHTML = ONBOARDING_STEPS.map((_item, index) => `<span class="onboarding-dot${index === state.onboardingStep ? " active" : ""}"></span>`).join("");
+  progress.innerHTML = steps.map((_item, index) => `<span class="onboarding-dot${index === state.onboardingStep ? " active" : ""}"></span>`).join("");
   back.style.visibility = state.onboardingStep === 0 ? "hidden" : "visible";
-  next.textContent = step.finalAction ? "Crear primera alerta" : "Siguiente";
+  next.textContent = step.finalAction ? t("onboardingCreateAlert") : t("onboardingNext");
 }
 
 function renderSelectedRuntime() {
   const alert = selectedAlert();
   if (!alert) {
-    byId("selectedRuntime").innerHTML = `<div class="empty-card">Todavía no hay alertas.</div>`;
+    byId("selectedRuntime").innerHTML = `<div class="empty-card">${escapeHtml(state.language === "en" ? "There are no alerts yet." : "Todavía no hay alertas.")}</div>`;
     return;
   }
   const item = mergedAlert(alert);
@@ -1439,19 +2775,19 @@ function renderSelectedRuntime() {
       ${avatarMarkup(item, "A")}
       <div class="summary-title">
         <div class="summary-name">${escapeHtml(item.label)}</div>
-        <div class="summary-meta">${escapeHtml(item.resourceName)} · ${escapeHtml(qualityLabel(item.quality))} · ID ${escapeHtml(item.resourceId)}</div>
+        <div class="summary-meta">${escapeHtml(resourceLabel(item.resourceId))} · ${escapeHtml(qualityLabel(item.quality))} · ID ${escapeHtml(item.resourceId)}</div>
       </div>
       <span class="badge ${actionBadgeClass(item.actionKey)}">${escapeHtml(item.actionLabel)}</span>
     </div>
     <div class="summary-metrics">
-      <div class="metric-box"><span>Precio actual</span><strong>${escapeHtml(item.priceDisplay)}</strong></div>
-      <div class="metric-box"><span>Tu objetivo</span><strong>${escapeHtml(item.targetDisplay)}</strong></div>
-      <div class="metric-box"><span>Cuánto falta</span><strong>${escapeHtml(item.gapDisplay)}</strong></div>
+      <div class="metric-box"><span>${escapeHtml(state.language === "en" ? "Current price" : "Precio actual")}</span><strong>${escapeHtml(item.priceDisplay)}</strong></div>
+      <div class="metric-box"><span>${escapeHtml(state.language === "en" ? "Your target" : "Tu objetivo")}</span><strong>${escapeHtml(item.targetDisplay)}</strong></div>
+      <div class="metric-box"><span>${escapeHtml(state.language === "en" ? "Remaining gap" : "Cuánto falta")}</span><strong>${escapeHtml(item.gapDisplay)}</strong></div>
     </div>
-    <div class="summary-line"><strong>Estado:</strong> ${escapeHtml(item.statusText)}</div>
-    <div class="summary-line"><strong>Lectura:</strong> ${escapeHtml(item.gapSentence)}</div>
-    <div class="summary-line"><strong>Última revisión:</strong> ${escapeHtml(item.lastSeenLocal)}</div>
-    ${firstError ? `<div class="summary-line summary-line-error"><strong>Revisar:</strong> ${escapeHtml(firstError)}</div>` : ""}
+    <div class="summary-line"><strong>${escapeHtml(state.language === "en" ? "Status:" : "Estado:")}</strong> ${escapeHtml(item.statusText)}</div>
+    <div class="summary-line"><strong>${escapeHtml(state.language === "en" ? "Reading:" : "Lectura:")}</strong> ${escapeHtml(item.gapSentence)}</div>
+    <div class="summary-line"><strong>${escapeHtml(state.language === "en" ? "Last review:" : "Última revisión:")}</strong> ${escapeHtml(item.lastSeenLocal)}</div>
+    ${firstError ? `<div class="summary-line summary-line-error"><strong>${escapeHtml(state.language === "en" ? "Review:" : "Revisar:")}</strong> ${escapeHtml(firstError)}</div>` : ""}
   `;
 }
 
@@ -1459,13 +2795,13 @@ function resourceSelectionSummary(alert) {
   const selectedItem = resourceEntry(alert.resourceId);
   if (selectedItem) {
     return {
-      title: selectedItem.label,
-      subtitle: `${selectedItem.group} · ${selectedItem.apiName} · ID ${selectedItem.id}`
+      title: catalogItemLabel(selectedItem),
+      subtitle: `${catalogItemGroup(selectedItem)} · ${selectedItem.apiName} · ID ${selectedItem.id}`
     };
   }
   return {
-    title: "Seleccionar activo",
-    subtitle: "Elegí un producto para esta alerta"
+    title: state.language === "en" ? "Select asset" : "Seleccionar activo",
+    subtitle: state.language === "en" ? "Choose a product for this alert" : "Elegí un producto para esta alerta"
   };
 }
 
@@ -1482,18 +2818,18 @@ function conditionOptionMeta(condition) {
   if (normalized === ">") {
     return {
       value: ">",
-      title: "Mayor que"
+      title: state.language === "en" ? "Greater than" : "Mayor que"
     };
   }
   if (normalized === "between") {
     return {
       value: "between",
-      title: "Entre dos precios"
+      title: state.language === "en" ? "Between two prices" : "Entre dos precios"
     };
   }
   return {
     value: "<",
-    title: "Menor que"
+    title: state.language === "en" ? "Less than" : "Menor que"
   };
 }
 
@@ -1508,7 +2844,7 @@ function conditionSelectorOptionsMarkup(alert) {
   const currentValue = editorConditionValue(alert.condition);
   const options = ["<", ">", "between"].filter((value) => value !== currentValue);
   if (!options.length) {
-    return `<div class="selector-empty">No hay otras opciones disponibles.</div>`;
+    return `<div class="selector-empty">${escapeHtml(langText("No hay otras opciones disponibles.", "There are no other options available."))}</div>`;
   }
   return options.map((value) => {
     const meta = conditionOptionMeta(value);
@@ -1530,20 +2866,24 @@ function resourceSelectorOptionsMarkup(alert) {
   if (!state.resourceActiveGroup) {
     const groups = filteredResourceGroups();
     if (!groups.length) {
-      return `<div class="selector-empty">No hay rubros que coincidan con la búsqueda.</div>`;
+      return `<div class="selector-empty">${escapeHtml(state.language === "en" ? "No groups match the search." : "No hay rubros que coincidan con la búsqueda.")}</div>`;
     }
-    const selectedGroup = resourceEntry(alert.resourceId)?.group || "";
+    const selectedGroup = resourceEntry(alert.resourceId)?.groupKey || resourceEntry(alert.resourceId)?.group || "";
     const normalizedQuery = normalizeSearch(state.resourceSearch);
     return groups.map((entry) => {
-      const active = entry.name === selectedGroup;
-      let helper = `${entry.items.length} activos`;
+      const active = entry.key === selectedGroup;
+      let helper = state.language === "en"
+        ? `${entry.items.length} asset${entry.items.length === 1 ? "" : "s"}`
+        : `${entry.items.length} activos`;
       if (normalizedQuery) {
         helper = normalizeSearch(entry.name).includes(normalizedQuery) && entry.matchedItems.length === entry.items.length
-          ? `${entry.items.length} activos`
-          : `${entry.visibleCount} coincidencia${entry.visibleCount === 1 ? "" : "s"}`;
+          ? helper
+          : state.language === "en"
+            ? `${entry.visibleCount} match${entry.visibleCount === 1 ? "" : "es"}`
+            : `${entry.visibleCount} coincidencia${entry.visibleCount === 1 ? "" : "s"}`;
       }
       return `
-        <button class="selector-option${active ? " active" : ""}" type="button" data-action="open-resource-group" data-resource-group="${escapeHtml(entry.name)}">
+        <button class="selector-option${active ? " active" : ""}" type="button" data-action="open-resource-group" data-resource-group="${escapeHtml(entry.key)}">
           <div class="selector-option-main">
             ${avatarMarkup({ resourceName: entry.name, logoUrl: entry.items[0]?.logoUrl }, "R")}
             <span>${escapeHtml(entry.name)}</span>
@@ -1556,7 +2896,7 @@ function resourceSelectorOptionsMarkup(alert) {
 
   const items = filteredResourcesInActiveGroup();
   if (!items.length) {
-    return `<div class="selector-empty">No hay activos que coincidan con la búsqueda.</div>`;
+    return `<div class="selector-empty">${escapeHtml(state.language === "en" ? "No assets match the search." : "No hay activos que coincidan con la búsqueda.")}</div>`;
   }
 
   return items.map((item) => {
@@ -1564,8 +2904,8 @@ function resourceSelectorOptionsMarkup(alert) {
     return `
       <button class="selector-option${active ? " active" : ""}" type="button" data-action="select-resource" data-resource-id="${item.id}">
         <div class="selector-option-main">
-          ${avatarMarkup({ resourceId: item.id, resourceName: item.label, logoUrl: item.logoUrl }, "A")}
-          <span>${escapeHtml(item.label)}</span>
+          ${avatarMarkup({ resourceId: item.id, resourceName: catalogItemLabel(item), logoUrl: item.logoUrl }, "A")}
+          <span>${escapeHtml(catalogItemLabel(item))}</span>
         </div>
         <small>${escapeHtml(item.apiName)} · ID ${item.id}</small>
       </button>
@@ -1574,7 +2914,7 @@ function resourceSelectorOptionsMarkup(alert) {
 }
 
 function editorMarkup(alert) {
-  if (!alert) return `<div class="empty-card">Selecciona una alerta para editarla.</div>`;
+  if (!alert) return `<div class="empty-card">${escapeHtml(state.language === "en" ? "Select an alert to edit it." : "Selecciona una alerta para editarla.")}</div>`;
   const merged = mergedAlert(alert);
   const errors = draftValidationSummary().byAlertId[alert.id] || {};
   const targetMaxClass = editorConditionValue(alert.condition) === "between" ? "" : "hidden";
@@ -1593,25 +2933,25 @@ function editorMarkup(alert) {
       <div class="summary-top">
         ${avatarMarkup(merged, "A")}
         <div class="summary-title">
-          <div class="summary-name">${escapeHtml(alert.label || "Nueva alerta")}</div>
-          <div class="summary-meta">${escapeHtml(merged.resourceName)} · ${escapeHtml(qualityLabel(alert.quality))} · ID ${escapeHtml(alert.resourceId)}</div>
+          <div class="summary-name">${escapeHtml(alert.label || (state.language === "en" ? "New alert" : "Nueva alerta"))}</div>
+          <div class="summary-meta">${escapeHtml(resourceLabel(alert.resourceId))} · ${escapeHtml(qualityLabel(alert.quality))} · ID ${escapeHtml(alert.resourceId)}</div>
         </div>
         <span class="badge ${statusBadgeClass(merged.statusTone, alert.enabled)}">${escapeHtml(merged.statusText)}</span>
       </div>
 
       <div class="editor-preview">
-        <div class="editor-preview-label">Así se interpreta</div>
-        <div class="editor-preview-title">${escapeHtml(merged.triggerSentence || "Sin lectura")}</div>
+        <div class="editor-preview-label">${escapeHtml(state.language === "en" ? "Interpretation" : "Así se interpreta")}</div>
+        <div class="editor-preview-title">${escapeHtml(merged.triggerSentence || (state.language === "en" ? "No reading" : "Sin lectura"))}</div>
         <div class="editor-preview-subtitle">${escapeHtml(merged.gapSentence || "")}</div>
       </div>
 
       <div class="input-group">
-        <label for="editorLabel">Nombre visible</label>
+        <label for="editorLabel">${escapeHtml(state.language === "en" ? "Visible name" : "Nombre visible")}</label>
         <input id="editorLabel" class="styled-input" data-field="label" type="text" value="${escapeHtml(alert.label)}" />
       </div>
 
       <div class="input-group">
-        <label>Activo</label>
+        <label>${escapeHtml(state.language === "en" ? "Asset" : "Activo")}</label>
         <div class="hierarchy-selector${state.resourceSelectorOpen ? " open" : ""}${errors.resourceId ? " is-invalid" : ""}" id="editorResourceSelector">
           <button type="button" class="selector-summary" data-action="toggle-resource-selector">
             <div class="selector-summary-main">
@@ -1624,7 +2964,7 @@ function editorMarkup(alert) {
             <input id="editorResourceSearch" class="selector-search" data-field="resource-search" type="text" value="${escapeHtml(state.resourceSearch)}" placeholder="${escapeHtml(selectorSearchPlaceholder)}" />
             <div class="selector-crumbs">${resourceCrumbsMarkup()}<span class="selector-tag">${escapeHtml(selectorCountLabel)}</span></div>
             <div class="selector-actions">
-              ${state.resourceActiveGroup ? '<button type="button" class="selector-action-btn" data-action="back-resource-groups">Volver a rubros</button>' : ""}
+              ${state.resourceActiveGroup ? `<button type="button" class="selector-action-btn" data-action="back-resource-groups">${escapeHtml(state.language === "en" ? "Back to groups" : "Volver a rubros")}</button>` : ""}
             </div>
             <div class="selector-list">${resourceSelectorOptionsMarkup(alert)}</div>
           </div>
@@ -1634,12 +2974,12 @@ function editorMarkup(alert) {
 
       <div class="form-row">
         <div class="input-group${errors.quality ? " error" : ""}">
-          <label for="editorQuality">Calidad (Q)</label>
+          <label for="editorQuality">${escapeHtml(state.language === "en" ? "Quality (Q)" : "Calidad (Q)")}</label>
           <input id="editorQuality" class="styled-input no-spinner${errors.quality ? " is-invalid" : ""}" data-field="quality" type="number" min="0" max="12" step="1" value="${escapeHtml(alert.quality)}" />
           ${errors.quality ? `<div class="input-error-copy">${escapeHtml(errors.quality)}</div>` : ""}
         </div>
         <div class="input-group">
-          <label>Tipo de alerta</label>
+          <label>${escapeHtml(state.language === "en" ? "Alert type" : "Tipo de alerta")}</label>
           <div class="hierarchy-selector${state.conditionSelectorOpen ? " open" : ""}" id="editorConditionSelector">
             <button type="button" class="selector-summary" data-action="toggle-condition-selector">
               <div class="selector-summary-main">
@@ -1655,29 +2995,29 @@ function editorMarkup(alert) {
       </div>
 
       <div class="input-group${errors.targetPrice ? " error" : ""}">
-        <label for="editorTarget">Precio gatillo</label>
+        <label for="editorTarget">${escapeHtml(state.language === "en" ? "Trigger price" : "Precio gatillo")}</label>
         <input id="editorTarget" class="styled-input${errors.targetPrice ? " is-invalid" : ""}" data-field="targetPrice" type="number" min="0" step="0.001" value="${escapeHtml(alert.targetPrice)}" />
         ${errors.targetPrice ? `<div class="input-error-copy">${escapeHtml(errors.targetPrice)}</div>` : ""}
       </div>
 
       <div id="editorTargetMaxGroup" class="input-group ${targetMaxClass}${errors.targetPriceMax ? " error" : ""}">
-        <label for="editorTargetMax">Precio máximo</label>
+        <label for="editorTargetMax">${escapeHtml(state.language === "en" ? "Maximum price" : "Precio máximo")}</label>
         <input id="editorTargetMax" class="styled-input${errors.targetPriceMax ? " is-invalid" : ""}" data-field="targetPriceMax" type="number" min="0" step="0.001" value="${escapeHtml(alert.targetPriceMax)}" />
         ${errors.targetPriceMax ? `<div class="input-error-copy">${escapeHtml(errors.targetPriceMax)}</div>` : ""}
       </div>
 
       <label class="inline-toggle">
-        <span>Alerta activa</span>
+        <span>${escapeHtml(state.language === "en" ? "Alert enabled" : "Alerta activa")}</span>
         <input data-field="enabled" type="checkbox" ${alert.enabled ? "checked" : ""} />
       </label>
 
       <label class="inline-toggle">
-        <span>Avisar en cada escaneo mientras siga en zona</span>
+        <span>${escapeHtml(state.language === "en" ? "Notify on every scan while it stays in zone" : "Avisar en cada escaneo mientras siga en zona")}</span>
         <input data-field="repeatWhileMatched" type="checkbox" ${alert.repeatWhileMatched ? "checked" : ""} />
       </label>
 
       <div class="editor-actions">
-        <button id="removeAlertButton" class="action-btn action-btn-danger" type="button">Eliminar alerta</button>
+        <button id="removeAlertButton" class="action-btn action-btn-danger" type="button">${escapeHtml(state.language === "en" ? "Delete alert" : "Eliminar alerta")}</button>
       </div>
     </div>
   `;
@@ -1723,23 +3063,30 @@ function alertCardMarkup(alert) {
         ${avatarMarkup(item, "A")}
         <div class="card-title">
           <div class="contact-name">${escapeHtml(item.label)}</div>
-          <div class="contact-meta">${escapeHtml(item.resourceName)} · ${escapeHtml(qualityLabel(item.quality))} · ID ${escapeHtml(item.resourceId)}</div>
+          <div class="contact-meta">${escapeHtml(resourceLabel(item.resourceId))} · ${escapeHtml(qualityLabel(item.quality))} · ID ${escapeHtml(item.resourceId)}</div>
         </div>
         <span class="badge ${actionBadgeClass(item.actionKey)}">${escapeHtml(item.actionLabel)}</span>
       </div>
       <div class="market-grid">
-        <div class="metric-box"><span>Precio actual</span><strong>${escapeHtml(item.priceDisplay)}</strong></div>
-        <div class="metric-box"><span>Objetivo</span><strong>${escapeHtml(item.targetDisplay)}</strong></div>
-        <div class="metric-box"><span>Brecha</span><strong>${escapeHtml(item.gapDisplay)}</strong></div>
+        <div class="metric-box"><span>${escapeHtml(state.language === "en" ? "Current price" : "Precio actual")}</span><strong>${escapeHtml(item.priceDisplay)}</strong></div>
+        <div class="metric-box"><span>${escapeHtml(state.language === "en" ? "Target" : "Objetivo")}</span><strong>${escapeHtml(item.targetDisplay)}</strong></div>
+        <div class="metric-box"><span>${escapeHtml(state.language === "en" ? "Gap" : "Brecha")}</span><strong>${escapeHtml(item.gapDisplay)}</strong></div>
       </div>
       <hr class="card-divider" />
-      <div class="card-perception">${escapeHtml(item.triggerSentence)}</div>
-      <div class="card-notes">${escapeHtml(item.gapSentence)}</div>
-      <div class="card-tags">
-        <span class="tag">${escapeHtml(item.statusText)}</span>
-        <span class="tag">Última lectura ${escapeHtml(item.lastSeenCompact)}</span>
-        <span class="tag">Brecha ${escapeHtml(item.gapPercentDisplay)}</span>
-        ${hasErrors ? '<span class="tag tag-error">Revisar datos</span>' : ""}
+      <div class="alert-body">
+        <div class="alert-copy${item.chart ? " with-chart" : ""}">
+          <div class="copy-main">
+          <div class="card-perception">${escapeHtml(item.triggerSentence)}</div>
+          <div class="card-notes">${escapeHtml(item.gapSentence)}</div>
+          </div>
+          <div class="card-tags">
+            <span class="tag">${escapeHtml(item.statusText)}</span>
+            <span class="tag">${escapeHtml(state.language === "en" ? "Last reading" : "Última lectura")} ${escapeHtml(item.lastSeenCompact)}</span>
+            <span class="tag">${escapeHtml(state.language === "en" ? "Gap" : "Brecha")} ${escapeHtml(item.gapPercentDisplay)}</span>
+            ${hasErrors ? `<span class="tag tag-error">${escapeHtml(state.language === "en" ? "Review data" : "Revisar datos")}</span>` : ""}
+          </div>
+        </div>
+        ${item.chart ? alertSparklineMarkup(item.chart, item.actionKey) : ""}
       </div>
     </article>
   `;
@@ -1757,12 +3104,16 @@ function renderAlertList() {
   const paged = items.slice(pageStart, pageStart + ALERTS_PER_PAGE);
   countInfo.textContent = items.length
     ? items.length < state.draft.alerts.length
-      ? `${items.length} de ${state.draft.alerts.length} alertas · Página ${state.alertPage} de ${totalPages}`
-      : `Página ${state.alertPage} de ${totalPages}`
+      ? (state.language === "en"
+        ? `${items.length} of ${state.draft.alerts.length} alerts · Page ${state.alertPage} of ${totalPages}`
+        : `${items.length} de ${state.draft.alerts.length} alertas · Página ${state.alertPage} de ${totalPages}`)
+      : (state.language === "en"
+        ? `Page ${state.alertPage} of ${totalPages}`
+        : `Página ${state.alertPage} de ${totalPages}`)
     : "";
   container.innerHTML = items.length
     ? paged.map(alertCardMarkup).join("")
-    : `<div class="empty-card">No hay alertas para ese filtro.</div>`;
+    : `<div class="empty-card">${escapeHtml(state.language === "en" ? "There are no alerts for that filter." : "No hay alertas para ese filtro.")}</div>`;
   pagination.innerHTML = items.length > ALERTS_PER_PAGE
     ? contactPaginationMarkup(items.length, state.alertPage, ALERTS_PER_PAGE, "alert")
     : "";
@@ -1776,10 +3127,10 @@ function eventBadgeClass(type) {
 }
 
 function eventDescription(item) {
-  if (item.type === "trigger") return item.body || `${item.label}: alerta disparada.`;
-  if (item.type === "cleared") return `${item.label}: salió de la zona vigilada.`;
-  if (item.type === "error") return item.error || "Error sin detalle.";
-  return "Evento del monitor.";
+  if (item.type === "trigger") return item.body || (state.language === "en" ? `${item.label}: alert triggered.` : `${item.label}: alerta disparada.`);
+  if (item.type === "cleared") return state.language === "en" ? `${item.label}: left the watched zone.` : `${item.label}: salió de la zona vigilada.`;
+  if (item.type === "error") return item.error || (state.language === "en" ? "Error without details." : "Error sin detalle.");
+  return state.language === "en" ? "Monitor event." : "Evento del monitor.";
 }
 
 function renderEvents() {
@@ -1790,17 +3141,17 @@ function renderEvents() {
     ? events.map((item) => `
         <article class="event-card" data-event-id="${escapeHtml(item.eventId)}">
           <div class="event-head">
-            <div class="event-title">${escapeHtml(item.label || item.alertId || item.type || "Evento")}</div>
+            <div class="event-title">${escapeHtml(item.label || item.alertId || item.type || (state.language === "en" ? "Event" : "Evento"))}</div>
             <div class="event-actions">
-              <span class="badge ${eventBadgeClass(item.type)}">${escapeHtml(item.type || "evento")}</span>
-              <button class="mini-btn mini-btn-danger delete-event-btn" type="button">Eliminar</button>
+              <span class="badge ${eventBadgeClass(item.type)}">${escapeHtml(item.type || (state.language === "en" ? "event" : "evento"))}</span>
+              <button class="mini-btn mini-btn-danger delete-event-btn" type="button">${escapeHtml(state.language === "en" ? "Delete" : "Eliminar")}</button>
             </div>
           </div>
           <div class="event-body">${escapeHtml(eventDescription(item))}</div>
           <div class="event-time">${escapeHtml(formatDateTime(item.time))}</div>
         </article>
       `).join("")
-    : `<div class="empty-card">Todavía no hay movimientos recientes.</div>`;
+    : `<div class="empty-card">${escapeHtml(state.language === "en" ? "There are no recent movements yet." : "Todavía no hay movimientos recientes.")}</div>`;
   renderNotificationsButton();
 }
 
@@ -1812,7 +3163,9 @@ function renderNotificationsButton() {
   button.classList.toggle("has-unread", state.notificationsUnread);
   button.setAttribute(
     "aria-label",
-    state.notificationsUnread ? "Abrir notificaciones nuevas" : "Abrir notificaciones"
+    state.notificationsUnread
+      ? (state.language === "en" ? "Open new notifications" : "Abrir notificaciones nuevas")
+      : (state.language === "en" ? "Open notifications" : "Abrir notificaciones")
   );
 }
 
@@ -1842,7 +3195,7 @@ async function clearNotifications() {
   state.notificationsUnread = false;
   state.dashboard = dashboard;
   renderAll();
-  showToast("Casilla limpiada");
+  showToast(state.language === "en" ? "Inbox cleared" : "Casilla limpiada");
 }
 
 function renderFilterButtons() {
@@ -1925,18 +3278,31 @@ function contactResolvedProducts(contact) {
 function contactResolvedProductDisplay(contact) {
   const selections = contactResolvedSelections(contact);
   if (selections.length) {
-    return buildContactProductDisplay(selections);
+    return selections.map((selection) => {
+      const rubro = displayGroupName(selection.rubro);
+      if (!selection.products.length) {
+        return `${rubro} · ${state.language === "en" ? VARIOS_LABEL_EN : VARIOS_LABEL}`;
+      }
+      return `${rubro} · ${selection.products.map(localizedProductName).join(", ")}`;
+    }).join(" | ");
   }
   if (contact.productDisplay && contact.productDisplay !== VARIOS_LABEL) {
-    return contact.productDisplay;
+    return contact.productDisplay.split("|").map((chunk) => {
+      const pieces = chunk.split("·").map((item) => item.trim()).filter(Boolean);
+      if (!pieces.length) return chunk.trim();
+      const [group, ...products] = pieces;
+      const displayGroup = displayGroupName(group);
+      if (!products.length) return displayGroup;
+      return `${displayGroup} · ${products.join(" · ").split(",").map((item) => localizedProductName(item.trim())).join(", ")}`;
+    }).join(" | ");
   }
   if (contact.resourceId !== "" && contact.resourceId !== null && contact.resourceId !== undefined) {
     const match = resourceEntry(contact.resourceId);
     if (match) {
-      return `${match.group} · ${match.label}`;
+      return `${catalogItemGroup(match)} · ${catalogItemLabel(match)}`;
     }
   }
-  return contact.productDisplay || contact.product || VARIOS_LABEL;
+  return localizedProductName(contact.productDisplay || contact.product || (state.language === "en" ? VARIOS_LABEL_EN : VARIOS_LABEL));
 }
 
 function resetContactHierarchySelection() {
@@ -1956,15 +3322,15 @@ function clearContactHierarchySelection(keepOpen = false) {
 function contactSelectionTagsMarkup() {
   const selection = getContactHierarchySelection();
   if (!selection.selections.length) {
-    return `<span class="selector-tag">${VARIOS_LABEL}</span>`;
+    return `<span class="selector-tag">${escapeHtml(state.language === "en" ? VARIOS_LABEL_EN : VARIOS_LABEL)}</span>`;
   }
   return selection.selections.map((item) => {
     if (!item.products.length) {
-      return `<span class="selector-tag">${escapeHtml(`${item.rubro} · ${VARIOS_LABEL}`)}</span>`;
+      return `<span class="selector-tag">${escapeHtml(`${displayGroupName(item.rubro)} · ${state.language === "en" ? VARIOS_LABEL_EN : VARIOS_LABEL}`)}</span>`;
     }
     return [
-      `<span class="selector-tag">${escapeHtml(item.rubro)}</span>`,
-      ...item.products.map((product) => `<span class="selector-tag">${escapeHtml(product)}</span>`)
+      `<span class="selector-tag">${escapeHtml(displayGroupName(item.rubro))}</span>`,
+      ...item.products.map((product) => `<span class="selector-tag">${escapeHtml(localizedProductName(product))}</span>`)
     ].join("");
   }).join("");
 }
@@ -1973,26 +3339,31 @@ function contactSelectionSummary() {
   const selection = getContactHierarchySelection();
   const rubroCount = selection.selections.length;
   const productCount = selection.selections.reduce((total, item) => total + item.products.length, 0);
+  const localizedTitle = rubroCount
+    ? contactResolvedProductDisplay({ selections: selection.selections, productDisplay: selection.productDisplay })
+    : (state.language === "en" ? VARIOS_LABEL_EN : VARIOS_LABEL);
   return {
-    title: selection.productDisplay,
+    title: localizedTitle,
     subtitle: rubroCount === 0
-      ? "Sin selección específica"
-      : `${rubroCount} rubro${rubroCount === 1 ? "" : "s"} · ${productCount ? `${productCount} producto${productCount === 1 ? "" : "s"}` : VARIOS_LABEL}`
+      ? (state.language === "en" ? "No specific selection" : "Sin selección específica")
+      : state.language === "en"
+        ? `${rubroCount} group${rubroCount === 1 ? "" : "s"} · ${productCount ? `${productCount} product${productCount === 1 ? "" : "s"}` : VARIOS_LABEL_EN}`
+        : `${rubroCount} rubro${rubroCount === 1 ? "" : "s"} · ${productCount ? `${productCount} producto${productCount === 1 ? "" : "s"}` : VARIOS_LABEL}`
   };
 }
 
 function contactTypeSelectionSummary() {
-  return { title: state.contactDraft.type };
+  return { title: contactTypeLabel(state.contactDraft.type) };
 }
 
 function contactCrumbsMarkup() {
   if (!state.contactActiveGroup) {
-    return `<span class="selector-tag">Rubros</span>`;
+    return `<span class="selector-tag">${escapeHtml(state.language === "en" ? "Groups" : "Rubros")}</span>`;
   }
   return [
-    `<span class="selector-tag">Rubro</span>`,
-    `<span class="selector-tag">${escapeHtml(state.contactActiveGroup)}</span>`,
-    `<span class="selector-tag">Productos</span>`
+    `<span class="selector-tag">${escapeHtml(state.language === "en" ? "Group" : "Rubro")}</span>`,
+    `<span class="selector-tag">${escapeHtml(displayGroupName(state.contactActiveGroup))}</span>`,
+    `<span class="selector-tag">${escapeHtml(state.language === "en" ? "Products" : "Productos")}</span>`
   ].join("");
 }
 
@@ -2009,12 +3380,12 @@ function focusContactSelectorSearch() {
 function contactTypeOptionsMarkup() {
   const options = CONTACT_TYPE_OPTIONS.filter((option) => option !== state.contactDraft.type);
   if (!options.length) {
-    return `<div class="selector-empty">No hay otras opciones disponibles.</div>`;
+    return `<div class="selector-empty">${escapeHtml(state.language === "en" ? "No other options are available." : "No hay otras opciones disponibles.")}</div>`;
   }
   return options.map((option) => `
     <button class="selector-option" type="button" data-contact-action="select-type" data-contact-type="${escapeHtml(option)}">
       <div class="selector-option-main">
-        <span>${escapeHtml(option)}</span>
+        <span>${escapeHtml(contactTypeLabel(option))}</span>
       </div>
     </button>
   `).join("");
@@ -2029,6 +3400,7 @@ function contactSelectorOptionsMarkup() {
       options.push({
         rubro: VARIOS_LABEL,
         helper: "General",
+        helper: state.language === "en" ? "General" : "General",
         active: !Object.keys(state.contactSelectedRubros).length
       });
     }
@@ -2041,20 +3413,22 @@ function contactSelectorOptionsMarkup() {
       if (!normalizedQuery || matchesByName || matchedProducts.length) {
         options.push({
           rubro: entry.name,
-          helper: state.contactSelectedRubros[entry.name] ? "Seleccionado" : `${entry.products.length} productos`,
+          helper: state.contactSelectedRubros[entry.name]
+            ? (state.language === "en" ? "Selected" : "Seleccionado")
+            : (state.language === "en" ? `${entry.products.length} products` : `${entry.products.length} productos`),
           active: Boolean(state.contactSelectedRubros[entry.name])
         });
       }
     });
 
     if (!options.length) {
-      return `<div class="selector-empty">No hay rubros que coincidan con la búsqueda.</div>`;
+      return `<div class="selector-empty">${escapeHtml(state.language === "en" ? "No groups match the search." : "No hay rubros que coincidan con la búsqueda.")}</div>`;
     }
 
     return options.map((option) => `
       <button class="selector-option${option.active ? " active" : ""}" type="button" data-contact-action="open-group" data-resource-group="${escapeHtml(option.rubro)}">
         <div class="selector-option-main">
-          <span>${escapeHtml(option.rubro)}</span>
+          <span>${escapeHtml(displayGroupName(option.rubro))}</span>
         </div>
         <small>${escapeHtml(option.helper)}</small>
       </button>
@@ -2066,16 +3440,18 @@ function contactSelectorOptionsMarkup() {
     .filter((product) => !normalizedQuery || normalizeSearch(product).includes(normalizedQuery));
 
   if (!products.length) {
-    return `<div class="selector-empty">No hay productos que coincidan con la búsqueda.</div>`;
+    return `<div class="selector-empty">${escapeHtml(state.language === "en" ? "No products match the search." : "No hay productos que coincidan con la búsqueda.")}</div>`;
   }
 
   return products.map((product) => {
     const active = product === VARIOS_LABEL ? activeProducts.length === 0 : activeProducts.includes(product);
-    const label = product === VARIOS_LABEL ? "Todos los productos del rubro" : "Producto";
+    const label = product === VARIOS_LABEL
+      ? (state.language === "en" ? "All products in the group" : "Todos los productos del rubro")
+      : (state.language === "en" ? "Product" : "Producto");
     return `
       <button class="selector-option${active ? " active" : ""}" type="button" data-contact-action="select-product" data-product-name="${escapeHtml(product)}">
         <div class="selector-option-main">
-          <span>${escapeHtml(product)}</span>
+          <span>${escapeHtml(product === VARIOS_LABEL ? (state.language === "en" ? VARIOS_LABEL_EN : VARIOS_LABEL) : localizedProductName(product))}</span>
         </div>
         <small>${escapeHtml(label)}</small>
       </button>
@@ -2096,19 +3472,19 @@ function contactEditorMarkup() {
       <div class="summary-top">
         ${contactTypeIconMarkup(draft.type, "lg")}
         <div class="summary-title">
-          <div class="summary-name">${escapeHtml(draft.name || "Nuevo contacto")}</div>
-          <div class="summary-meta">${escapeHtml(draft.type)} · ${escapeHtml(selectorSummary.title)}</div>
+          <div class="summary-name">${escapeHtml(draft.name || (state.language === "en" ? "New contact" : "Nuevo contacto"))}</div>
+          <div class="summary-meta">${escapeHtml(contactTypeLabel(draft.type))} · ${escapeHtml(selectorSummary.title)}</div>
         </div>
-        <span class="badge ${contactTrustClass(draft.trust)}">${escapeHtml(draft.trust)}</span>
+        <span class="badge ${contactTrustClass(draft.trust)}">${escapeHtml(contactTrustLabel(draft.trust))}</span>
       </div>
 
       <div class="input-group">
-        <label for="contactName">Nombre del contacto</label>
-        <input id="contactName" class="styled-input" data-contact-field="name" type="text" value="${escapeHtml(draft.name)}" placeholder="Ingrese el nombre de la empresa" />
+        <label for="contactName">${escapeHtml(state.language === "en" ? "Contact name" : "Nombre del contacto")}</label>
+        <input id="contactName" class="styled-input" data-contact-field="name" type="text" value="${escapeHtml(draft.name)}" placeholder="${escapeHtml(state.language === "en" ? "Enter company name" : "Ingrese el nombre de la empresa")}" />
       </div>
 
       <div class="input-group">
-        <label>Tipo de contacto</label>
+        <label>${escapeHtml(state.language === "en" ? "Contact type" : "Tipo de contacto")}</label>
         <div class="hierarchy-selector${state.contactTypeSelectorOpen ? " open" : ""}" id="contactTypeSelector">
           <button type="button" class="selector-summary" data-contact-action="toggle-type-selector">
             <div class="selector-summary-main">
@@ -2123,7 +3499,7 @@ function contactEditorMarkup() {
       </div>
 
       <div class="input-group">
-        <label>Producto / Rubro</label>
+        <label>${escapeHtml(state.language === "en" ? "Product / Group" : "Producto / Rubro")}</label>
         <div class="hierarchy-selector${state.contactSelectorOpen ? " open" : ""}" id="contactResourceSelector">
           <button type="button" class="selector-summary" data-contact-action="toggle-selector">
             <div class="selector-summary-main">
@@ -2134,12 +3510,12 @@ function contactEditorMarkup() {
           </button>
           <div class="selector-tags">${contactSelectionTagsMarkup()}</div>
           <div class="selector-panel">
-            <input id="contactResourceSearch" class="selector-search" data-contact-field="resource-search" type="text" value="${escapeHtml(state.contactResourceSearch)}" placeholder="Buscar rubro o producto..." />
+            <input id="contactResourceSearch" class="selector-search" data-contact-field="resource-search" type="text" value="${escapeHtml(state.contactResourceSearch)}" placeholder="${escapeHtml(state.language === "en" ? "Search group or product..." : "Buscar rubro o producto...")}" />
             <div class="selector-crumbs">${contactCrumbsMarkup()}</div>
             <div class="selector-actions">
-              <button type="button" class="selector-action-btn" data-contact-action="clear-selection">${VARIOS_LABEL}</button>
-              ${state.contactActiveGroup ? '<button type="button" class="selector-action-btn" data-contact-action="back-groups">Agregar rubro</button>' : ""}
-              ${state.contactActiveGroup ? '<button type="button" class="selector-action-btn" data-contact-action="remove-rubro">Quitar rubro</button>' : ""}
+              <button type="button" class="selector-action-btn" data-contact-action="clear-selection">${escapeHtml(state.language === "en" ? VARIOS_LABEL_EN : VARIOS_LABEL)}</button>
+              ${state.contactActiveGroup ? `<button type="button" class="selector-action-btn" data-contact-action="back-groups">${escapeHtml(state.language === "en" ? "Add group" : "Agregar rubro")}</button>` : ""}
+              ${state.contactActiveGroup ? `<button type="button" class="selector-action-btn" data-contact-action="remove-rubro">${escapeHtml(state.language === "en" ? "Remove group" : "Quitar rubro")}</button>` : ""}
             </div>
             <div class="selector-list">${contactSelectorOptionsMarkup()}</div>
           </div>
@@ -2147,26 +3523,26 @@ function contactEditorMarkup() {
       </div>
 
       <div class="input-group">
-        <label for="contactPerception">Percepción</label>
-        <textarea id="contactPerception" class="styled-input" data-contact-field="perception" placeholder="Describa a la empresa">${escapeHtml(draft.perception)}</textarea>
+        <label for="contactPerception">${escapeHtml(state.language === "en" ? "Perception" : "Percepción")}</label>
+        <textarea id="contactPerception" class="styled-input" data-contact-field="perception" placeholder="${escapeHtml(state.language === "en" ? "Describe the company" : "Describa a la empresa")}">${escapeHtml(draft.perception)}</textarea>
       </div>
 
       <div class="input-group">
-        <label for="contactNotes">Notas adicionales</label>
-        <textarea id="contactNotes" class="styled-input" data-contact-field="notes" placeholder="Precios acordados, condiciones, detalles importantes...">${escapeHtml(draft.notes)}</textarea>
+        <label for="contactNotes">${escapeHtml(state.language === "en" ? "Additional notes" : "Notas adicionales")}</label>
+        <textarea id="contactNotes" class="styled-input" data-contact-field="notes" placeholder="${escapeHtml(state.language === "en" ? "Agreed prices, conditions, important details..." : "Precios acordados, condiciones, detalles importantes...")}">${escapeHtml(draft.notes)}</textarea>
       </div>
 
       <div class="input-group">
-        <label>Nivel de confianza</label>
+        <label>${escapeHtml(state.language === "en" ? "Trust level" : "Nivel de confianza")}</label>
         <div class="trust-options">
           ${CONTACT_TRUST_OPTIONS.map((option) => `
-            <button class="trust-opt ${escapeHtml(option.tone)}${draft.trust === option.value ? " selected" : ""}" type="button" data-contact-action="select-trust" data-trust="${escapeHtml(option.value)}">${escapeHtml(option.value)}</button>
+            <button class="trust-opt ${escapeHtml(option.tone)}${draft.trust === option.value ? " selected" : ""}" type="button" data-contact-action="select-trust" data-trust="${escapeHtml(option.value)}">${escapeHtml(contactTrustLabel(option.value))}</button>
           `).join("")}
         </div>
       </div>
 
       <div class="editor-actions">
-        <button class="save-btn" type="button" data-contact-action="save-contact">Guardar contacto</button>
+        <button class="save-btn" type="button" data-contact-action="save-contact">${escapeHtml(state.language === "en" ? "Save contact" : "Guardar contacto")}</button>
       </div>
     </div>
   `;
@@ -2201,14 +3577,14 @@ function filteredContacts() {
 
 function contactCardMarkup(contact) {
   const notesMarkup = contact.notes
-    ? `<div class="card-notes register-card-notes"><div class="card-notes-label">Notas</div>${escapeHtml(contact.notes)}</div>`
+    ? `<div class="card-notes register-card-notes"><div class="card-notes-label">${escapeHtml(state.language === "en" ? "Notes" : "Notas")}</div>${escapeHtml(contact.notes)}</div>`
     : "";
   const latestHistory = latestContactHistory(contact);
   const historyMarkup = latestHistory
     ? `
       <div class="history-preview">
         <div class="history-preview-head">
-          <div class="history-preview-title">Última interacción</div>
+          <div class="history-preview-title">${escapeHtml(state.language === "en" ? "Latest interaction" : "Última interacción")}</div>
           <div class="history-preview-date">${escapeHtml(latestHistory.date || "")}</div>
         </div>
         <div class="history-preview-body">${escapeHtml(latestHistory.summary || "")}</div>
@@ -2221,19 +3597,19 @@ function contactCardMarkup(contact) {
         ${contactTypeIconMarkup(contact.type, "md")}
         <div class="card-title">
           <div class="contact-name">${escapeHtml(contact.name)}</div>
-          <div class="contact-meta">${escapeHtml([contact.type, contactResolvedProductDisplay(contact)].join(" · "))}</div>
+          <div class="contact-meta">${escapeHtml([contactTypeLabel(contact.type), contactResolvedProductDisplay(contact)].join(" · "))}</div>
         </div>
-        <span class="badge ${contactTrustClass(contact.trust)}">${escapeHtml(contact.trust)}</span>
+        <span class="badge ${contactTrustClass(contact.trust)}">${escapeHtml(contactTrustLabel(contact.trust))}</span>
       </div>
       <hr class="card-divider" />
-      <div class="card-perception">${escapeHtml(contact.perception || "Sin observaciones cargadas todavía.")}</div>
+      <div class="card-perception">${escapeHtml(contact.perception || (state.language === "en" ? "No observations loaded yet." : "Sin observaciones cargadas todavía."))}</div>
       ${notesMarkup}
       ${historyMarkup}
       <div class="card-footer">
-        <span class="card-date">Registrado: ${escapeHtml(contact.date || formatContactDate(contact.createdAt))}</span>
+        <span class="card-date">${escapeHtml(state.language === "en" ? "Recorded:" : "Registrado:")} ${escapeHtml(contact.date || formatContactDate(contact.createdAt))}</span>
         <div class="card-actions">
-          <button class="manage-btn" type="button" data-contact-action="open-history" data-contact-id="${escapeHtml(contact.id)}">Historial${contact.history?.length ? ` (${contact.history.length})` : ""}</button>
-          <button class="delete-btn" type="button" data-contact-action="delete-contact" data-contact-id="${escapeHtml(contact.id)}">Eliminar</button>
+          <button class="manage-btn" type="button" data-contact-action="open-history" data-contact-id="${escapeHtml(contact.id)}">${escapeHtml(state.language === "en" ? "History" : "Historial")}${contact.history?.length ? ` (${contact.history.length})` : ""}</button>
+          <button class="delete-btn" type="button" data-contact-action="delete-contact" data-contact-id="${escapeHtml(contact.id)}">${escapeHtml(state.language === "en" ? "Delete" : "Eliminar")}</button>
         </div>
       </div>
     </article>
@@ -2243,7 +3619,15 @@ function contactCardMarkup(contact) {
 function renderContactTypeFilters() {
   const container = byId("contactTypeFilters");
   if (!container) return;
-  container.innerHTML = CONTACT_TYPE_FILTER_OPTIONS.map((option) => `
+  const options = [
+    { value: "todos", label: state.language === "en" ? "All" : "Todos" },
+    { value: "Proveedor", label: contactTypeLabel("Proveedor", true) },
+    { value: "Cliente", label: contactTypeLabel("Cliente", true) },
+    { value: "Desconocido", label: contactTypeLabel("Desconocido", true) },
+    { value: "Social", label: contactTypeLabel("Social", true) },
+    { value: "Socio", label: contactTypeLabel("Socio", true) }
+  ];
+  container.innerHTML = options.map((option) => `
     <button class="filter-btn${state.contactTypeFilter === option.value ? " active" : ""}" data-contact-filter-group="type" data-contact-filter="${escapeHtml(option.value)}" type="button">${escapeHtml(option.label)}</button>
   `).join("");
 }
@@ -2251,7 +3635,14 @@ function renderContactTypeFilters() {
 function renderContactTrustFilters() {
   const container = byId("contactTrustFilters");
   if (!container) return;
-  container.innerHTML = CONTACT_TRUST_FILTER_OPTIONS.map((option) => `
+  const options = [
+    { value: "todos", label: state.language === "en" ? "All trust levels" : "Toda confianza" },
+    { value: "Alto", label: contactTrustLabel("Alto") },
+    { value: "Medio", label: contactTrustLabel("Medio") },
+    { value: "Bajo", label: contactTrustLabel("Bajo") },
+    { value: "Neutro", label: contactTrustLabel("Neutro") }
+  ];
+  container.innerHTML = options.map((option) => `
     <button class="filter-btn${state.contactTrustFilter === option.value ? " active" : ""}" data-contact-filter-group="trust" data-contact-filter="${escapeHtml(option.value)}" type="button">${escapeHtml(option.label)}</button>
   `).join("");
 }
@@ -2262,7 +3653,9 @@ function renderContactRubroFilters() {
   const options = ["todos", ...contactHierarchyGroups().map((entry) => entry.name), VARIOS_LABEL];
   const uniqueOptions = uniqueList(options);
   container.innerHTML = uniqueOptions.map((option) => {
-    const label = option === "todos" ? "Todos los rubros" : option;
+    const label = option === "todos"
+      ? (state.language === "en" ? "All groups" : "Todos los rubros")
+      : displayGroupName(option);
     return `<button class="filter-btn${state.contactRubroFilter === option ? " active" : ""}" data-contact-filter-group="rubro" data-contact-filter="${escapeHtml(option)}" type="button">${escapeHtml(label)}</button>`;
   }).join("");
 }
@@ -2281,12 +3674,12 @@ function renderContactStats() {
   const providers = state.contacts.filter((contact) => contact.type === "Proveedor").length;
   const trustHigh = state.contacts.filter((contact) => contact.trust === "Alto").length;
   if (countLabel) {
-    countLabel.textContent = `${total} registro${total === 1 ? "" : "s"}`;
+    countLabel.textContent = t("recordsCount", { count: total });
   }
   container.innerHTML = `
-    <div class="stat-pill">Total <span>${total}</span></div>
-    <div class="stat-pill">Proveedores <span>${providers}</span></div>
-    <div class="stat-pill">Confianza alta <span>${trustHigh}</span></div>
+    <div class="stat-pill">${escapeHtml(state.language === "en" ? "Total" : "Total")} <span>${total}</span></div>
+    <div class="stat-pill">${escapeHtml(contactTypeLabel("Proveedor", true))} <span>${providers}</span></div>
+    <div class="stat-pill">${escapeHtml(state.language === "en" ? "High trust" : "Confianza alta")} <span>${trustHigh}</span></div>
   `;
 }
 
@@ -2326,27 +3719,31 @@ function renderContactList() {
     container.innerHTML = `
       <div class="empty-state">
         <div class="empty-icon">◈</div>
-        <div class="empty-text">Aún no hay contactos registrados.</div>
+        <div class="empty-text">${escapeHtml(state.language === "en" ? "There are no registered contacts yet." : "Aún no hay contactos registrados.")}</div>
       </div>
     `;
     return;
   }
 
   if (!filtered.length) {
-    countInfo.textContent = "0 resultados";
+    countInfo.textContent = state.language === "en" ? "0 results" : "0 resultados";
     pagination.innerHTML = "";
     container.innerHTML = `
       <div class="empty-state">
         <div class="empty-icon">◈</div>
-        <div class="empty-text">No se encontraron contactos<br>con los filtros actuales.</div>
+        <div class="empty-text">${escapeHtml(state.language === "en" ? "No contacts were found<br>with the current filters." : "No se encontraron contactos<br>con los filtros actuales.")}</div>
       </div>
     `;
     return;
   }
 
   countInfo.textContent = filtered.length < state.contacts.length
-    ? `${filtered.length} de ${state.contacts.length} contactos · Página ${state.contactPage} de ${totalPages}`
-    : `Página ${state.contactPage} de ${totalPages}`;
+    ? (state.language === "en"
+      ? `${filtered.length} of ${state.contacts.length} contacts · Page ${state.contactPage} of ${totalPages}`
+      : `${filtered.length} de ${state.contacts.length} contactos · Página ${state.contactPage} de ${totalPages}`)
+    : (state.language === "en"
+      ? `Page ${state.contactPage} of ${totalPages}`
+      : `Página ${state.contactPage} de ${totalPages}`);
   container.innerHTML = paged.map(contactCardMarkup).join("");
   pagination.innerHTML = contactPaginationMarkup(filtered.length, state.contactPage, CONTACTS_PER_PAGE, "contact");
 }
@@ -2364,7 +3761,7 @@ function renderHistoryList() {
     return;
   }
   if (!contact.history?.length) {
-    list.innerHTML = `<div class="selector-empty">Todavía no hay interacciones cargadas para este contacto.</div>`;
+    list.innerHTML = `<div class="selector-empty">${escapeHtml(state.language === "en" ? "There are no interactions loaded for this contact yet." : "Todavía no hay interacciones cargadas para este contacto.")}</div>`;
     return;
   }
 
@@ -2375,7 +3772,7 @@ function renderHistoryList() {
           ${entry.messages.map((message) => `
             <div class="chat-message ${message.speaker}">
               ${escapeHtml(message.text)}
-              ${message.time ? `<span class="chat-meta">${escapeHtml(message.speaker === "me" ? "Tu mensaje · " : "Mensaje recibido · ")}${escapeHtml(message.time)}</span>` : ""}
+              ${message.time ? `<span class="chat-meta">${escapeHtml(message.speaker === "me" ? (state.language === "en" ? "Your message · " : "Tu mensaje · ") : (state.language === "en" ? "Received message · " : "Mensaje recibido · "))}${escapeHtml(message.time)}</span>` : ""}
             </div>
           `).join("")}
         </div>
@@ -2390,8 +3787,8 @@ function renderHistoryList() {
         ${entry.note ? `<div class="history-item-body">${escapeHtml(entry.note)}</div>` : ""}
         ${chatMarkup}
         <div class="history-item-meta">
-          <span class="history-tag">${entry.messages?.length ? `${entry.messages.length} mensaje${entry.messages.length === 1 ? "" : "s"}` : "Nota manual"}</span>
-          <button class="history-delete" type="button" data-contact-action="delete-history-entry" data-history-id="${escapeHtml(entry.id)}">Eliminar</button>
+          <span class="history-tag">${entry.messages?.length ? (state.language === "en" ? `${entry.messages.length} message${entry.messages.length === 1 ? "" : "s"}` : `${entry.messages.length} mensaje${entry.messages.length === 1 ? "" : "s"}`) : (state.language === "en" ? "Manual note" : "Nota manual")}</span>
+          <button class="history-delete" type="button" data-contact-action="delete-history-entry" data-history-id="${escapeHtml(entry.id)}">${escapeHtml(state.language === "en" ? "Delete" : "Eliminar")}</button>
         </div>
       </div>
     `;
@@ -2406,8 +3803,10 @@ function renderHistoryModal() {
   const contact = state.currentHistoryContactId ? findContactById(state.currentHistoryContactId) : null;
   modal.classList.toggle("visible", Boolean(contact));
   if (!contact) return;
-  title.textContent = `Historial de ${contact.name}`;
-  subtitle.textContent = "Agregá nuevas interacciones sin tocar la ficha base del contacto. Podés pegar conversaciones completas y se convierten en burbujas legibles.";
+  title.textContent = state.language === "en" ? `History for ${contact.name}` : `Historial de ${contact.name}`;
+  subtitle.textContent = state.language === "en"
+    ? "Add new interactions without touching the base contact card. You can paste full conversations and they will turn into readable bubbles."
+    : "Agregá nuevas interacciones sin tocar la ficha base del contacto. Podés pegar conversaciones completas y se convierten en burbujas legibles.";
   renderHistoryList();
 }
 
@@ -2415,7 +3814,7 @@ function clearHistoryForm() {
   const dateInput = byId("historyDateInput");
   const noteInput = byId("historyNoteInput");
   const conversationInput = byId("historyConversationInput");
-  if (dateInput) dateInput.value = new Date().toLocaleDateString("es-AR", { day: "2-digit", month: "short", year: "numeric" });
+  if (dateInput) dateInput.value = new Date().toLocaleDateString(numberLocale(), { day: "2-digit", month: "short", year: "numeric" });
   if (noteInput) noteInput.value = "";
   if (conversationInput) conversationInput.value = "";
 }
@@ -2517,14 +3916,14 @@ function saveHistoryEntry() {
   if (!contact) return;
 
   const date = String(byId("historyDateInput")?.value || "").trim()
-    || new Date().toLocaleDateString("es-AR", { day: "2-digit", month: "short", year: "numeric" });
+    || new Date().toLocaleDateString(numberLocale(), { day: "2-digit", month: "short", year: "numeric" });
   const note = String(byId("historyNoteInput")?.value || "").trim();
   const conversationText = String(byId("historyConversationInput")?.value || "").trim();
   const parsedMessages = conversationText ? parseConversationText(conversationText) : [];
   const summary = buildHistorySummary(parsedMessages, note);
 
   if (!summary && !note && !parsedMessages.length) {
-    showToast("Cargá un resumen, una nota o pegá una conversación antes de guardar", "error");
+    showToast(state.language === "en" ? "Add a summary, a note, or paste a conversation before saving" : "Cargá un resumen, una nota o pegá una conversación antes de guardar", "error");
     return;
   }
 
@@ -2532,7 +3931,7 @@ function saveHistoryEntry() {
   contact.history.unshift({
     id: `history-${Date.now()}`,
     date,
-    summary: summary || "Interacción guardada",
+    summary: summary || (state.language === "en" ? "Saved interaction" : "Interacción guardada"),
     note,
     messages: parsedMessages
   });
@@ -2541,7 +3940,7 @@ function saveHistoryEntry() {
   renderContactList();
   renderHistoryList();
   clearHistoryForm();
-  showToast("Interacción guardada");
+  showToast(state.language === "en" ? "Interaction saved" : "Interacción guardada");
 }
 
 function deleteHistoryEntry(entryId) {
@@ -2551,7 +3950,7 @@ function deleteHistoryEntry(entryId) {
   persistContacts();
   renderContactList();
   renderHistoryList();
-  showToast("Interacción eliminada");
+  showToast(state.language === "en" ? "Interaction deleted" : "Interacción eliminada");
 }
 
 function renderContactView() {
@@ -2562,6 +3961,251 @@ function renderContactView() {
   renderHistoryModal();
 }
 
+function executiveSummaryMarkup() {
+  const data = executiveDataset();
+  const analysis = state.executive.analysis;
+  const stale = analysis && executiveNeedsRefresh();
+  if (analysis?.type === "match") {
+    const roleMeta = executiveRoleMeta(analysis.displayRole.key);
+    return `
+      <div class="executive-summary-head">
+        <div class="executive-summary-copy">
+          <div class="executive-summary-kicker">${escapeHtml(langText("Lectura activa", "Active read"))}</div>
+          <div class="executive-summary-title">${escapeHtml(roleMeta.label)} · ${escapeHtml(analysis.band.label)}</div>
+          <div class="executive-summary-meta">${escapeHtml(analysis.confidence.label)} · ${analysis.totalMatches} ${escapeHtml(langText(`coincidencia${analysis.totalMatches === 1 ? "" : "s"} útiles`, `useful match${analysis.totalMatches === 1 ? "" : "es"}`))}</div>
+        </div>
+        <span class="executive-summary-role ${executiveRoleAccentClass(analysis.displayRole.key)}">${escapeHtml(roleMeta.short)}</span>
+      </div>
+      <div class="executive-summary-feedback">${escapeHtml(analysis.best.feedback)}</div>
+      <div class="card-tags executive-summary-tags">
+        <span class="tag">${escapeHtml(analysis.salaryIntel.title)}</span>
+        <span class="tag">${analysis.best.sampleCount} ${escapeHtml(langText("observaciones", "observations"))}</span>
+        ${stale ? `<span class="tag tag-error">${escapeHtml(langText("Hay cambios sin analizar", "There are unanalyzed changes"))}</span>` : `<span class="tag">${escapeHtml(langText("Lectura al día", "Read up to date"))}</span>`}
+      </div>
+    `;
+  }
+
+  if (analysis?.type === "no-match") {
+    return `
+      <div class="executive-summary-head">
+        <div class="executive-summary-copy">
+          <div class="executive-summary-kicker">${escapeHtml(langText("Radar sin match", "Radar without match"))}</div>
+          <div class="executive-summary-title">${escapeHtml(langText("Sin coincidencia convincente", "No convincing match"))}</div>
+          <div class="executive-summary-meta">${escapeHtml(langText("Conviene pegar el feedback completo para mejorar la señal", "It helps to paste the full feedback to improve the signal"))}</div>
+        </div>
+      </div>
+      <div class="executive-summary-feedback">${escapeHtml(langText("La base está cargada, pero este texto todavía no se parece lo suficiente a un patrón mapeado.", "The base is loaded, but this text still does not resemble a mapped pattern enough."))}</div>
+      <div class="card-tags executive-summary-tags">
+        <span class="tag">${data.summary.profileCount} ${escapeHtml(langText("perfiles", "profiles"))}</span>
+        <span class="tag">${data.summary.sampleCount} ${escapeHtml(langText("observaciones", "observations"))}</span>
+      </div>
+    `;
+  }
+
+  return `
+    <div class="executive-summary-head">
+      <div class="executive-summary-copy">
+        <div class="executive-summary-kicker">${escapeHtml(langText("Motor local", "Local engine"))}</div>
+        <div class="executive-summary-title">${escapeHtml(langText("Radar ejecutivo listo", "Executive radar ready"))}</div>
+        <div class="executive-summary-meta">${escapeHtml(langText("Dataset privado empaquetado dentro de SimMarket", "Private dataset bundled inside SimMarket"))}</div>
+      </div>
+    </div>
+    <div class="summary-metrics executive-summary-metrics">
+      <div class="metric-box"><span>${escapeHtml(langText("Perfiles", "Profiles"))}</span><strong>${data.summary.profileCount}</strong></div>
+      <div class="metric-box"><span>${escapeHtml(langText("Observaciones", "Observations"))}</span><strong>${data.summary.sampleCount}</strong></div>
+      <div class="metric-box"><span>${escapeHtml(langText("Rango salarial", "Salary range"))}</span><strong>${data.summary.salaryMin ? `$${Number(data.summary.salaryMin).toLocaleString(numberLocale())} · $${Number(data.summary.salaryMax).toLocaleString(numberLocale())}` : "-"}</strong></div>
+    </div>
+    <div class="executive-summary-feedback">${escapeHtml(langText("Pegá un feedback, sumá salario si lo conocés y abrí el radar ejecutivo.", "Paste feedback, add the salary if you know it, and open the executive radar."))}</div>
+  `;
+}
+
+function executiveHeroMetricsMarkup(analysis) {
+  const roleMeta = executiveRoleMeta(analysis.displayRole.key);
+  return `
+    <div class="executive-hero-metrics">
+      <article class="executive-mini-card">
+        <div class="executive-mini-label">${escapeHtml(langText("Perfil dominante", "Dominant profile"))}</div>
+        <div class="executive-mini-value">${escapeHtml(roleMeta.label)}</div>
+      </article>
+      <article class="executive-mini-card">
+        <div class="executive-mini-label">${escapeHtml(langText("Nivel estimado", "Estimated tier"))}</div>
+        <div class="executive-mini-value">${escapeHtml(analysis.band.label)}</div>
+      </article>
+      <article class="executive-mini-card">
+        <div class="executive-mini-label">${escapeHtml(langText("Confianza", "Confidence"))}</div>
+        <div class="executive-mini-value">${escapeHtml(analysis.confidence.label)}</div>
+      </article>
+      <article class="executive-mini-card">
+        <div class="executive-mini-label">${escapeHtml(langText("Muestras", "Samples"))}</div>
+        <div class="executive-mini-value">${analysis.best.sampleCount}</div>
+      </article>
+    </div>
+  `;
+}
+
+function executiveSalaryMetaMarkup(analysis) {
+  const tags = [];
+  if (analysis.salaryIntel.mode === "exact") {
+    tags.push(`<span class="tag tag-success">${analysis.salaryIntel.exactCount} ${escapeHtml(langText(`exacta${analysis.salaryIntel.exactCount === 1 ? "" : "s"}`, `exact match${analysis.salaryIntel.exactCount === 1 ? "" : "es"}`))}</span>`);
+  }
+  if (analysis.salaryIntel.mode === "near" && Array.isArray(analysis.salaryIntel.nearbySalaries)) {
+    analysis.salaryIntel.nearbySalaries.forEach((salary) => {
+      tags.push(`<span class="tag">$${Number(salary).toLocaleString(numberLocale())}</span>`);
+    });
+  }
+  if (analysis.salaryIntel.mode === "general") {
+    tags.push(`<span class="tag">${escapeHtml(langText("Sin salario puntual", "No exact salary"))}</span>`);
+  }
+  return tags.join("");
+}
+
+function executiveResultsMarkup() {
+  const analysis = state.executive.analysis;
+  if (!analysis) {
+    return `
+      <div class="empty-card executive-empty-card">
+        <div class="executive-empty-kicker">${escapeHtml(langText("Inteligencia ejecutiva", "Executive intelligence"))}</div>
+        <div class="executive-empty-title">${escapeHtml(langText("Pegá un feedback para abrir el radar", "Paste feedback to open the radar"))}</div>
+        <div class="executive-empty-copy">${escapeHtml(langText("La lectura combina similitud textual, peso del feedback y observaciones salariales ya mapeadas dentro de tu copia privada.", "This read combines textual similarity, feedback weight, and salary observations already mapped inside your private copy."))}</div>
+      </div>
+    `;
+  }
+
+  if (analysis.type === "no-match") {
+    return `
+      <div class="empty-card executive-empty-card">
+        <div class="executive-empty-kicker">${escapeHtml(langText("Sin match útil", "No useful match"))}</div>
+        <div class="executive-empty-title">${escapeHtml(langText("No encontramos una señal suficientemente parecida", "We did not find a close enough signal"))}</div>
+        <div class="executive-empty-copy">${escapeHtml(langText("Probá pegar el feedback completo, sin recortes. Este motor funciona mejor cuando respeta el texto tal como aparece en el juego.", "Try pasting the full feedback without trimming it. This engine works better when the text stays exactly as it appears in the game."))}</div>
+      </div>
+    `;
+  }
+
+  const requestedSalary = parseIntegerInput(analysis.salaryRaw);
+  return `
+    <section class="executive-hero-card">
+      <div class="executive-hero-copy">
+        <div class="executive-empty-kicker">${escapeHtml(langText("Coincidencia principal", "Primary match"))}</div>
+        <h3>${escapeHtml(analysis.best.feedback)}</h3>
+        <p>${escapeHtml(analysis.band.copy)}</p>
+        <div class="card-tags">
+          <span class="tag">${escapeHtml(analysis.confidence.label)} · ${Math.round(analysis.score * 100)}%</span>
+          <span class="tag">${escapeHtml(analysis.salaryIntel.title)}</span>
+          ${Number.isFinite(requestedSalary) && requestedSalary > 0 ? `<span class="tag">${escapeHtml(langText("Salario consultado", "Requested salary"))} $${requestedSalary.toLocaleString(numberLocale())}</span>` : ""}
+        </div>
+      </div>
+      ${executiveHeroMetricsMarkup(analysis)}
+    </section>
+
+    <section class="executive-grid">
+      <article class="executive-detail-card">
+        <div class="section-label">${escapeHtml(langText("Vector de habilidades", "Skill vector"))}</div>
+        <div class="executive-skill-grid">
+          ${executiveSkillCardsMarkup(
+            analysis.displaySkills,
+            analysis.salaryIntel.mode === "general"
+              ? langText("Feedback agregado", "Aggregated feedback")
+              : analysis.salaryIntel.mode === "exact"
+                ? langText("Observación salarial exacta", "Exact salary observation")
+                : langText("Salarios cercanos", "Nearby salaries")
+          )}
+        </div>
+      </article>
+
+      <article class="executive-detail-card">
+        <div class="section-label">${escapeHtml(langText("Lectura salarial", "Salary read"))}</div>
+        <div class="executive-salary-copy">${escapeHtml(analysis.salaryIntel.copy)}</div>
+        <div class="card-tags executive-salary-tags">${executiveSalaryMetaMarkup(analysis)}</div>
+        <div class="executive-samples">
+          ${executiveSampleRowsMarkup(analysis.salaryIntel.referenceRows)}
+        </div>
+      </article>
+    </section>
+
+    <section class="executive-grid executive-grid-secondary">
+      <article class="executive-detail-card">
+        <div class="section-label">${escapeHtml(langText("Resumen operativo", "Operational summary"))}</div>
+        <div class="executive-operational-list">
+          <div class="executive-operational-item">
+            <span>${escapeHtml(langText("Rol sugerido", "Suggested role"))}</span>
+            <strong>${escapeHtml(executiveRoleMeta(analysis.displayRole.key).label)}</strong>
+          </div>
+          <div class="executive-operational-item">
+            <span>${escapeHtml(langText("Nivel base", "Base tier"))}</span>
+            <strong>${escapeHtml(analysis.band.label)}</strong>
+          </div>
+          <div class="executive-operational-item">
+            <span>${escapeHtml(langText("Observaciones disponibles", "Available observations"))}</span>
+            <strong>${analysis.best.sampleCount}</strong>
+          </div>
+          <div class="executive-operational-item">
+            <span>${escapeHtml(langText("Feedbacks cercanos", "Nearby feedbacks"))}</span>
+            <strong>${analysis.totalMatches}</strong>
+          </div>
+        </div>
+      </article>
+
+      <article class="executive-detail-card">
+        <div class="section-label">${escapeHtml(langText("Alternativas cercanas", "Nearby alternatives"))}</div>
+        <div class="executive-alt-grid">
+          ${executiveAlternativesMarkup(analysis.alternatives)}
+        </div>
+      </article>
+    </section>
+  `;
+}
+
+function renderExecutiveView() {
+  const summary = byId("executiveSummaryCard");
+  const results = byId("executiveResults");
+  const info = byId("executiveResultsInfo");
+  const feedbackInput = byId("executiveFeedbackInput");
+  const salaryInput = byId("executiveSalaryInput");
+  if (!summary || !results || !info || !feedbackInput || !salaryInput) return;
+  summary.innerHTML = executiveSummaryMarkup();
+  feedbackInput.value = state.executive.feedback;
+  salaryInput.value = state.executive.salary;
+  results.innerHTML = executiveResultsMarkup();
+
+  const analysis = state.executive.analysis;
+  if (!analysis) {
+    info.textContent = state.language === "en"
+      ? `${executiveDataset().summary.profileCount} local profiles · ${executiveDataset().summary.sampleCount} salary observations`
+      : `${executiveDataset().summary.profileCount} perfiles locales · ${executiveDataset().summary.sampleCount} observaciones salariales`;
+    return;
+  }
+
+  if (analysis.type === "no-match") {
+    info.textContent = langText("Sin coincidencias suficientemente útiles para este texto.", "No sufficiently useful matches for this text.");
+    return;
+  }
+
+  const roleMeta = executiveRoleMeta(analysis.displayRole.key);
+  info.textContent = `${roleMeta.label} · ${analysis.band.label} · ${analysis.confidence.label}`;
+}
+
+function runExecutiveAnalysis() {
+  const feedback = String(state.executive.feedback || "").trim();
+  if (normalizeSearch(feedback).length < 12) {
+    showToast(state.language === "en" ? "Paste a slightly more complete feedback so the radar can read it properly" : "Pegá un feedback un poco más completo para poder leerlo bien", "error");
+    return;
+  }
+  state.executive.analysis = analyzeExecutiveQuery(feedback, state.executive.salary);
+  state.executive.lastQuery = feedback;
+  state.executive.lastSalary = state.executive.salary;
+  persistExecutiveState();
+  renderExecutiveView();
+  showToast(state.executive.analysis?.type === "match"
+    ? (state.language === "en" ? "Executive radar updated" : "Radar ejecutivo actualizado")
+    : (state.language === "en" ? "No clear match appeared" : "No apareció una coincidencia clara"));
+}
+
+function clearExecutiveAnalysis() {
+  state.executive = emptyExecutiveState();
+  persistExecutiveState();
+  renderExecutiveView();
+}
+
 function saveContact() {
   const draft = {
     ...state.contactDraft,
@@ -2570,7 +4214,7 @@ function saveContact() {
     notes: state.contactDraft.notes.trim()
   };
   if (!draft.name || !draft.perception) {
-    showToast("Completá el nombre y la percepción antes de guardar", "error");
+    showToast(state.language === "en" ? "Complete the name and perception before saving" : "Completá el nombre y la percepción antes de guardar", "error");
     return;
   }
 
@@ -2579,7 +4223,7 @@ function saveContact() {
     ...draft,
     ...hierarchySelection,
     history: [],
-    date: new Date().toLocaleDateString("es-AR", { day: "2-digit", month: "short", year: "numeric" })
+    date: new Date().toLocaleDateString(numberLocale(), { day: "2-digit", month: "short", year: "numeric" })
   }));
   state.contactPage = 1;
   persistContacts();
@@ -2587,7 +4231,7 @@ function saveContact() {
   state.contactTypeSelectorOpen = false;
   clearContactHierarchySelection(false);
   renderContactView();
-  showToast("Contacto guardado");
+  showToast(state.language === "en" ? "Contact saved" : "Contacto guardado");
 }
 
 function deleteContact(contactId) {
@@ -2598,7 +4242,7 @@ function deleteContact(contactId) {
   clampContactPage(filteredContacts().length);
   persistContacts();
   renderContactView();
-  showToast("Contacto eliminado");
+  showToast(state.language === "en" ? "Contact deleted" : "Contacto eliminado");
 }
 
 function handleContactMutation(event) {
@@ -2784,8 +4428,10 @@ function handleContactMutation(event) {
 
 function renderAll() {
   ensureSelectedAlert();
+  renderStaticLanguage();
   renderActiveView();
   renderThemeToggle();
+  renderLanguageToggle();
   renderHeader();
   renderUpdateModal();
   renderMarketHealthBanner();
@@ -2799,6 +4445,7 @@ function renderAll() {
   syncCalculatorInputs();
   recalculateCalculator();
   renderContactView();
+  renderExecutiveView();
   renderOnboarding();
 }
 
@@ -3005,7 +4652,9 @@ async function scanNow() {
     syncNotificationState(dashboard);
     state.dashboard = dashboard;
     renderAll();
-    showToast(dashboard.scan?.errors?.length ? `Escaneo con ${dashboard.scan.errors.length} error(es)` : "Escaneo terminado");
+    showToast(dashboard.scan?.errors?.length
+      ? langText(`Escaneo con ${dashboard.scan.errors.length} error(es)`, `Scan finished with ${dashboard.scan.errors.length} error(s)`)
+      : langText("Escaneo terminado", "Scan finished"));
   } catch (error) {
     showToast(error.message, "error");
   }
@@ -3031,7 +4680,9 @@ async function toggleScanEnabled() {
     state.dashboard = dashboard;
     state.draft.config.scanEnabled = dashboard.config?.scanEnabled !== false;
     renderAll();
-    showToast(nextEnabled ? "Escaneo automático reanudado" : "Escaneo automático detenido");
+    showToast(nextEnabled
+      ? langText("Escaneo automático reanudado", "Automatic scan resumed")
+      : langText("Escaneo automático detenido", "Automatic scan stopped"));
   } catch (error) {
     state.draft.config.scanEnabled = currentEnabled;
     if (state.dashboard?.monitor) {
@@ -3056,10 +4707,10 @@ async function checkForUpdates(manual = false) {
     renderHeader();
     renderUpdateModal();
     if (manual && state.updates.status === "up-to-date") {
-      showToast("Ya tenés la última versión");
+      showToast(langText("Ya tenés la última versión", "You already have the latest version"));
     }
     if (manual && state.updates.status === "error") {
-      showToast(state.updates.error || "No se pudo revisar updates", "error");
+      showToast(state.updates.error || langText("No se pudo revisar updates", "Could not check updates"), "error");
     }
   } catch (error) {
     showToast(error.message, "error");
@@ -3076,7 +4727,7 @@ async function runUpdatePrimaryAction() {
     renderHeader();
     renderUpdateModal();
     if (state.updates.platform === "darwin" && state.updates.downloadUrl) {
-      showToast("Descarga abierta en GitHub");
+      showToast(langText("Descarga abierta en GitHub", "Download opened on GitHub"));
     }
   } catch (error) {
     showToast(error.message, "error");
@@ -3103,7 +4754,7 @@ function newAlertId() {
 function addAlert() {
   state.draft.alerts.unshift({
     id: newAlertId(),
-    label: "Nueva alerta",
+    label: state.language === "en" ? "New alert" : "Nueva alerta",
     resourceId: "",
     quality: 0,
     condition: "<",
@@ -3135,7 +4786,7 @@ function discardDraft() {
   if (!state.dashboard) return;
   syncDraftFromDashboard(state.dashboard);
   renderAll();
-  showToast("Cambios descartados");
+  showToast(state.language === "en" ? "Changes discarded" : "Cambios descartados");
 }
 
 async function deleteEvent(eventId) {
@@ -3147,12 +4798,13 @@ async function deleteEvent(eventId) {
     state.notificationsUnread = false;
   }
   renderAll();
-  showToast("Evento eliminado");
+  showToast(state.language === "en" ? "Event deleted" : "Evento eliminado");
 }
 
 async function loadDashboard({ quiet = false } = {}) {
   try {
     const dashboard = await callDesktop("getDashboard");
+    cacheResourceCatalog(dashboard.resourceCatalog);
     if (!state.dirty) {
       syncDraftFromDashboard(dashboard);
       renderAll();
@@ -3178,8 +4830,12 @@ async function loadDashboard({ quiet = false } = {}) {
       state.warningSignature = nextWarningSignature;
       showToast(
         dashboard.warnings.length === 1
-          ? "Se omitió 1 alerta guardada porque tenía datos inválidos."
-          : `Se omitieron ${dashboard.warnings.length} alertas guardadas porque tenían datos inválidos.`,
+          ? (state.language === "en"
+            ? "1 saved alert was skipped because it had invalid data."
+            : "Se omitió 1 alerta guardada porque tenía datos inválidos.")
+          : (state.language === "en"
+            ? `${dashboard.warnings.length} saved alerts were skipped because they had invalid data.`
+            : `Se omitieron ${dashboard.warnings.length} alertas guardadas porque tenían datos inválidos.`),
         "error"
       );
       return;
@@ -3187,7 +4843,7 @@ async function loadDashboard({ quiet = false } = {}) {
     if (!dashboard.warnings?.length) {
       state.warningSignature = "";
     }
-    if (!quiet) showToast("Panel actualizado");
+    if (!quiet) showToast(state.language === "en" ? "Dashboard updated" : "Panel actualizado");
   } catch (error) {
     showToast(error.message, "error");
   }
@@ -3206,6 +4862,7 @@ function persistCalculatorState() {
     activeId: state.calculatorBook.activeId,
     pages: state.calculatorBook.pages.map((page) => ({
       id: page.id,
+      resourceId: page.resourceId === "" || page.resourceId === null || page.resourceId === undefined ? "" : Number(page.resourceId),
       buyPrice: page.buyPrice ?? "",
       quantity: page.quantity ?? "",
       transportPrice: page.transportPrice ?? "",
@@ -3227,6 +4884,7 @@ function syncCalculatorInputs() {
     if (element) element.value = state.calculator[key] ?? "";
   });
   renderCalculatorPages();
+  renderCalculatorResourceSelector();
   renderCalculatorUnitsSelector();
 }
 
@@ -3268,9 +4926,9 @@ function recalculateCalculator() {
     const card = document.createElement("div");
     card.className = "calc-card calc-target";
     card.innerHTML = `
-      <div class="calc-target-pct">+${pct}% ganancia</div>
+      <div class="calc-target-pct">+${pct}% ${escapeHtml(state.language === "en" ? "profit" : "ganancia")}</div>
       <div class="calc-target-price">${formatCurrency(targetSellPrice)}</div>
-      <div class="calc-target-gain gain-pos">+${formatCurrency(gainTotal)} total</div>
+      <div class="calc-target-gain gain-pos">+${formatCurrency(gainTotal)} ${escapeHtml(state.language === "en" ? "total" : "total")}</div>
       <div class="calc-target-note">${formatCurrency(gainPerUnit)}/u</div>
     `;
     grid.appendChild(card);
@@ -3285,21 +4943,25 @@ function recalculateCalculator() {
     const pctGain = (netPerUnit / buyPrice) * 100;
     if (Math.abs(netPerUnit) < 0.000001) {
       verdict.className = "calc-verdict breakeven-v";
-      verdict.textContent = "Breakeven exacto";
-      verdictDetail.textContent = "No ganás ni perdés.";
+      verdict.textContent = state.language === "en" ? "Exact breakeven" : "Breakeven exacto";
+      verdictDetail.textContent = state.language === "en" ? "You neither win nor lose." : "No ganás ni perdés.";
     } else if (netPerUnit > 0) {
       verdict.className = "calc-verdict ganancia";
-      verdict.textContent = `+${pctGain.toLocaleString("es-AR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}% · Ganancia`;
-      verdictDetail.innerHTML = `<span class="gain-pos">+${formatCurrency(netTotal)}</span> total · <span class="gain-pos">+${formatCurrency(netPerUnit)}</span> por unidad`;
+      verdict.textContent = `+${pctGain.toLocaleString(numberLocale(), { minimumFractionDigits: 2, maximumFractionDigits: 2 })}% · ${state.language === "en" ? "Profit" : "Ganancia"}`;
+      verdictDetail.innerHTML = state.language === "en"
+        ? `<span class="gain-pos">+${formatCurrency(netTotal)}</span> total · <span class="gain-pos">+${formatCurrency(netPerUnit)}</span> per unit`
+        : `<span class="gain-pos">+${formatCurrency(netTotal)}</span> total · <span class="gain-pos">+${formatCurrency(netPerUnit)}</span> por unidad`;
     } else {
       verdict.className = "calc-verdict perdida";
-      verdict.textContent = `${pctGain.toLocaleString("es-AR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}% · Pérdida`;
-      verdictDetail.innerHTML = `<span class="gain-neg">-${formatCurrency(Math.abs(netTotal))}</span> total · <span class="gain-neg">-${formatCurrency(Math.abs(netPerUnit))}</span> por unidad`;
+      verdict.textContent = `${pctGain.toLocaleString(numberLocale(), { minimumFractionDigits: 2, maximumFractionDigits: 2 })}% · ${state.language === "en" ? "Loss" : "Pérdida"}`;
+      verdictDetail.innerHTML = state.language === "en"
+        ? `<span class="gain-neg">-${formatCurrency(Math.abs(netTotal))}</span> total · <span class="gain-neg">-${formatCurrency(Math.abs(netPerUnit))}</span> per unit`
+        : `<span class="gain-neg">-${formatCurrency(Math.abs(netTotal))}</span> total · <span class="gain-neg">-${formatCurrency(Math.abs(netPerUnit))}</span> por unidad`;
     }
   } else {
     checker.style.display = "none";
     verdict.className = "calc-verdict";
-    verdict.textContent = "Ingresá un precio";
+    verdict.textContent = t("enterPrice");
     verdictDetail.textContent = "";
   }
 }
@@ -3314,12 +4976,32 @@ function bindStaticUi() {
     renderUpdateModal();
     renderOnboarding();
   });
+  window.simcoDesktop?.onDashboardUpdated?.(() => {
+    loadDashboard({ quiet: true });
+  });
   byId("themeToggleButton").addEventListener("click", () => {
     applyTheme(state.theme === "light" ? "dark" : "light");
+  });
+  byId("languageToggleButton")?.addEventListener("click", async () => {
+    toggleLanguage(state.language === "en" ? "es" : "en");
+    try {
+      await callDesktop("setLanguage", state.language);
+    } catch (_error) {
+      // Renderer can still switch local copy if desktop bridge is unavailable.
+    }
+    renderAll();
+    loadDashboard({ quiet: true });
+  });
+  [byId("supporterCooperButton"), byId("supporterSimcoToolsButton")].forEach((button) => {
+    if (!button) return;
+    button.addEventListener("click", () => {
+      openSupporterUrl(button.dataset.supporterUrl || "");
+    });
   });
   byId("notificationsButton").addEventListener("click", openNotificationsModal);
   byId("tab-mercado").addEventListener("click", () => switchView("mercado"));
   byId("tab-calculadora").addEventListener("click", () => switchView("calculadora"));
+  byId("tab-ejecutivos").addEventListener("click", () => switchView("ejecutivos"));
   byId("tab-registro").addEventListener("click", () => switchView("registro"));
   const scanNowButton = byId("scanNowButton");
   if (scanNowButton) {
@@ -3341,7 +5023,8 @@ function bindStaticUi() {
     renderOnboarding();
   });
   byId("onboardingNextButton").addEventListener("click", () => {
-    const step = ONBOARDING_STEPS[state.onboardingStep];
+    const steps = onboardingSteps();
+    const step = steps[state.onboardingStep];
     if (step?.finalAction) {
       completeOnboarding();
       switchView("mercado");
@@ -3352,7 +5035,7 @@ function bindStaticUi() {
       }
       return;
     }
-    state.onboardingStep = Math.min(ONBOARDING_STEPS.length - 1, state.onboardingStep + 1);
+    state.onboardingStep = Math.min(steps.length - 1, state.onboardingStep + 1);
     renderOnboarding();
   });
   byId("searchInput").addEventListener("input", (event) => {
@@ -3393,6 +5076,7 @@ function bindStaticUi() {
     const conditionSelector = byId("editorConditionSelector");
     const contactSelector = byId("contactResourceSelector");
     const contactTypeSelector = byId("contactTypeSelector");
+    const calcProductSelector = byId("calcProductSelector");
     const calcUnitsSelector = byId("calcUnitsSelector");
     let shouldRender = false;
     if (state.resourceSelectorOpen && resourceSelector && !resourceSelector.contains(target)) {
@@ -3411,6 +5095,10 @@ function bindStaticUi() {
       state.contactTypeSelectorOpen = false;
       shouldRender = true;
     }
+    if (state.calculatorResourceSelectorOpen && calcProductSelector && !calcProductSelector.contains(target)) {
+      resetCalculatorResourceSelectorState();
+      shouldRender = true;
+    }
     if (state.calculatorUnitsSelectorOpen && calcUnitsSelector && !calcUnitsSelector.contains(target)) {
       state.calculatorUnitsSelectorOpen = false;
       shouldRender = true;
@@ -3418,6 +5106,7 @@ function bindStaticUi() {
     if (shouldRender) {
       renderEditor();
       renderContactEditor();
+      renderCalculatorResourceSelector();
       renderCalculatorUnitsSelector();
     }
   });
@@ -3441,6 +5130,10 @@ function bindStaticUi() {
       state.contactTypeSelectorOpen = false;
       shouldRender = true;
     }
+    if (state.calculatorResourceSelectorOpen) {
+      resetCalculatorResourceSelectorState();
+      shouldRender = true;
+    }
     if (state.calculatorUnitsSelectorOpen) {
       state.calculatorUnitsSelectorOpen = false;
       shouldRender = true;
@@ -3451,11 +5144,71 @@ function bindStaticUi() {
     if (shouldRender) {
       renderEditor();
       renderContactEditor();
+      renderCalculatorResourceSelector();
       renderCalculatorUnitsSelector();
     }
   });
 
+  byId("calcProductSelector").addEventListener("click", (event) => {
+    event.stopPropagation();
+    const target = event.target;
+    if (!(target instanceof HTMLElement)) return;
+    const actionTarget = target.closest("[data-calc-product-action]");
+    if (!(actionTarget instanceof HTMLElement)) return;
+    const action = actionTarget.dataset.calcProductAction || "";
+    if (action === "toggle-product-selector") {
+      state.calculatorResourceSelectorOpen = !state.calculatorResourceSelectorOpen;
+      if (!state.calculatorResourceSelectorOpen) {
+        resetCalculatorResourceSelectorState();
+      } else {
+        state.calculatorResourceActiveGroup = null;
+        state.calculatorResourceSearch = "";
+      }
+      renderCalculatorResourceSelector();
+      if (state.calculatorResourceSelectorOpen) {
+        focusCalculatorResourceSearch();
+      }
+      return;
+    }
+    if (action === "back-groups") {
+      state.calculatorResourceActiveGroup = null;
+      state.calculatorResourceSearch = "";
+      renderCalculatorResourceSelector();
+      focusCalculatorResourceSearch();
+      return;
+    }
+    if (action === "open-group") {
+      state.calculatorResourceActiveGroup = actionTarget.dataset.resourceGroup || null;
+      state.calculatorResourceSearch = "";
+      renderCalculatorResourceSelector();
+      focusCalculatorResourceSearch();
+      return;
+    }
+    if (action === "select-product") {
+      const nextResourceId = Number(actionTarget.dataset.resourceId);
+      applyCalculatorProductSelection(nextResourceId);
+      return;
+    }
+    if (action === "clear-product") {
+      state.calculator.resourceId = "";
+      resetCalculatorResourceSelectorState();
+      persistCalculatorState();
+      syncCalculatorInputs();
+      recalculateCalculator();
+    }
+  });
+
+  byId("calcProductSelector").addEventListener("input", (event) => {
+    event.stopPropagation();
+    const target = event.target;
+    if (!(target instanceof HTMLInputElement) || target.id !== "calcProductSearch") return;
+    state.calculatorResourceSearch = target.value;
+    renderCalculatorResourceSelector();
+    focusCalculatorResourceSearch();
+  });
+
   byId("calcUnitsSelector").addEventListener("click", (event) => {
+    event.stopPropagation();
     const target = event.target;
     if (!(target instanceof HTMLElement)) return;
     const actionTarget = target.closest("[data-calc-action]");
@@ -3471,6 +5224,7 @@ function bindStaticUi() {
       state.calculator.transportUnits = CALC_TRANSPORT_UNIT_OPTIONS.includes(nextValue) ? nextValue : "0";
       state.calculatorUnitsSelectorOpen = false;
       persistCalculatorState();
+      renderCalculatorResourceSelector();
       renderCalculatorUnitsSelector();
       recalculateCalculator();
     }
@@ -3573,12 +5327,37 @@ function bindStaticUi() {
       recalculateCalculator();
     });
   });
+
+  byId("executiveFeedbackInput").addEventListener("input", (event) => {
+    state.executive.feedback = event.target.value;
+    persistExecutiveState();
+    renderExecutiveView();
+  });
+  byId("executiveSalaryInput").addEventListener("input", (event) => {
+    state.executive.salary = event.target.value;
+    persistExecutiveState();
+    renderExecutiveView();
+  });
+  byId("executiveAnalyzeButton").addEventListener("click", runExecutiveAnalysis);
+  byId("executiveClearButton").addEventListener("click", clearExecutiveAnalysis);
 }
 
 async function boot() {
   document.body.dataset.platform = state.platform;
   applyTheme(state.theme);
+  renderStaticLanguage();
   bindStaticUi();
+  try {
+    await callDesktop("setLanguage", state.language);
+  } catch (_error) {
+    // The desktop API is optional during development previews.
+  }
+  try {
+    const resourceCatalog = await callDesktop("getResourceCatalog");
+    cacheResourceCatalog(resourceCatalog);
+  } catch (error) {
+    // Seguimos con el dashboard normal si el catálogo directo no está disponible.
+  }
   try {
     const updateState = await callDesktop("getUpdateState");
     state.updates = {
@@ -3591,6 +5370,9 @@ async function boot() {
   renderActiveView();
   syncCalculatorInputs();
   recalculateCalculator();
+  if (state.executive.lastQuery) {
+    state.executive.analysis = analyzeExecutiveQuery(state.executive.lastQuery, state.executive.lastSalary);
+  }
   const dashboardPromise = loadDashboard({ quiet: true });
   await Promise.all([dashboardPromise, runSplashScreen()]);
   await runVitoIntro();

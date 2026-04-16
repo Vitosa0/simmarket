@@ -3,18 +3,58 @@ const path = require("node:path");
 const { app } = require("electron");
 const { DEFAULT_CONFIG } = require("./defaults");
 
+const VITO_DATA_DIR = "simmarket-vito";
+
 function ensureDir(dirPath) {
   fs.mkdirSync(dirPath, { recursive: true });
 }
 
+function copyFileIfMissing(sourcePath, targetPath) {
+  if (!sourcePath || !targetPath || !fs.existsSync(sourcePath) || fs.existsSync(targetPath)) {
+    return;
+  }
+  ensureDir(path.dirname(targetPath));
+  fs.copyFileSync(sourcePath, targetPath);
+}
+
+function migrateLegacyData(preferredDir, legacyDirs = []) {
+  ensureDir(preferredDir);
+  const requiredFiles = ["config.json", "state.json", "events.log", "price-history.json"];
+  const missingAnyRequired = requiredFiles.some((fileName) => !fs.existsSync(path.join(preferredDir, fileName)));
+  if (!missingAnyRequired) {
+    return;
+  }
+
+  legacyDirs
+    .filter(Boolean)
+    .filter((dirPath) => dirPath !== preferredDir && fs.existsSync(dirPath))
+    .forEach((legacyDir) => {
+      requiredFiles.forEach((fileName) => {
+        copyFileIfMissing(path.join(legacyDir, fileName), path.join(preferredDir, fileName));
+      });
+      const legacyHistoryDir = path.join(legacyDir, "simtools-history");
+      const preferredHistoryDir = path.join(preferredDir, "simtools-history");
+      if (fs.existsSync(legacyHistoryDir) && !fs.existsSync(preferredHistoryDir)) {
+        fs.cpSync(legacyHistoryDir, preferredHistoryDir, { recursive: true });
+      }
+    });
+}
+
 function appDataPaths() {
-  const baseDir = app.getPath("userData");
+  const appDataRoot = app.getPath("appData");
+  const legacyUserDataDir = app.getPath("userData");
+  const baseDir = path.join(appDataRoot, VITO_DATA_DIR);
+  migrateLegacyData(baseDir, [
+    legacyUserDataDir,
+    path.join(appDataRoot, "simmarket")
+  ]);
   ensureDir(baseDir);
   return {
     baseDir,
     configPath: path.join(baseDir, "config.json"),
     statePath: path.join(baseDir, "state.json"),
-    eventsPath: path.join(baseDir, "events.log")
+    eventsPath: path.join(baseDir, "events.log"),
+    priceHistoryPath: path.join(baseDir, "price-history.json")
   };
 }
 
@@ -64,6 +104,15 @@ function loadState(paths) {
 
 function saveState(paths, state) {
   writeJson(paths.statePath, state);
+}
+
+function loadPriceHistory(paths) {
+  const payload = readJson(paths.priceHistoryPath, {});
+  return payload && typeof payload === "object" ? payload : {};
+}
+
+function savePriceHistory(paths, history) {
+  writeJson(paths.priceHistoryPath, history);
 }
 
 function appendEvent(paths, record) {
@@ -130,6 +179,8 @@ module.exports = {
   saveConfig,
   loadState,
   saveState,
+  loadPriceHistory,
+  savePriceHistory,
   appendEvent,
   recentEvents,
   deleteEvent,

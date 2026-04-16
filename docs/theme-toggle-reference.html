@@ -1,0 +1,527 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Theme Toggle Reference</title>
+    <style>
+      :root {
+        color-scheme: dark;
+        font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        --panel: #151515;
+        --text: #f4f4f4;
+        --text-soft: #9d9d9d;
+        --border: #2b2b2b;
+        --border-strong: #4e4e4e;
+        --theme-toggle-bg: #151515;
+        --theme-toggle-border: #2b2b2b;
+        --theme-toggle-color: #9d9d9d;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        min-height: 100vh;
+        background: #090909;
+        color: var(--text);
+      }
+
+      .page {
+        width: min(960px, calc(100vw - 48px));
+        margin: 0 auto;
+        padding: 48px 0 64px;
+      }
+
+      .eyebrow {
+        margin: 0 0 12px;
+        font-size: 13px;
+        letter-spacing: 0.2em;
+        text-transform: uppercase;
+        color: #a38b43;
+      }
+
+      h1 {
+        margin: 0 0 28px;
+        font-size: 38px;
+        line-height: 1.05;
+        letter-spacing: 0.04em;
+        text-transform: uppercase;
+      }
+
+      .grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+        gap: 18px;
+      }
+
+      .preview-card {
+        border: 1px solid var(--border);
+        border-radius: 18px;
+        background: #111111;
+        padding: 22px;
+        min-height: 180px;
+        display: flex;
+        flex-direction: column;
+        gap: 18px;
+        box-shadow: 0 20px 36px rgba(0, 0, 0, 0.24);
+      }
+
+      .preview-card[data-theme="light"] {
+        background: #f6efe6;
+        color: #171717;
+        border-color: #d8d0c5;
+      }
+
+      .preview-card h2 {
+        margin: 0;
+        font-size: 13px;
+        letter-spacing: 0.18em;
+        text-transform: uppercase;
+        color: inherit;
+      }
+
+      .preview-card p {
+        margin: 0;
+        font-size: 13px;
+        line-height: 1.5;
+        color: inherit;
+        opacity: 0.72;
+      }
+
+      .preview-surface {
+        position: relative;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        min-height: 72px;
+      }
+
+      .preview-surface[data-theme="dark"] {
+        --theme-toggle-bg: #151515;
+        --theme-toggle-border: #2b2b2b;
+        --theme-toggle-color: #9d9d9d;
+      }
+
+      .preview-surface[data-theme="light"] {
+        --theme-toggle-bg: #f7f1e8;
+        --theme-toggle-border: #d8d0c5;
+        --theme-toggle-color: #5d544a;
+      }
+
+      .theme-toggle {
+        position: relative;
+        width: 38px;
+        height: 38px;
+        padding: 0;
+        border-radius: 999px;
+        border: 1px solid var(--theme-toggle-border);
+        background: linear-gradient(180deg, #191919 0%, #0f0f0f 100%);
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+        overflow: hidden;
+        isolation: isolate;
+        box-shadow:
+          inset 0 1px 0 rgba(255, 255, 255, 0.08),
+          0 10px 20px rgba(0, 0, 0, 0.22);
+        transition:
+          border-color 0.24s ease,
+          background 0.28s ease,
+          box-shadow 0.28s ease,
+          transform 0.12s ease;
+      }
+
+      .preview-surface[data-theme="light"] .theme-toggle {
+        background: linear-gradient(180deg, #f4ede3 0%, #e6dccf 100%);
+        box-shadow:
+          inset 0 1px 0 rgba(255, 255, 255, 0.72),
+          0 8px 16px rgba(73, 57, 39, 0.12);
+      }
+
+      .theme-toggle::before {
+        content: "";
+        position: absolute;
+        inset: 5px;
+        border-radius: inherit;
+        border: 1px solid rgba(201, 168, 76, 0.34);
+        box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.02);
+        pointer-events: none;
+        transition:
+          border-color 0.28s ease,
+          box-shadow 0.28s ease,
+          opacity 0.28s ease;
+      }
+
+      .preview-surface[data-theme="light"] .theme-toggle::before {
+        border-color: rgba(182, 138, 30, 0.34);
+        box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.38);
+      }
+
+      .theme-toggle:hover {
+        border-color: var(--border-strong);
+        transform: translateY(-1px);
+      }
+
+      .theme-toggle:active {
+        transform: translateY(0);
+      }
+
+      .theme-toggle-icon {
+        position: relative;
+        width: 100%;
+        height: 100%;
+        display: block;
+        pointer-events: none;
+      }
+
+      .orbital-shell {
+        position: absolute;
+        inset: 0;
+        display: grid;
+        place-items: center;
+      }
+
+      .space-disc {
+        position: absolute;
+        inset: 3px;
+        border-radius: 999px;
+        overflow: hidden;
+        transition:
+          opacity 0.28s ease,
+          transform 0.3s ease,
+          border-color 0.28s ease,
+          background 0.28s ease;
+      }
+
+      .preview-surface[data-theme="dark"] .space-disc {
+        background:
+          radial-gradient(circle at 50% 48%, rgba(255, 255, 255, 0.035), transparent 30%),
+          radial-gradient(circle at 50% 50%, rgba(201, 168, 76, 0.035), transparent 58%),
+          #0f0f0f;
+        border: 1px solid rgba(255, 255, 255, 0.08);
+      }
+
+      .preview-surface[data-theme="light"] .space-disc {
+        background:
+          radial-gradient(circle at 50% 48%, rgba(255, 255, 255, 0.22), transparent 30%),
+          radial-gradient(circle at 50% 50%, rgba(201, 168, 76, 0.04), transparent 58%),
+          #ece2d5;
+        border: 1px solid rgba(31, 27, 22, 0.08);
+        opacity: 0.08;
+        transform: scale(0.94);
+      }
+
+      .orbit {
+        position: absolute;
+        border-radius: 999px;
+        pointer-events: none;
+        transition:
+          opacity 0.28s ease,
+          border-color 0.28s ease;
+      }
+
+      .orbit.one {
+        inset: 8px;
+      }
+
+      .orbit.two {
+        inset: 4px;
+      }
+
+      .preview-surface[data-theme="dark"] .orbit {
+        border: 1px solid rgba(255, 255, 255, 0.11);
+      }
+
+      .preview-surface[data-theme="light"] .orbit {
+        border: 1px solid rgba(31, 27, 22, 0.12);
+      }
+
+      .orbit-rotor {
+        position: absolute;
+        inset: 0;
+        border-radius: 999px;
+        animation-timing-function: linear;
+        animation-iteration-count: infinite;
+      }
+
+      .orbit.one .orbit-rotor {
+        animation-name: theme-orbit-cycle-inner;
+        animation-duration: 84s;
+      }
+
+      .orbit.two .orbit-rotor {
+        animation-name: theme-orbit-cycle-outer;
+        animation-duration: 84s;
+      }
+
+      .planet {
+        position: absolute;
+        top: -2px;
+        left: 50%;
+        transform: translateX(-50%);
+        border-radius: 999px;
+        transition:
+          opacity 0.28s ease,
+          transform 0.3s ease,
+          background 0.28s ease,
+          box-shadow 0.28s ease;
+      }
+
+      .planet.small {
+        width: 2px;
+        height: 2px;
+      }
+
+      .planet.large {
+        width: 3px;
+        height: 3px;
+      }
+
+      .preview-surface[data-theme="dark"] .planet {
+        background: #ffffff;
+        box-shadow: 0 0 8px rgba(255, 255, 255, 0.18);
+      }
+
+      .preview-surface[data-theme="light"] .planet {
+        background: #171717;
+        box-shadow: 0 0 6px rgba(23, 23, 23, 0.1);
+      }
+
+      .preview-surface[data-theme="light"] .orbit {
+        opacity: 0.08;
+      }
+
+      .preview-surface[data-theme="light"] .planet {
+        opacity: 0.06;
+      }
+
+      .preview-surface[data-theme="light"] .planet {
+        transform: translateX(-50%) scale(0.82);
+      }
+
+      .celestial-core {
+        position: absolute;
+        width: 14px;
+        height: 14px;
+        transition:
+          opacity 0.24s ease,
+          transform 0.32s ease;
+      }
+
+      .celestial-moon {
+        width: 15px;
+        height: 15px;
+      }
+
+      .celestial-sun::before,
+      .celestial-sun::after,
+      .celestial-moon::before,
+      .celestial-moon::after {
+        content: "";
+        position: absolute;
+      }
+
+      .celestial-sun::before {
+        inset: 3px;
+        border-radius: 999px;
+        background: #ffffff;
+        box-shadow: 0 0 10px rgba(255, 255, 255, 0.14);
+      }
+
+      .celestial-moon::before {
+        inset: 1px;
+        border-radius: 999px;
+        background:
+          radial-gradient(circle at 26% 22%, rgba(255, 255, 255, 0.34) 0 10%, rgba(255, 255, 255, 0) 11%),
+          radial-gradient(circle at 34% 34%, #97928c 0%, #7d7871 44%, #5a5550 72%, #33302c 100%);
+        box-shadow:
+          inset -3px -3px 5px rgba(22, 22, 22, 0.22),
+          inset 1px 1px 2px rgba(255, 255, 255, 0.08),
+          0 0 6px rgba(0, 0, 0, 0.06);
+      }
+
+      .celestial-moon::after {
+        inset: 2px;
+        border-radius: 999px;
+        background:
+          linear-gradient(105deg, rgba(255, 255, 255, 0.05) 0 32%, rgba(255, 255, 255, 0) 33%),
+          radial-gradient(circle at 28% 26%, rgba(67, 63, 58, 0.14) 0 8%, rgba(67, 63, 58, 0) 9%),
+          radial-gradient(circle at 65% 28%, rgba(61, 57, 53, 0.12) 0 7%, rgba(61, 57, 53, 0) 8%),
+          radial-gradient(circle at 42% 45%, rgba(70, 66, 61, 0.1) 0 10%, rgba(70, 66, 61, 0) 11%),
+          radial-gradient(circle at 68% 50%, rgba(58, 54, 49, 0.09) 0 8%, rgba(58, 54, 49, 0) 9%),
+          radial-gradient(circle at 34% 69%, rgba(64, 60, 56, 0.11) 0 9%, rgba(64, 60, 56, 0) 10%),
+          radial-gradient(circle at 60% 70%, rgba(58, 54, 50, 0.1) 0 11%, rgba(58, 54, 50, 0) 12%),
+          radial-gradient(circle at 54% 56%, rgba(255, 255, 255, 0.05) 0 14%, rgba(255, 255, 255, 0) 15%);
+        box-shadow:
+          inset -1px -1px 2px rgba(193, 185, 171, 0.1),
+          0 0 1px rgba(255, 255, 255, 0.08);
+        opacity: 0.86;
+      }
+
+      .preview-surface[data-theme="dark"] .celestial-sun {
+        opacity: 1;
+        transform: scale(1);
+      }
+
+      .preview-surface[data-theme="dark"] .celestial-moon {
+        opacity: 0;
+        transform: scale(0.88);
+      }
+
+      .preview-surface[data-theme="light"] .celestial-sun {
+        opacity: 0;
+        transform: scale(0.88);
+      }
+
+      .preview-surface[data-theme="light"] .celestial-moon {
+        opacity: 1;
+        transform: scale(1);
+      }
+
+      .actions {
+        display: flex;
+        justify-content: center;
+        margin-top: 20px;
+      }
+
+      .switcher {
+        border: 1px solid var(--border);
+        border-radius: 999px;
+        background: #101010;
+        padding: 6px;
+        display: inline-flex;
+        gap: 6px;
+      }
+
+      .switcher button {
+        border: 0;
+        border-radius: 999px;
+        padding: 10px 14px;
+        background: transparent;
+        color: var(--text-soft);
+        cursor: pointer;
+        font: inherit;
+      }
+
+      .switcher button.active {
+        background: #1c1c1c;
+        color: var(--text);
+      }
+
+      @keyframes theme-orbit-cycle-inner {
+        from {
+          transform: rotate(0deg);
+        }
+        to {
+          transform: rotate(2160deg);
+        }
+      }
+
+      @keyframes theme-orbit-cycle-outer {
+        from {
+          transform: rotate(0deg);
+        }
+        to {
+          transform: rotate(1440deg);
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <main class="page">
+      <p class="eyebrow">SimMarket Vito</p>
+      <h1>Botón de tema<br />referencia</h1>
+
+      <div class="grid">
+        <section class="preview-card">
+          <h2>Oscuro</h2>
+          <div class="preview-surface" data-theme="dark">
+            <button class="theme-toggle" type="button" aria-label="Activar modo claro" title="Activar modo claro">
+              <span class="theme-toggle-icon" aria-hidden="true"></span>
+            </button>
+          </div>
+          <p>Estado actual cuando la app está en modo oscuro.</p>
+        </section>
+
+        <section class="preview-card" data-theme="light">
+          <h2>Claro</h2>
+          <div class="preview-surface" data-theme="light">
+            <button class="theme-toggle" type="button" aria-label="Activar modo oscuro" title="Activar modo oscuro">
+              <span class="theme-toggle-icon" aria-hidden="true"></span>
+            </button>
+          </div>
+          <p>Estado actual cuando la app está en modo claro.</p>
+        </section>
+
+        <section class="preview-card" style="grid-column: 1 / -1;">
+          <h2>Preview interactivo</h2>
+          <div id="interactiveSurface" class="preview-surface" data-theme="dark">
+            <button id="interactiveToggle" class="theme-toggle" type="button" aria-label="Activar modo claro" title="Activar modo claro">
+              <span id="interactiveIcon" class="theme-toggle-icon" aria-hidden="true"></span>
+            </button>
+          </div>
+          <p>Este preview alterna entre oscuro y claro con el mismo markup del proyecto.</p>
+          <div class="actions">
+            <div class="switcher">
+              <button id="forceDark" class="active" type="button">Oscuro</button>
+              <button id="forceLight" type="button">Claro</button>
+            </div>
+          </div>
+        </section>
+      </div>
+    </main>
+
+    <script>
+      function themeToggleMarkup() {
+        return `
+          <span class="orbital-shell">
+            <span class="space-disc" aria-hidden="true">
+              <span class="orbit one">
+                <span class="orbit-rotor">
+                  <span class="planet small"></span>
+                </span>
+              </span>
+              <span class="orbit two">
+                <span class="orbit-rotor">
+                  <span class="planet large"></span>
+                </span>
+              </span>
+            </span>
+            <span class="celestial-core celestial-sun" aria-hidden="true"></span>
+            <span class="celestial-core celestial-moon" aria-hidden="true"></span>
+          </span>
+        `;
+      }
+
+      document.querySelectorAll(".theme-toggle-icon").forEach((node) => {
+        node.innerHTML = themeToggleMarkup();
+      });
+
+      const surface = document.getElementById("interactiveSurface");
+      const toggle = document.getElementById("interactiveToggle");
+      const forceDark = document.getElementById("forceDark");
+      const forceLight = document.getElementById("forceLight");
+
+      function applyInteractiveTheme(theme) {
+        const isLight = theme === "light";
+        surface.dataset.theme = isLight ? "light" : "dark";
+        toggle.setAttribute("aria-label", isLight ? "Activar modo oscuro" : "Activar modo claro");
+        toggle.setAttribute("title", isLight ? "Activar modo oscuro" : "Activar modo claro");
+        forceDark.classList.toggle("active", !isLight);
+        forceLight.classList.toggle("active", isLight);
+      }
+
+      toggle.addEventListener("click", () => {
+        applyInteractiveTheme(surface.dataset.theme === "dark" ? "light" : "dark");
+      });
+
+      forceDark.addEventListener("click", () => applyInteractiveTheme("dark"));
+      forceLight.addEventListener("click", () => applyInteractiveTheme("light"));
+      applyInteractiveTheme("dark");
+    </script>
+  </body>
+</html>

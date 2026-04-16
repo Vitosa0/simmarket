@@ -16,6 +16,10 @@ const latestTickerSnapshots = new Map();
 const latestProductSnapshots = new Map();
 let marketCooldownUntil = 0;
 
+function normalizeLocale(locale) {
+  return locale === "en" ? "en" : "es";
+}
+
 function isoNow() {
   return new Date().toISOString();
 }
@@ -33,15 +37,17 @@ function slugify(value) {
     .replace(/^-+|-+$/g, "");
 }
 
-function normalizeRule(rawRule, index) {
+function normalizeRule(rawRule, index, locale = "es") {
+  const resolvedLocale = normalizeLocale(locale);
   const condition = String(rawRule.condition || "<=").trim().toLowerCase();
   if (!ALLOWED_CONDITIONS.has(condition)) {
-    throw new Error(`Condición inválida en alerta ${index}`);
+    throw new Error(resolvedLocale === "en" ? `Invalid condition in alert ${index}` : `Condición inválida en alerta ${index}`);
   }
-  const label = String(rawRule.label || `Alerta ${index}`).trim() || `Alerta ${index}`;
+  const defaultLabel = resolvedLocale === "en" ? `Alert ${index}` : `Alerta ${index}`;
+  const label = String(rawRule.label || defaultLabel).trim() || defaultLabel;
   const targetPriceRaw = rawRule.targetPrice;
   if (targetPriceRaw === "" || targetPriceRaw === null || targetPriceRaw === undefined) {
-    throw new Error(`Precio inválido en alerta ${index}`);
+    throw new Error(resolvedLocale === "en" ? `Invalid price in alert ${index}` : `Precio inválido en alerta ${index}`);
   }
   const normalized = {
     id: String(rawRule.id || slugify(`${label}-${rawRule.resourceId}-q${rawRule.quality}`) || `alert-${index}`),
@@ -55,34 +61,38 @@ function normalizeRule(rawRule, index) {
     notificationKindOverride: String(rawRule.notificationKindOverride || "").trim().toLowerCase()
   };
   if (!Number.isFinite(normalized.resourceId) || normalized.resourceId <= 0) {
-    throw new Error(`Activo inválido en alerta ${index}`);
+    throw new Error(resolvedLocale === "en" ? `Invalid asset in alert ${index}` : `Activo inválido en alerta ${index}`);
   }
   if (!Number.isInteger(normalized.quality) || normalized.quality < QUALITY_MIN || normalized.quality > QUALITY_MAX) {
-    throw new Error(`Calidad inválida en alerta ${index}`);
+    throw new Error(resolvedLocale === "en" ? `Invalid quality in alert ${index}` : `Calidad inválida en alerta ${index}`);
   }
   if (!Number.isFinite(normalized.targetPrice)) {
-    throw new Error(`Precio inválido en alerta ${index}`);
+    throw new Error(resolvedLocale === "en" ? `Invalid price in alert ${index}` : `Precio inválido en alerta ${index}`);
   }
   if (condition === "between") {
     const targetPriceMaxRaw = rawRule.targetPriceMax;
     if (targetPriceMaxRaw === "" || targetPriceMaxRaw === null || targetPriceMaxRaw === undefined) {
-      throw new Error(`Precio máximo inválido en alerta ${index}`);
+      throw new Error(resolvedLocale === "en" ? `Invalid maximum price in alert ${index}` : `Precio máximo inválido en alerta ${index}`);
     }
     normalized.targetPriceMax = Number(targetPriceMaxRaw);
     if (!Number.isFinite(normalized.targetPriceMax)) {
-      throw new Error(`Precio máximo inválido en alerta ${index}`);
+      throw new Error(resolvedLocale === "en" ? `Invalid maximum price in alert ${index}` : `Precio máximo inválido en alerta ${index}`);
     }
   }
   return normalized;
 }
 
-function describeCondition(rule) {
+function describeCondition(rule, locale = "es") {
   const target = formatMarketNumber(rule.targetPrice);
   if (rule.condition === "<=") return `<= ${target}`;
   if (rule.condition === ">=") return `>= ${target}`;
   if (rule.condition === "<") return `< ${target}`;
   if (rule.condition === ">") return `> ${target}`;
-  if (rule.condition === "between") return `entre ${target} y ${formatMarketNumber(rule.targetPriceMax)}`;
+  if (rule.condition === "between") {
+    const betweenWord = normalizeLocale(locale) === "en" ? "between" : "entre";
+    const andWord = normalizeLocale(locale) === "en" ? "and" : "y";
+    return `${betweenWord} ${target} ${andWord} ${formatMarketNumber(rule.targetPriceMax)}`;
+  }
   return `== ${target}`;
 }
 
@@ -99,11 +109,12 @@ function evaluateCondition(rule, price) {
   return price === rule.targetPrice;
 }
 
-function classifyRule(rule) {
-  if (rule.condition === "<=" || rule.condition === "<") return { key: "buy", label: "Compra" };
-  if (rule.condition === ">=" || rule.condition === ">") return { key: "sell", label: "Venta" };
-  if (rule.condition === "between") return { key: "range", label: "Rango" };
-  return { key: "check", label: "Control" };
+function classifyRule(rule, locale = "es") {
+  const resolvedLocale = normalizeLocale(locale);
+  if (rule.condition === "<=" || rule.condition === "<") return { key: "buy", label: resolvedLocale === "en" ? "Buy" : "Compra" };
+  if (rule.condition === ">=" || rule.condition === ">") return { key: "sell", label: resolvedLocale === "en" ? "Sell" : "Venta" };
+  if (rule.condition === "between") return { key: "range", label: resolvedLocale === "en" ? "Range" : "Rango" };
+  return { key: "check", label: resolvedLocale === "en" ? "Check" : "Control" };
 }
 
 function formatMarketNumber(value) {
@@ -116,7 +127,8 @@ function formatMarketNumber(value) {
   return number.toFixed(3).replace(/\.?0+$/, "");
 }
 
-async function fetchJson(url) {
+async function fetchJson(url, locale = "es") {
+  const resolvedLocale = normalizeLocale(locale);
   let lastError = null;
   for (let attempt = 0; attempt < FETCH_RETRY_LIMIT; attempt += 1) {
     const controller = new AbortController();
@@ -158,7 +170,7 @@ async function fetchJson(url) {
       clearTimeout(timer);
     }
   }
-  throw lastError || new Error("No se pudo consultar el mercado.");
+  throw lastError || new Error(resolvedLocale === "en" ? "Could not query the market." : "No se pudo consultar el mercado.");
 }
 
 function marketTickerUrl(realmId) {
@@ -189,7 +201,8 @@ function snapshotIso(fetchedAt) {
   return new Date(fetchedAt).toISOString();
 }
 
-async function fetchMarketTicker(realmId, cache, { allowNetwork = true } = {}) {
+async function fetchMarketTicker(realmId, cache, { allowNetwork = true, locale = "es" } = {}) {
+  const resolvedLocale = normalizeLocale(locale);
   const cacheKey = `${realmId}`;
   if (!cache.has(cacheKey)) {
     cache.set(cacheKey, (async () => {
@@ -200,7 +213,7 @@ async function fetchMarketTicker(realmId, cache, { allowNetwork = true } = {}) {
         if (cachedTicker) {
           return cachedTicker;
         }
-        throw new Error("Todavía no hay un ticker guardado para reutilizar.");
+        throw new Error(resolvedLocale === "en" ? "There is no saved ticker to reuse yet." : "Todavía no hay un ticker guardado para reutilizar.");
       }
 
       if (marketCooldownUntil > now) {
@@ -214,7 +227,7 @@ async function fetchMarketTicker(realmId, cache, { allowNetwork = true } = {}) {
       }
 
       try {
-        const rows = await fetchJson(marketTickerUrl(realmId));
+        const rows = await fetchJson(marketTickerUrl(realmId), locale);
         const snapshot = {
           rows,
           fetchedAt: Date.now()
@@ -242,7 +255,8 @@ async function fetchMarketTicker(realmId, cache, { allowNetwork = true } = {}) {
   return cache.get(cacheKey);
 }
 
-async function fetchMarketProduct(realmId, resourceId, cache, { allowNetwork = true } = {}) {
+async function fetchMarketProduct(realmId, resourceId, cache, { allowNetwork = true, locale = "es" } = {}) {
+  const resolvedLocale = normalizeLocale(locale);
   const cacheKey = productSnapshotKey(realmId, resourceId);
   if (!cache.has(cacheKey)) {
     cache.set(cacheKey, (async () => {
@@ -253,7 +267,7 @@ async function fetchMarketProduct(realmId, resourceId, cache, { allowNetwork = t
         if (cachedProduct) {
           return cachedProduct;
         }
-        throw new Error("Todavía no hay una lectura guardada para ese producto.");
+        throw new Error(resolvedLocale === "en" ? "There is no saved reading for that product yet." : "Todavía no hay una lectura guardada para ese producto.");
       }
 
       if (marketCooldownUntil > now) {
@@ -267,7 +281,7 @@ async function fetchMarketProduct(realmId, resourceId, cache, { allowNetwork = t
       }
 
       try {
-        const rows = await fetchJson(marketProductUrl(realmId, resourceId));
+        const rows = await fetchJson(marketProductUrl(realmId, resourceId), locale);
         const snapshot = {
           rows,
           fetchedAt: Date.now()
@@ -310,18 +324,28 @@ function lowestListingForQuality(rows, quality) {
   }, null);
 }
 
-function buildNotificationTitle(rule) {
-  const override = rule.notificationKindOverride;
-  if (override === "compra") return `Alerta de compra: ${rule.label}`;
-  if (override === "venta") return `Alerta de venta: ${rule.label}`;
-  if (override === "mercado") return `Alerta de mercado: ${rule.label}`;
-  if (rule.condition === "<=" || rule.condition === "<") return `Alerta de compra: ${rule.label}`;
-  if (rule.condition === ">=" || rule.condition === ">") return `Alerta de venta: ${rule.label}`;
-  return `Alerta de mercado: ${rule.label}`;
+function q0RuleNeedsBookVerification(rule, tickerPrice, previousState) {
+  const wasMatched = Boolean(previousState?.matched);
+  const tickerMatched = rule.enabled ? evaluateCondition(rule, tickerPrice) : false;
+  return tickerMatched || wasMatched;
 }
 
-function buildNotificationBody(rule, resourceName, price) {
-  return `${resourceName} Q${rule.quality} | precio actual ${formatMarketNumber(price)} | objetivo ${describeCondition(rule)}`;
+function buildNotificationTitle(rule, locale = "es") {
+  const resolvedLocale = normalizeLocale(locale);
+  const override = rule.notificationKindOverride;
+  if (override === "compra") return resolvedLocale === "en" ? `Buy alert: ${rule.label}` : `Alerta de compra: ${rule.label}`;
+  if (override === "venta") return resolvedLocale === "en" ? `Sell alert: ${rule.label}` : `Alerta de venta: ${rule.label}`;
+  if (override === "mercado") return resolvedLocale === "en" ? `Market alert: ${rule.label}` : `Alerta de mercado: ${rule.label}`;
+  if (rule.condition === "<=" || rule.condition === "<") return resolvedLocale === "en" ? `Buy alert: ${rule.label}` : `Alerta de compra: ${rule.label}`;
+  if (rule.condition === ">=" || rule.condition === ">") return resolvedLocale === "en" ? `Sell alert: ${rule.label}` : `Alerta de venta: ${rule.label}`;
+  return resolvedLocale === "en" ? `Market alert: ${rule.label}` : `Alerta de mercado: ${rule.label}`;
+}
+
+function buildNotificationBody(rule, resourceName, price, locale = "es") {
+  const resolvedLocale = normalizeLocale(locale);
+  return resolvedLocale === "en"
+    ? `${resourceName} Q${rule.quality} | current price ${formatMarketNumber(price)} | target ${describeCondition(rule, locale)}`
+    : `${resourceName} Q${rule.quality} | precio actual ${formatMarketNumber(price)} | objetivo ${describeCondition(rule, locale)}`;
 }
 
 function sendDesktopNotification(title, body) {
@@ -382,8 +406,9 @@ async function notifyChannels(channels, title, body) {
   }
 }
 
-async function scanAlerts({ config, state, appendEvent, onTrigger, triggerNotifications = true, allowNetwork = true }) {
-  const normalizedAlerts = config.alerts.map((rule, index) => normalizeRule(rule, index + 1));
+async function scanAlerts({ config, state, appendEvent, onTrigger, triggerNotifications = true, allowNetwork = true, locale = "es" }) {
+  const resolvedLocale = normalizeLocale(locale);
+  const normalizedAlerts = config.alerts.map((rule, index) => normalizeRule(rule, index + 1, resolvedLocale));
   const realmId = Number(config.realmId || 0);
   const channels = config.channels || {};
   const tickerCache = new Map();
@@ -404,7 +429,7 @@ async function scanAlerts({ config, state, appendEvent, onTrigger, triggerNotifi
   const needsTicker = normalizedAlerts.some((rule) => Number(rule.quality) === 0);
   if (needsTicker) {
     try {
-      tickerSnapshot = await fetchMarketTicker(realmId, tickerCache, { allowNetwork });
+      tickerSnapshot = await fetchMarketTicker(realmId, tickerCache, { allowNetwork, locale });
     } catch (error) {
       normalizedAlerts
         .filter((rule) => Number(rule.quality) === 0)
@@ -448,8 +473,8 @@ async function scanAlerts({ config, state, appendEvent, onTrigger, triggerNotifi
     };
 
     if (matched && shouldNotify) {
-      const title = buildNotificationTitle(rule);
-      const body = buildNotificationBody(rule, resourceName, price);
+      const title = buildNotificationTitle(rule, resolvedLocale);
+      const body = buildNotificationBody(rule, resourceName, price, resolvedLocale);
       if (triggerNotifications) {
         await notifyChannels(channels, title, body);
       }
@@ -487,7 +512,9 @@ async function scanAlerts({ config, state, appendEvent, onTrigger, triggerNotifi
   for (const [resourceId, rules] of groupedByResource.entries()) {
     const numericResourceId = Number(resourceId);
     const resource = getResourceById(numericResourceId);
-    const resourceName = resource?.label || `Recurso ${numericResourceId}`;
+    const resourceName = resolvedLocale === "en"
+      ? (resource?.labelEn || resource?.apiName || resource?.label || `Resource ${numericResourceId}`)
+      : (resource?.label || `Recurso ${numericResourceId}`);
     const q0Rules = rules.filter((rule) => Number(rule.quality) === 0);
     const qualityRules = rules.filter((rule) => Number(rule.quality) > 0);
 
@@ -495,7 +522,9 @@ async function scanAlerts({ config, state, appendEvent, onTrigger, triggerNotifi
       const tickerRow = tickerByResource.get(numericResourceId);
       if (!tickerRow || !Number.isFinite(Number(tickerRow.price))) {
         q0Rules.forEach((rule) => {
-          const errorMessage = "No se encontró un precio mínimo actual para Q0 en ese producto.";
+          const errorMessage = resolvedLocale === "en"
+            ? "No current minimum Q0 price was found for that product."
+            : "No se encontró un precio mínimo actual para Q0 en ese producto.";
           errors.push({ alertId: rule.id, error: errorMessage });
           appendEvent({
             time: isoNow(),
@@ -508,8 +537,45 @@ async function scanAlerts({ config, state, appendEvent, onTrigger, triggerNotifi
       } else {
         const tickerPrice = Number(tickerRow.price);
         const tickerSourceTime = tickerSnapshot ? snapshotIso(tickerSnapshot.fetchedAt) : null;
+        const rulesNeedingVerification = q0Rules.filter((rule) => q0RuleNeedsBookVerification(rule, tickerPrice, state[rule.id] || {}));
+        let q0VerifiedListing = null;
+        let q0VerificationError = null;
+
+        if (rulesNeedingVerification.length) {
+          try {
+            const q0Snapshot = await fetchMarketProduct(realmId, numericResourceId, productCache, { allowNetwork, locale });
+            q0VerifiedListing = lowestListingForQuality(q0Snapshot.rows, 0);
+            if (!q0VerifiedListing || !Number.isFinite(Number(q0VerifiedListing.price))) {
+              throw new Error(resolvedLocale === "en"
+                ? "Could not verify the real Q0 price in the product book."
+                : "No se pudo verificar el precio real de Q0 en el libro del producto.");
+            }
+          } catch (error) {
+            q0VerificationError = error;
+          }
+        }
+
         for (const rule of q0Rules) {
           try {
+            const previousState = state[rule.id] || {};
+            const needsVerification = q0RuleNeedsBookVerification(rule, tickerPrice, previousState);
+
+            if (needsVerification) {
+              if (q0VerificationError || !q0VerifiedListing) {
+                errors.push({
+                  alertId: rule.id,
+                error: resolvedLocale === "en"
+                  ? `Could not verify ${resourceName} Q0 against the product book. Trigger skipped to avoid a false positive.`
+                  : `No se pudo verificar ${resourceName} Q0 con el libro del producto. Se omitió el disparo para evitar un falso positivo.`
+                });
+                continue;
+              }
+              const verifiedPrice = Number(q0VerifiedListing.price);
+              const verifiedSourceTime = q0VerifiedListing.datetimeDecayUpdated || q0VerifiedListing.posted || tickerSourceTime;
+              await processRule(rule, resourceName, verifiedPrice, verifiedSourceTime);
+              continue;
+            }
+
             await processRule(rule, resourceName, tickerPrice, tickerSourceTime);
           } catch (error) {
             errors.push({ alertId: rule.id, error: error.message });
@@ -531,7 +597,7 @@ async function scanAlerts({ config, state, appendEvent, onTrigger, triggerNotifi
 
     let productSnapshot;
     try {
-      productSnapshot = await fetchMarketProduct(realmId, numericResourceId, productCache, { allowNetwork });
+      productSnapshot = await fetchMarketProduct(realmId, numericResourceId, productCache, { allowNetwork, locale });
     } catch (error) {
       qualityRules.forEach((rule) => {
         errors.push({ alertId: rule.id, error: error.message });
@@ -550,7 +616,9 @@ async function scanAlerts({ config, state, appendEvent, onTrigger, triggerNotifi
       try {
         const lowestListing = lowestListingForQuality(productSnapshot.rows, rule.quality);
         if (!lowestListing || !Number.isFinite(Number(lowestListing.price))) {
-          throw new Error(`No se encontró un precio actual para Q${rule.quality} en ese producto.`);
+          throw new Error(resolvedLocale === "en"
+            ? `No current price was found for Q${rule.quality} in that product.`
+            : `No se encontró un precio actual para Q${rule.quality} en ese producto.`);
         }
         const price = Number(lowestListing.price);
         const sourceTime = lowestListing.datetimeDecayUpdated || lowestListing.posted || snapshotIso(productSnapshot.fetchedAt);
