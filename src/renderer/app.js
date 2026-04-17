@@ -1775,7 +1775,7 @@ function calculatorResourceSelectorOptionsMarkup() {
           ? `${visibleItems} of ${totalItems} assets`
           : `${visibleItems} de ${totalItems} activos`;
       return `
-        <button class="selector-option" type="button" data-calc-product-action="open-group" data-resource-group="${escapeHtml(entry.name)}">
+        <button class="selector-option" type="button" data-calc-product-action="open-group" data-resource-group="${escapeHtml(entry.key)}">
           <div class="selector-option-main">
             <span>${escapeHtml(entry.name)}</span>
           </div>
