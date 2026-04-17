@@ -132,15 +132,12 @@ const I18N = {
     executiveEntry: "Entrada de feedback",
     executiveFeedback: "Feedback del candidato",
     executiveFeedbackPlaceholder: "Pegá el feedback completo del candidato para abrir el radar.",
-    executiveObservedSalary: "Salario observado",
-    optional: "opcional",
-    executiveSalaryPlaceholder: "Ej: 1673",
     analyzeProfile: "Analizar perfil",
     clear: "Limpiar",
     howToRead: "Cómo leerlo",
     executiveGuide1: "1. Pegás el feedback del candidato tal como aparece en el juego.",
-    executiveGuide2: "2. Si tenés salario observado, lo agregás para afinar la lectura.",
-    executiveGuide3: "3. La app cruza texto, señales dominantes y observaciones salariales locales.",
+    executiveGuide2: "2. El radar compara el texto con los patrones locales ya mapeados.",
+    executiveGuide3: "3. El rol sugerido sale del vector más alto entre COO, CFO, CMO y CTO.",
     executiveRadar: "Radar ejecutivo",
     historyTitle: "Historial del contacto",
     historySubtitle: "Pegá una conversación o cargá una interacción manual. Cada entrada queda guardada dentro del contacto y puede editarse agregando nuevas interacciones cuando quieras.",
@@ -244,15 +241,12 @@ const I18N = {
     executiveEntry: "Feedback input",
     executiveFeedback: "Candidate feedback",
     executiveFeedbackPlaceholder: "Paste the full candidate feedback to open the radar.",
-    executiveObservedSalary: "Observed salary",
-    optional: "optional",
-    executiveSalaryPlaceholder: "Ex: 1673",
     analyzeProfile: "Analyze profile",
     clear: "Clear",
     howToRead: "How to read it",
     executiveGuide1: "1. Paste the candidate feedback exactly as it appears in the game.",
-    executiveGuide2: "2. If you have an observed salary, add it to refine the read.",
-    executiveGuide3: "3. The app crosses text, dominant signals, and local salary observations.",
+    executiveGuide2: "2. The radar compares that text against the mapped local patterns.",
+    executiveGuide3: "3. The suggested role comes from the strongest vector among COO, CFO, CMO, and CTO.",
     executiveRadar: "Executive radar",
     historyTitle: "Contact history",
     historySubtitle: "Paste a conversation or load a manual interaction. Each entry stays saved inside the contact and can be extended with new interactions whenever you want.",
@@ -696,9 +690,7 @@ function emptyContactDraft() {
 function emptyExecutiveState() {
   return {
     feedback: "",
-    salary: "",
     lastQuery: "",
-    lastSalary: "",
     analysis: null
   };
 }
@@ -709,9 +701,7 @@ function loadExecutiveState() {
     return {
       ...emptyExecutiveState(),
       feedback: String(saved.feedback || ""),
-      salary: String(saved.salary || ""),
       lastQuery: String(saved.lastQuery || ""),
-      lastSalary: String(saved.lastSalary || ""),
       analysis: null
     };
   } catch (error) {
@@ -1029,8 +1019,7 @@ function executiveProfiles() {
 }
 
 function executiveNeedsRefresh() {
-  return normalizeSearch(state.executive.feedback) !== normalizeSearch(state.executive.lastQuery)
-    || String(state.executive.salary || "").trim() !== String(state.executive.lastSalary || "").trim();
+  return normalizeSearch(state.executive.feedback) !== normalizeSearch(state.executive.lastQuery);
 }
 
 function persistExecutiveState() {
@@ -1038,9 +1027,7 @@ function persistExecutiveState() {
     EXECUTIVE_STORAGE_KEY,
     JSON.stringify({
       feedback: state.executive.feedback,
-      salary: state.executive.salary,
-      lastQuery: state.executive.lastQuery,
-      lastSalary: state.executive.lastSalary
+      lastQuery: state.executive.lastQuery
     })
   );
 }
@@ -1142,71 +1129,6 @@ function executiveAverageSkills(rows) {
   };
 }
 
-function executiveSalaryAnalysis(profile, salaryRaw) {
-  const salary = parseIntegerInput(salaryRaw);
-  if (!Number.isFinite(salary) || salary <= 0) {
-    return {
-      mode: "general",
-      salary: null,
-      title: langText("Lectura general", "General read"),
-      copy: langText("La lectura se apoya en el feedback agregado del dataset local.", "The read is based on the aggregated feedback inside the local dataset."),
-      referenceRows: profile.samples.slice(0, 8),
-      skills: profile.skills,
-      exactCount: 0
-    };
-  }
-
-  const exactRows = profile.samples.filter((row) => row.salary === salary);
-  if (exactRows.length) {
-    return {
-      mode: "exact",
-      salary,
-      title: langText("Coincidencia salarial exacta", "Exact salary match"),
-      copy: langText(
-        `${exactRows.length} observacion${exactRows.length === 1 ? "" : "es"} para salario ${salary}.`,
-        `${exactRows.length} observation${exactRows.length === 1 ? "" : "s"} for salary ${salary}.`
-      ),
-      referenceRows: exactRows.slice(0, 10),
-      skills: executiveAverageSkills(exactRows),
-      exactCount: exactRows.length
-    };
-  }
-
-  const grouped = new Map();
-  profile.samples.forEach((row) => {
-    const key = row.salary;
-    if (!grouped.has(key)) {
-      grouped.set(key, []);
-    }
-    grouped.get(key).push(row);
-  });
-  const nearestGroups = [...grouped.entries()]
-    .map(([groupSalary, rows]) => ({
-      salary: Number(groupSalary),
-      distance: Math.abs(Number(groupSalary) - salary),
-      rows
-    }))
-    .sort((left, right) => left.distance - right.distance)
-    .slice(0, 3);
-  const nearbyRows = nearestGroups.flatMap((group) => group.rows).slice(0, 12);
-  const closest = nearestGroups[0];
-  return {
-    mode: "near",
-    salary,
-    title: langText("Salarios cercanos", "Nearby salaries"),
-    copy: closest
-      ? langText(
-          `No hay match exacto para ${salary}. Se usan las observaciones más próximas alrededor de ${closest.salary}.`,
-          `There is no exact match for ${salary}. The closest observations around ${closest.salary} are being used.`
-        )
-      : langText("No hay observaciones salariales cercanas para este feedback.", "There are no nearby salary observations for this feedback."),
-    referenceRows: nearbyRows,
-    nearbySalaries: nearestGroups.map((group) => group.salary),
-    skills: executiveAverageSkills(nearbyRows.length ? nearbyRows : profile.samples),
-    exactCount: 0
-  };
-}
-
 function executiveDominantRoleFromSkills(skills) {
   return Object.entries(EXECUTIVE_ROLE_META)
     .map(([key, meta]) => ({ key, meta, value: Number(skills?.[key] || 0) }))
@@ -1217,7 +1139,7 @@ function executiveRoleAccentClass(roleKey) {
   return `executive-accent-${executiveRoleMeta(roleKey).accent}`;
 }
 
-function executiveSkillCardsMarkup(skills, sourceLabel = "Señal agregada") {
+function executiveSkillCardsMarkup(skills) {
   return Object.entries(EXECUTIVE_ROLE_META).map(([key, meta]) => {
     const value = Number(skills?.[key] || 0);
     const width = Math.max(8, Math.min(100, (value / 3) * 100));
@@ -1230,7 +1152,7 @@ function executiveSkillCardsMarkup(skills, sourceLabel = "Señal agregada") {
         <div class="executive-skill-bar">
           <span class="executive-skill-fill" style="width:${width}%"></span>
         </div>
-        <div class="executive-skill-source">${escapeHtml(sourceLabel)}</div>
+        <div class="executive-skill-source">${escapeHtml(meta.short)}</div>
       </article>
     `;
   }).join("");
@@ -1238,7 +1160,7 @@ function executiveSkillCardsMarkup(skills, sourceLabel = "Señal agregada") {
 
 function executiveSampleRowsMarkup(rows) {
   if (!rows.length) {
-    return `<div class="selector-empty">${escapeHtml(langText("Todavía no hay observaciones salariales para este feedback.", "There are no salary observations for this feedback yet."))}</div>`;
+    return `<div class="selector-empty">${escapeHtml(langText("Todavía no hay referencias salariales para este feedback.", "There are no salary references for this feedback yet."))}</div>`;
   }
   return rows.map((row) => {
     const dominant = executiveDominantRoleFromSkills(row);
@@ -1277,7 +1199,15 @@ function executiveAlternativesMarkup(items) {
   }).join("");
 }
 
-function analyzeExecutiveQuery(feedbackText, salaryRaw) {
+function executiveAnalysisBand(analysis) {
+  return executiveBandMeta(analysis?.bandKey || analysis?.best?.band || "riesgoso");
+}
+
+function executiveAnalysisConfidence(analysis) {
+  return displayConfidenceMeta(Number(analysis?.score || 0));
+}
+
+function analyzeExecutiveQuery(feedbackText) {
   const normalizedQuery = normalizeSearch(feedbackText);
   if (!normalizedQuery || normalizedQuery.length < 12) {
     return null;
@@ -1290,26 +1220,22 @@ function analyzeExecutiveQuery(feedbackText, salaryRaw) {
     return {
       type: "no-match",
       query: feedbackText,
-      salaryRaw,
       totalMatches: 0
     };
   }
   const primary = ranked[0];
-  const salaryIntel = executiveSalaryAnalysis(primary.profile, salaryRaw);
-  const role = executiveDominantRoleFromSkills(salaryIntel.skills || primary.profile.skills);
+  const role = executiveDominantRoleFromSkills(primary.profile.skills);
   return {
     type: "match",
     query: feedbackText,
-    salaryRaw,
     totalMatches: ranked.length,
     score: primary.score,
-    confidence: executiveConfidenceMeta(primary.score),
+    confidence: displayConfidenceMeta(primary.score),
     best: primary.profile,
     alternatives: ranked.slice(1, 5),
-    salaryIntel,
-    displaySkills: salaryIntel.skills || primary.profile.skills,
+    displaySkills: primary.profile.skills,
     displayRole: role,
-    band: executiveBandMeta(primary.profile.band)
+    bandKey: primary.profile.band
   };
 }
 
@@ -2185,9 +2111,6 @@ function renderStaticLanguage() {
   setText("executiveEntryLabel", t("executiveEntry"));
   setText("executiveFeedbackLabel", t("executiveFeedback"));
   setPlaceholder("executiveFeedbackInput", t("executiveFeedbackPlaceholder"));
-  setText("executiveSalaryLabel", `${t("executiveObservedSalary")} `);
-  setText("executiveSalaryOptional", t("optional"));
-  setPlaceholder("executiveSalaryInput", t("executiveSalaryPlaceholder"));
   setText("executiveAnalyzeButton", t("analyzeProfile"));
   setText("executiveClearButton", t("clear"));
   setText("executiveHowToReadLabel", t("howToRead"));
@@ -3967,21 +3890,19 @@ function executiveSummaryMarkup() {
   const stale = analysis && executiveNeedsRefresh();
   if (analysis?.type === "match") {
     const roleMeta = executiveRoleMeta(analysis.displayRole.key);
+    const band = executiveAnalysisBand(analysis);
+    const confidence = executiveAnalysisConfidence(analysis);
     return `
       <div class="executive-summary-head">
         <div class="executive-summary-copy">
           <div class="executive-summary-kicker">${escapeHtml(langText("Lectura activa", "Active read"))}</div>
-          <div class="executive-summary-title">${escapeHtml(roleMeta.label)} · ${escapeHtml(analysis.band.label)}</div>
-          <div class="executive-summary-meta">${escapeHtml(analysis.confidence.label)} · ${analysis.totalMatches} ${escapeHtml(langText(`coincidencia${analysis.totalMatches === 1 ? "" : "s"} útiles`, `useful match${analysis.totalMatches === 1 ? "" : "es"}`))}</div>
+          <div class="executive-summary-title">${escapeHtml(roleMeta.short)} · ${escapeHtml(band.label)}</div>
+          <div class="executive-summary-meta">${escapeHtml(confidence.label)} · ${analysis.totalMatches} ${escapeHtml(langText(`coincidencia${analysis.totalMatches === 1 ? "" : "s"} útiles`, `useful match${analysis.totalMatches === 1 ? "" : "es"}`))}</div>
         </div>
         <span class="executive-summary-role ${executiveRoleAccentClass(analysis.displayRole.key)}">${escapeHtml(roleMeta.short)}</span>
       </div>
       <div class="executive-summary-feedback">${escapeHtml(analysis.best.feedback)}</div>
-      <div class="card-tags executive-summary-tags">
-        <span class="tag">${escapeHtml(analysis.salaryIntel.title)}</span>
-        <span class="tag">${analysis.best.sampleCount} ${escapeHtml(langText("observaciones", "observations"))}</span>
-        ${stale ? `<span class="tag tag-error">${escapeHtml(langText("Hay cambios sin analizar", "There are unanalyzed changes"))}</span>` : `<span class="tag">${escapeHtml(langText("Lectura al día", "Read up to date"))}</span>`}
-      </div>
+      ${stale ? `<div class="executive-summary-alert">${escapeHtml(langText("Hay cambios sin analizar.", "There are unanalyzed changes."))}</div>` : ""}
     `;
   }
 
@@ -3997,7 +3918,7 @@ function executiveSummaryMarkup() {
       <div class="executive-summary-feedback">${escapeHtml(langText("La base está cargada, pero este texto todavía no se parece lo suficiente a un patrón mapeado.", "The base is loaded, but this text still does not resemble a mapped pattern enough."))}</div>
       <div class="card-tags executive-summary-tags">
         <span class="tag">${data.summary.profileCount} ${escapeHtml(langText("perfiles", "profiles"))}</span>
-        <span class="tag">${data.summary.sampleCount} ${escapeHtml(langText("observaciones", "observations"))}</span>
+        <span class="tag">COO · CFO · CMO · CTO</span>
       </div>
     `;
   }
@@ -4012,51 +3933,11 @@ function executiveSummaryMarkup() {
     </div>
     <div class="summary-metrics executive-summary-metrics">
       <div class="metric-box"><span>${escapeHtml(langText("Perfiles", "Profiles"))}</span><strong>${data.summary.profileCount}</strong></div>
-      <div class="metric-box"><span>${escapeHtml(langText("Observaciones", "Observations"))}</span><strong>${data.summary.sampleCount}</strong></div>
-      <div class="metric-box"><span>${escapeHtml(langText("Rango salarial", "Salary range"))}</span><strong>${data.summary.salaryMin ? `$${Number(data.summary.salaryMin).toLocaleString(numberLocale())} · $${Number(data.summary.salaryMax).toLocaleString(numberLocale())}` : "-"}</strong></div>
+      <div class="metric-box"><span>${escapeHtml(langText("Motor", "Engine"))}</span><strong>${escapeHtml(langText("Local", "Local"))}</strong></div>
+      <div class="metric-box"><span>${escapeHtml(langText("Roles cubiertos", "Covered roles"))}</span><strong>COO · CFO · CMO · CTO</strong></div>
     </div>
-    <div class="executive-summary-feedback">${escapeHtml(langText("Pegá un feedback, sumá salario si lo conocés y abrí el radar ejecutivo.", "Paste feedback, add the salary if you know it, and open the executive radar."))}</div>
+    <div class="executive-summary-feedback">${escapeHtml(langText("Pegá un feedback completo y abrí el radar ejecutivo.", "Paste the full feedback and open the executive radar."))}</div>
   `;
-}
-
-function executiveHeroMetricsMarkup(analysis) {
-  const roleMeta = executiveRoleMeta(analysis.displayRole.key);
-  return `
-    <div class="executive-hero-metrics">
-      <article class="executive-mini-card">
-        <div class="executive-mini-label">${escapeHtml(langText("Perfil dominante", "Dominant profile"))}</div>
-        <div class="executive-mini-value">${escapeHtml(roleMeta.label)}</div>
-      </article>
-      <article class="executive-mini-card">
-        <div class="executive-mini-label">${escapeHtml(langText("Nivel estimado", "Estimated tier"))}</div>
-        <div class="executive-mini-value">${escapeHtml(analysis.band.label)}</div>
-      </article>
-      <article class="executive-mini-card">
-        <div class="executive-mini-label">${escapeHtml(langText("Confianza", "Confidence"))}</div>
-        <div class="executive-mini-value">${escapeHtml(analysis.confidence.label)}</div>
-      </article>
-      <article class="executive-mini-card">
-        <div class="executive-mini-label">${escapeHtml(langText("Muestras", "Samples"))}</div>
-        <div class="executive-mini-value">${analysis.best.sampleCount}</div>
-      </article>
-    </div>
-  `;
-}
-
-function executiveSalaryMetaMarkup(analysis) {
-  const tags = [];
-  if (analysis.salaryIntel.mode === "exact") {
-    tags.push(`<span class="tag tag-success">${analysis.salaryIntel.exactCount} ${escapeHtml(langText(`exacta${analysis.salaryIntel.exactCount === 1 ? "" : "s"}`, `exact match${analysis.salaryIntel.exactCount === 1 ? "" : "es"}`))}</span>`);
-  }
-  if (analysis.salaryIntel.mode === "near" && Array.isArray(analysis.salaryIntel.nearbySalaries)) {
-    analysis.salaryIntel.nearbySalaries.forEach((salary) => {
-      tags.push(`<span class="tag">$${Number(salary).toLocaleString(numberLocale())}</span>`);
-    });
-  }
-  if (analysis.salaryIntel.mode === "general") {
-    tags.push(`<span class="tag">${escapeHtml(langText("Sin salario puntual", "No exact salary"))}</span>`);
-  }
-  return tags.join("");
 }
 
 function executiveResultsMarkup() {
@@ -4066,7 +3947,7 @@ function executiveResultsMarkup() {
       <div class="empty-card executive-empty-card">
         <div class="executive-empty-kicker">${escapeHtml(langText("Inteligencia ejecutiva", "Executive intelligence"))}</div>
         <div class="executive-empty-title">${escapeHtml(langText("Pegá un feedback para abrir el radar", "Paste feedback to open the radar"))}</div>
-        <div class="executive-empty-copy">${escapeHtml(langText("La lectura combina similitud textual, peso del feedback y observaciones salariales ya mapeadas dentro de tu copia privada.", "This read combines textual similarity, feedback weight, and salary observations already mapped inside your private copy."))}</div>
+        <div class="executive-empty-copy">${escapeHtml(langText("La lectura combina similitud textual, peso del feedback y los vectores locales ya mapeados dentro de tu copia privada.", "This read combines textual similarity, feedback weight, and the local vectors already mapped inside your private copy."))}</div>
       </div>
     `;
   }
@@ -4081,74 +3962,40 @@ function executiveResultsMarkup() {
     `;
   }
 
-  const requestedSalary = parseIntegerInput(analysis.salaryRaw);
+  const suggestedRole = executiveRoleMeta(analysis.displayRole.key);
+  const band = executiveAnalysisBand(analysis);
   return `
     <section class="executive-hero-card">
-      <div class="executive-hero-copy">
+      <div class="executive-hero-frame">
         <div class="executive-empty-kicker">${escapeHtml(langText("Coincidencia principal", "Primary match"))}</div>
+        <div class="executive-hero-meta-line">${escapeHtml(`${suggestedRole.short} · ${Math.round(analysis.score * 100)}% · ${band.label}`)}</div>
         <h3>${escapeHtml(analysis.best.feedback)}</h3>
-        <p>${escapeHtml(analysis.band.copy)}</p>
-        <div class="card-tags">
-          <span class="tag">${escapeHtml(analysis.confidence.label)} · ${Math.round(analysis.score * 100)}%</span>
-          <span class="tag">${escapeHtml(analysis.salaryIntel.title)}</span>
-          ${Number.isFinite(requestedSalary) && requestedSalary > 0 ? `<span class="tag">${escapeHtml(langText("Salario consultado", "Requested salary"))} $${requestedSalary.toLocaleString(numberLocale())}</span>` : ""}
-        </div>
+        <p>${escapeHtml(band.copy)}</p>
       </div>
-      ${executiveHeroMetricsMarkup(analysis)}
     </section>
 
     <section class="executive-grid">
       <article class="executive-detail-card">
         <div class="section-label">${escapeHtml(langText("Vector de habilidades", "Skill vector"))}</div>
         <div class="executive-skill-grid">
-          ${executiveSkillCardsMarkup(
-            analysis.displaySkills,
-            analysis.salaryIntel.mode === "general"
-              ? langText("Feedback agregado", "Aggregated feedback")
-              : analysis.salaryIntel.mode === "exact"
-                ? langText("Observación salarial exacta", "Exact salary observation")
-                : langText("Salarios cercanos", "Nearby salaries")
-          )}
+          ${executiveSkillCardsMarkup(analysis.displaySkills)}
         </div>
       </article>
-
-      <article class="executive-detail-card">
-        <div class="section-label">${escapeHtml(langText("Lectura salarial", "Salary read"))}</div>
-        <div class="executive-salary-copy">${escapeHtml(analysis.salaryIntel.copy)}</div>
-        <div class="card-tags executive-salary-tags">${executiveSalaryMetaMarkup(analysis)}</div>
-        <div class="executive-samples">
-          ${executiveSampleRowsMarkup(analysis.salaryIntel.referenceRows)}
-        </div>
-      </article>
-    </section>
-
-    <section class="executive-grid executive-grid-secondary">
       <article class="executive-detail-card">
         <div class="section-label">${escapeHtml(langText("Resumen operativo", "Operational summary"))}</div>
         <div class="executive-operational-list">
           <div class="executive-operational-item">
             <span>${escapeHtml(langText("Rol sugerido", "Suggested role"))}</span>
-            <strong>${escapeHtml(executiveRoleMeta(analysis.displayRole.key).label)}</strong>
+            <strong>${escapeHtml(suggestedRole.short)}</strong>
           </div>
           <div class="executive-operational-item">
             <span>${escapeHtml(langText("Nivel base", "Base tier"))}</span>
-            <strong>${escapeHtml(analysis.band.label)}</strong>
-          </div>
-          <div class="executive-operational-item">
-            <span>${escapeHtml(langText("Observaciones disponibles", "Available observations"))}</span>
-            <strong>${analysis.best.sampleCount}</strong>
+            <strong>${escapeHtml(band.label)}</strong>
           </div>
           <div class="executive-operational-item">
             <span>${escapeHtml(langText("Feedbacks cercanos", "Nearby feedbacks"))}</span>
             <strong>${analysis.totalMatches}</strong>
           </div>
-        </div>
-      </article>
-
-      <article class="executive-detail-card">
-        <div class="section-label">${escapeHtml(langText("Alternativas cercanas", "Nearby alternatives"))}</div>
-        <div class="executive-alt-grid">
-          ${executiveAlternativesMarkup(analysis.alternatives)}
         </div>
       </article>
     </section>
@@ -4160,18 +4007,16 @@ function renderExecutiveView() {
   const results = byId("executiveResults");
   const info = byId("executiveResultsInfo");
   const feedbackInput = byId("executiveFeedbackInput");
-  const salaryInput = byId("executiveSalaryInput");
-  if (!summary || !results || !info || !feedbackInput || !salaryInput) return;
+  if (!summary || !results || !info || !feedbackInput) return;
   summary.innerHTML = executiveSummaryMarkup();
   feedbackInput.value = state.executive.feedback;
-  salaryInput.value = state.executive.salary;
   results.innerHTML = executiveResultsMarkup();
 
   const analysis = state.executive.analysis;
   if (!analysis) {
     info.textContent = state.language === "en"
-      ? `${executiveDataset().summary.profileCount} local profiles · ${executiveDataset().summary.sampleCount} salary observations`
-      : `${executiveDataset().summary.profileCount} perfiles locales · ${executiveDataset().summary.sampleCount} observaciones salariales`;
+      ? `${executiveDataset().summary.profileCount} local profiles ready`
+      : `${executiveDataset().summary.profileCount} perfiles locales listos`;
     return;
   }
 
@@ -4181,7 +4026,9 @@ function renderExecutiveView() {
   }
 
   const roleMeta = executiveRoleMeta(analysis.displayRole.key);
-  info.textContent = `${roleMeta.label} · ${analysis.band.label} · ${analysis.confidence.label}`;
+  const band = executiveAnalysisBand(analysis);
+  const confidence = executiveAnalysisConfidence(analysis);
+  info.textContent = `${roleMeta.short} · ${band.label} · ${confidence.label}`;
 }
 
 function runExecutiveAnalysis() {
@@ -4190,9 +4037,8 @@ function runExecutiveAnalysis() {
     showToast(state.language === "en" ? "Paste a slightly more complete feedback so the radar can read it properly" : "Pegá un feedback un poco más completo para poder leerlo bien", "error");
     return;
   }
-  state.executive.analysis = analyzeExecutiveQuery(feedback, state.executive.salary);
+  state.executive.analysis = analyzeExecutiveQuery(feedback);
   state.executive.lastQuery = feedback;
-  state.executive.lastSalary = state.executive.salary;
   persistExecutiveState();
   renderExecutiveView();
   showToast(state.executive.analysis?.type === "match"
@@ -5333,11 +5179,6 @@ function bindStaticUi() {
     persistExecutiveState();
     renderExecutiveView();
   });
-  byId("executiveSalaryInput").addEventListener("input", (event) => {
-    state.executive.salary = event.target.value;
-    persistExecutiveState();
-    renderExecutiveView();
-  });
   byId("executiveAnalyzeButton").addEventListener("click", runExecutiveAnalysis);
   byId("executiveClearButton").addEventListener("click", clearExecutiveAnalysis);
 }
@@ -5371,7 +5212,7 @@ async function boot() {
   syncCalculatorInputs();
   recalculateCalculator();
   if (state.executive.lastQuery) {
-    state.executive.analysis = analyzeExecutiveQuery(state.executive.lastQuery, state.executive.lastSalary);
+    state.executive.analysis = analyzeExecutiveQuery(state.executive.lastQuery);
   }
   const dashboardPromise = loadDashboard({ quiet: true });
   await Promise.all([dashboardPromise, runSplashScreen()]);
