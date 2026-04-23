@@ -1,7 +1,8 @@
 {
   "name": "simmarket",
-  "version": "1.0.6",
-  "description": "Desktop app for monitoring SimCompanies market alerts locally.",
+  "version": "1.0.7",
+  "description": "Desktop dashboard for SimCompanies alerts, portfolio, calculator, executive radar, and contact registry.",
+  "homepage": "https://github.com/Vitosa0/simmarket",
   "main": "src/main/main.js",
   "author": "Javi",
   "license": "UNLICENSED",

@@ -1,24 +1,30 @@
 # SimMarket
 
-SimMarket es una app de escritorio para seguir el mercado de SimCompanies con una interfaz visual, alertas configurables, calculadora de costos y un flujo pensado para uso diario sin tocar archivos manualmente.
+<p align="center">
+  <img src="./src/assets/branding/simmarket-mark-1024.png" alt="SimMarket" width="128" height="128" />
+</p>
+
+<p align="center">
+  Dashboard de escritorio para <strong>SimCompanies</strong> con alertas, cartera, calculadora de costos, radar de ejecutivos y registro de contactos.
+</p>
 
 Repositorio oficial:
 - [https://github.com/Vitosa0/simmarket](https://github.com/Vitosa0/simmarket)
 
-Release actual:
-- [SimMarket v1.0.6](https://github.com/Vitosa0/simmarket/releases/tag/v1.0.6)
+Release objetivo actual:
+- [SimMarket v1.0.7](https://github.com/Vitosa0/simmarket/releases/tag/v1.0.7)
 
 ## Qué incluye
 
 - Alertas de mercado con escaneo manual y automático
-- Selector completo de `142` activos agrupados por rubro
+- Soporte separado por servidor: `Magnates` y `Entrepreneurs`
+- Catálogo completo de `142` activos con logos y agrupación por rubro
+- Calculadora de costos con fee, transporte y validación rápida de salida
+- Cartera con valuación bruta y neta, gráfico histórico e importación desde texto
+- Registro de contactos con historial conversacional
+- Radar de ejecutivos con lectura local de feedback
 - Notificaciones locales en macOS y Windows
-- Envío de alertas por Discord y Telegram
-- Calculadora de costos 
-- Registro interno de contactos
-- Instalador `.pkg` universal para macOS
-- Instalador `.exe` para Windows x64
-- Desinstalador incluido en la instalación
+- Envío opcional de alertas por Discord y Telegram
 
 ## Plataformas compatibles
 
@@ -27,14 +33,14 @@ Release actual:
 
 Para instalar y usar la app no hace falta tener `Node.js` ni `npm`.
 
-## Instalación para usar la app
+## Instalación
 
 macOS:
 
-- [Installer `.pkg` universal](https://github.com/Vitosa0/simmarket/releases/download/v1.0.6/SimMarket-Installer-1.0.6-universal.pkg)
-- [`.dmg` universal](https://github.com/Vitosa0/simmarket/releases/download/v1.0.6/SimMarket-1.0.6-universal.dmg)
+- [Instalador `.pkg` universal](https://github.com/Vitosa0/simmarket/releases/download/v1.0.7/SimMarket-Installer-1.0.7-universal.pkg)
+- [Imagen `.dmg` universal](https://github.com/Vitosa0/simmarket/releases/download/v1.0.7/SimMarket-1.0.7-universal.dmg)
 
-1. Abrí el installer.
+1. Abrí el instalador.
 2. Instalá `SimMarket.app` en `/Applications`.
 3. El instalador crea también un acceso en el escritorio.
 4. Para desinstalar, queda disponible:
@@ -42,16 +48,16 @@ macOS:
 
 Windows:
 
-- [Installer `.exe` x64](https://github.com/Vitosa0/simmarket/releases/download/v1.0.6/SimMarket-Installer-1.0.6-x64.exe)
+- [Instalador `.exe` x64](https://github.com/Vitosa0/simmarket/releases/download/v1.0.7/SimMarket-Installer-1.0.7-x64.exe)
 
-1. Abrí el installer.
+1. Abrí el instalador.
 2. Elegí la carpeta de instalación o usá la sugerida.
-3. El instalador crea accesos de escritorio y menú inicio.
-4. Para desinstalar, usá `Agregar o quitar programas` o el desinstalador incluido por el installer.
+3. El instalador crea accesos de escritorio y menú Inicio.
+4. Para desinstalar, usá `Agregar o quitar programas` o el desinstalador incluido por el instalador.
 
 ## Primera ejecución y advertencias de seguridad
 
-Como los instaladores actuales no están firmados/notarizados, macOS y Windows pueden bloquear la primera apertura.
+Como los instaladores actuales no están firmados ni notarizados, macOS y Windows pueden bloquear la primera apertura.
 
 macOS (Gatekeeper):
 
@@ -68,24 +74,28 @@ Windows (SmartScreen):
 3. Luego hacé clic en `Ejecutar de todas formas`.
 4. Confirmá el diálogo de permisos de Windows (`Sí`) para continuar la instalación.
 
-## Qué guarda localmente
+## Datos locales
 
-La app crea y usa esta carpeta:
+La app usa como carpeta principal:
 
-- `~/Library/Application Support/simmarket`
-- `%APPDATA%/simmarket`
+- `~/Library/Application Support/simmarket-vito`
+- `%APPDATA%/simmarket-vito`
+
+Si venís de builds anteriores, la app puede reutilizar datos ya existentes dentro de `simmarket-vito`.
 
 Ahí se guardan, según el uso:
 
 - `config.json`
 - `state.json`
 - `events.log`
+- `price-history.json`
+- caché de histórico externo por servidor
 
-Los assets visuales, logos y catálogo vienen dentro de la app. No dependen de una carpeta externa de proyecto.
+Los assets visuales, logos y catálogo vienen empaquetados dentro de la app.
 
 ## Desarrollo local
 
-Requisitos para desarrollo:
+Requisitos:
 
 - Node.js `20+`
 - npm
@@ -122,18 +132,19 @@ Ese chequeo valida:
 - sintaxis de los archivos JS
 - consistencia del catálogo de `142` activos
 - presencia de logos
-- scripts mínimos de `package.json`
+- consistencia mínima de scripts de empaquetado
 - portabilidad de los launchers `.command`
 
 ## Estructura útil del proyecto
 
-- [src/main/main.js](src/main/main.js): proceso principal de Electron
-- [src/main/monitor.js](src/main/monitor.js): escaneo y lógica de alertas
-- [src/renderer/index.html](src/renderer/index.html): layout principal
-- [src/renderer/app.js](src/renderer/app.js): UI y comportamiento del panel
-- [src/renderer/styles.css](src/renderer/styles.css): estilos de la app
-- [scripts/build-mac-installer.sh](scripts/build-mac-installer.sh): build del installer
-- [scripts/pkg/uninstall-simmarket.command](scripts/pkg/uninstall-simmarket.command): desinstalador distribuido con la app
+- [src/main/main.js](./src/main/main.js): proceso principal de Electron
+- [src/main/monitor.js](./src/main/monitor.js): escaneo y lógica de alertas
+- [src/main/storage.js](./src/main/storage.js): storage, migraciones y separación por servidor
+- [src/renderer/index.html](./src/renderer/index.html): layout principal
+- [src/renderer/app.js](./src/renderer/app.js): UI y comportamiento del panel
+- [src/renderer/styles.css](./src/renderer/styles.css): estilos de la app
+- [scripts/build-mac-installer.sh](./scripts/build-mac-installer.sh): build del instalador `.pkg`
+- [scripts/check-project.js](./scripts/check-project.js): chequeos rápidos de consistencia
 
 ## Distribución
 
@@ -144,17 +155,10 @@ Artefactos principales:
 - `SimMarket-Installer-<version>-x64.exe`
 - `SimMarket-<version>-universal.dmg`
 
-## Estado actual
+## Estado de release
 
-- El repo público ya está online en GitHub
-- El instalador incluye desinstalador
-- Ya existe build de Windows x64
-- Los builds actuales están sin firma ni notarización de Apple ni firma de código en Windows
+- La versión objetivo preparada en este repo es la `1.0.7`
+- Los builds de macOS siguen saliendo sin firma ni notarización
+- El instalador de Windows sigue sin certificado de firma de código
 
-## Nota sobre macOS
-
-Como la app no está firmada ni notarizada, otras Macs pueden mostrar advertencias de seguridad al instalar o abrir la app por primera vez.
-
-## Nota sobre Windows
-
-Como el instalador de Windows no está firmado con certificado de código, Windows puede mostrar advertencias de SmartScreen según el equipo y la reputación del archivo.
+Eso no impide usar la app, pero sí puede generar advertencias de seguridad en la primera apertura.

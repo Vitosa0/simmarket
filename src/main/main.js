@@ -3,7 +3,7 @@ const path = require("node:path");
 const { app, BrowserWindow, ipcMain, nativeImage, shell, Menu } = require("electron");
 const { autoUpdater } = require("electron-updater");
 const { RESOURCE_CATALOG, getResourceById } = require("./catalog");
-const { DEFAULT_CONFIG } = require("./defaults");
+const { DEFAULT_CONFIG, REALM_OPTIONS } = require("./defaults");
 const {
   appDataPaths,
   appendEvent,
@@ -12,6 +12,9 @@ const {
   loadConfig,
   loadPriceHistory,
   loadState,
+  normalizeConfig,
+  normalizeRealmId,
+  realmDataPaths,
   recentEvents,
   saveConfig,
   savePriceHistory,
@@ -20,11 +23,15 @@ const {
 const {
   classifyRule,
   describeCondition,
+  fetchMarketProduct,
+  fetchMarketTicker,
   formatMarketNumber,
   hasProductSnapshot,
   hasTickerSnapshot,
+  lowestListingForQuality,
   normalizeRule,
-  scanAlerts
+  scanAlerts,
+  snapshotIso
 } = require("./monitor");
 
 let mainWindow = null;
@@ -81,6 +88,9 @@ const DISCORD_BRANDING_TIMEOUT_MS = 2500;
 const SCAN_INTERVAL_MS = DEFAULT_CONFIG.pollSeconds * 1000;
 const PRICE_HISTORY_MAX_POINTS = 120;
 const ALERT_CHART_POINT_COUNT = 10;
+const PORTFOLIO_CHART_POINT_COUNT = 30;
+const PORTFOLIO_MARKET_FEE_RATE = 0.04;
+const PORTFOLIO_TRANSPORT_RESOURCE_ID = 13;
 const SIMTOOLS_HISTORY_REFRESH_INTERVAL_MS = 12 * 60 * 60 * 1000;
 const SIMTOOLS_HISTORY_REQUEST_DELAY_MS = 120;
 const SIMTOOLS_HISTORY_REQUEST_TIMEOUT_MS = 20_000;
@@ -128,6 +138,16 @@ function resourceFallbackLabel(resourceId) {
   return uiText(`Recurso ${resourceId}`, `Resource ${resourceId}`);
 }
 
+function realmMeta(realmId) {
+  const normalizedRealmId = normalizeRealmId(realmId);
+  return REALM_OPTIONS.find((realm) => Number(realm.id) === normalizedRealmId) || REALM_OPTIONS[0];
+}
+
+function localizedRealmName(realmId) {
+  const realm = realmMeta(realmId);
+  return isEnglishUi() ? realm.labelEn : realm.labelEs;
+}
+
 function localizedResourceName(resource) {
   if (!resource) return "";
   return isEnglishUi()
@@ -146,6 +166,11 @@ if (!gotSingleInstanceLock) {
 
 function dataPaths() {
   return appDataPaths();
+}
+
+function activeRealmDataPaths(rootPaths, config) {
+  const realmId = normalizeRealmId(config?.activeRealmId ?? config?.realmId);
+  return realmDataPaths(rootPaths, realmId);
 }
 
 function promoteMainWindow() {
@@ -214,6 +239,45 @@ function continueIntoApp() {
   revealMainWindowIfReady();
   queueSimtoolsHistoryRefresh("startup");
   return updateState;
+}
+
+function normalizePortfolioHolding(rawHolding, index, locale = "es") {
+  const resolvedLocale = locale === "en" ? "en" : "es";
+  const resourceId = Number(rawHolding?.resourceId);
+  const quality = Number.isFinite(Number(rawHolding?.quality)) ? Number(rawHolding.quality) : 0;
+  const quantity = Number(rawHolding?.quantity);
+  const buyPrice = Number(rawHolding?.buyPrice);
+  const resource = getResourceById(resourceId);
+
+  if (!Number.isFinite(resourceId) || resourceId <= 0 || !resource) {
+    throw new Error(resolvedLocale === "en"
+      ? `Invalid asset in portfolio position ${index}.`
+      : `Activo inválido en la posición ${index} de cartera.`);
+  }
+  if (!Number.isInteger(quality) || quality < 0 || quality > 12) {
+    throw new Error(resolvedLocale === "en"
+      ? `Invalid quality in portfolio position ${index}.`
+      : `Calidad inválida en la posición ${index} de cartera.`);
+  }
+  if (!Number.isFinite(quantity) || quantity <= 0) {
+    throw new Error(resolvedLocale === "en"
+      ? `Invalid quantity in portfolio position ${index}.`
+      : `Cantidad inválida en la posición ${index} de cartera.`);
+  }
+  if (!Number.isFinite(buyPrice) || buyPrice < 0) {
+    throw new Error(resolvedLocale === "en"
+      ? `Invalid purchase price in portfolio position ${index}.`
+      : `Precio de compra inválido en la posición ${index} de cartera.`);
+  }
+
+  return {
+    id: String(rawHolding?.id || `holding-${resourceId}-q${quality}-${index}`),
+    resourceId,
+    quality,
+    quantity,
+    buyPrice,
+    createdAt: String(rawHolding?.createdAt || new Date().toISOString())
+  };
 }
 
 function focusPrimaryWindows() {
@@ -702,9 +766,20 @@ async function runStartupSequence() {
 }
 
 function buildConfigSnapshot(config) {
+  const storedConfig = normalizeConfig(config);
+  const activeRealmId = normalizeRealmId(storedConfig.activeRealmId ?? storedConfig.realmId);
+  const realmBuckets = storedConfig.realms && typeof storedConfig.realms === "object"
+    ? structuredClone(storedConfig.realms)
+    : {};
+  const activeBucket = realmBuckets[String(activeRealmId)] || {
+    alerts: storedConfig.alerts,
+    portfolio: storedConfig.portfolio
+  };
   const normalizedAlerts = [];
   const skippedAlerts = [];
-  (Array.isArray(config.alerts) ? config.alerts : []).forEach((alert, index) => {
+  const normalizedPortfolio = [];
+  const skippedPortfolio = [];
+  (Array.isArray(activeBucket.alerts) ? activeBucket.alerts : []).forEach((alert, index) => {
     try {
       normalizedAlerts.push(normalizeRule(alert, index + 1, uiLanguage));
     } catch (error) {
@@ -715,18 +790,48 @@ function buildConfigSnapshot(config) {
       });
     }
   });
+  (Array.isArray(activeBucket.portfolio) ? activeBucket.portfolio : []).forEach((holding, index) => {
+    try {
+      normalizedPortfolio.push(normalizePortfolioHolding(holding, index + 1, uiLanguage));
+    } catch (error) {
+      skippedPortfolio.push({
+        index,
+        error: error.message
+      });
+    }
+  });
+  realmBuckets[String(activeRealmId)] = {
+    alerts: normalizedAlerts,
+    portfolio: normalizedPortfolio
+  };
   return {
-    realmId: Number(config.realmId || 0),
+    realmId: activeRealmId,
+    activeRealmId,
+    realm: {
+      id: activeRealmId,
+      key: realmMeta(activeRealmId).key,
+      label: localizedRealmName(activeRealmId)
+    },
+    availableRealms: REALM_OPTIONS.map((realm) => ({
+      id: Number(realm.id),
+      key: realm.key,
+      label: isEnglishUi() ? realm.labelEn : realm.labelEs,
+      labelEs: realm.labelEs,
+      labelEn: realm.labelEn
+    })),
     pollSeconds: DEFAULT_CONFIG.pollSeconds,
-    scanEnabled: Boolean(config.scanEnabled ?? true),
+    scanEnabled: Boolean(storedConfig.scanEnabled ?? true),
     channels: {
-      desktop: Boolean(config.channels?.desktop),
-      discordWebhookUrl: String(config.channels?.discordWebhookUrl || ""),
-      telegramBotToken: String(config.channels?.telegramBotToken || ""),
-      telegramChatId: String(config.channels?.telegramChatId || "")
+      desktop: Boolean(storedConfig.channels?.desktop),
+      discordWebhookUrl: String(storedConfig.channels?.discordWebhookUrl || ""),
+      telegramBotToken: String(storedConfig.channels?.telegramBotToken || ""),
+      telegramChatId: String(storedConfig.channels?.telegramChatId || "")
     },
     alerts: normalizedAlerts,
-    skippedAlerts
+    skippedAlerts,
+    portfolio: normalizedPortfolio,
+    skippedPortfolio,
+    realms: realmBuckets
   };
 }
 
@@ -790,6 +895,11 @@ function writeJsonFileSafe(filePath, payload) {
 
 function simtoolsHistoryRoot(paths) {
   return path.join(paths.baseDir, "simtools-history");
+}
+
+function isDefaultRealmHistoryPath(paths) {
+  const baseName = path.basename(String(paths?.baseDir || ""));
+  return !/^realm-\d+$/.test(baseName) || baseName === "realm-0";
 }
 
 function simtoolsSyncMetaPath(paths) {
@@ -936,6 +1046,18 @@ function buildSimtoolsSyncTargets(config) {
       });
     }
   });
+  (Array.isArray(config?.portfolio) ? config.portfolio : []).forEach((holding) => {
+    const resource = getResourceById(holding.resourceId);
+    const quality = Number(holding.quality || 0);
+    const key = `${Number(holding.resourceId)}:${quality}`;
+    if (!targets.has(key)) {
+      targets.set(key, {
+        resourceId: Number(holding.resourceId),
+        quality,
+        name: resource?.label || `Recurso ${holding.resourceId}`
+      });
+    }
+  });
   return [...targets.values()];
 }
 
@@ -972,7 +1094,7 @@ async function fetchSimtoolsJson(url) {
       const response = await fetch(url, {
         headers: {
           Accept: "application/json",
-          "User-Agent": "SimMarket Vito"
+          "User-Agent": `SimMarket/${app.getVersion()}`
         },
         signal: controller.signal
       });
@@ -1007,11 +1129,14 @@ async function fetchSimtoolsCandles(realmId, resourceId, quality, startMs, endMs
 
 function simtoolsHistoryDirCandidates(paths) {
   const appDataRoot = app.getPath("appData");
-  return [...new Set([
-    simtoolsHistoryRoot(paths),
-    path.join(appDataRoot, "simmarket-vito", "simtools-history"),
-    path.join(appDataRoot, "simmarket", "simtools-history")
-  ])];
+  const candidates = [simtoolsHistoryRoot(paths)];
+  if (isDefaultRealmHistoryPath(paths)) {
+    candidates.push(
+      path.join(appDataRoot, "simmarket-vito", "simtools-history"),
+      path.join(appDataRoot, "simmarket", "simtools-history")
+    );
+  }
+  return [...new Set(candidates)];
 }
 
 function resolveSimtoolsHistoryDir(paths) {
@@ -1197,8 +1322,9 @@ async function refreshSimtoolsHistoryIfNeeded(paths, config, { force = false, re
 function startSimtoolsHistoryAutoRefresh() {
   clearInterval(simtoolsHistoryRefreshTimer);
   simtoolsHistoryRefreshTimer = setInterval(() => {
-    const paths = dataPaths();
-    const config = buildConfigSnapshot(loadConfig(paths));
+    const rootPaths = dataPaths();
+    const config = buildConfigSnapshot(loadConfig(rootPaths));
+    const paths = activeRealmDataPaths(rootPaths, config);
     refreshSimtoolsHistoryIfNeeded(paths, config, { reason: "interval" })
       .then((result) => {
         if (!result?.updatedTargets) return;
@@ -1211,8 +1337,9 @@ function startSimtoolsHistoryAutoRefresh() {
 }
 
 function queueSimtoolsHistoryRefresh(reason = "startup", { force = false } = {}) {
-  const paths = dataPaths();
-  const config = buildConfigSnapshot(loadConfig(paths));
+  const rootPaths = dataPaths();
+  const config = buildConfigSnapshot(loadConfig(rootPaths));
+  const paths = activeRealmDataPaths(rootPaths, config);
   startSimtoolsHistoryAutoRefresh();
   refreshSimtoolsHistoryIfNeeded(paths, config, { reason, force })
     .then((result) => {
@@ -1266,11 +1393,95 @@ function alertSeriesKey(resourceId, quality) {
   return `${Number(resourceId) || 0}:q${Number(quality) || 0}`;
 }
 
+function portfolioTransportSeriesKey() {
+  return alertSeriesKey(PORTFOLIO_TRANSPORT_RESOURCE_ID, 0);
+}
+
+function finitePortfolioNumber(value) {
+  const numericValue = Number(value);
+  return Number.isFinite(numericValue) ? numericValue : null;
+}
+
+function portfolioNetUnitPrice(grossPrice, transportUnits, transportPrice) {
+  const resolvedGrossPrice = finitePortfolioNumber(grossPrice);
+  const resolvedTransportUnits = Number(transportUnits || 0);
+  const needsTransportPrice = resolvedTransportUnits > 0;
+  const resolvedTransportPrice = finitePortfolioNumber(transportPrice);
+  if (!Number.isFinite(resolvedGrossPrice)) return null;
+  if (needsTransportPrice && !Number.isFinite(resolvedTransportPrice)) return null;
+  return (resolvedGrossPrice * (1 - PORTFOLIO_MARKET_FEE_RATE)) - (resolvedTransportUnits * (resolvedTransportPrice || 0));
+}
+
+function latestPortfolioSeriesPointBeforeDate(series = [], date) {
+  if (!Array.isArray(series) || !series.length || !date) return null;
+  for (let index = series.length - 1; index >= 0; index -= 1) {
+    const point = series[index];
+    if (String(point?.date || "") <= date && Number.isFinite(Number(point?.price))) {
+      return point;
+    }
+  }
+  return null;
+}
+
+function latestPortfolioArchiveSeries(paths, resourceId, quality) {
+  const archive = loadSimtoolsProductArchive(paths, resourceId);
+  const qualityBucket = archive?.qualities?.[String(quality)];
+  const candles = Array.isArray(qualityBucket?.candles) ? qualityBucket.candles.slice(-PORTFOLIO_CHART_POINT_COUNT) : [];
+  return candles
+    .map((candle) => ({
+      date: String(candle?.date || "").trim(),
+      price: Number(candle?.close)
+    }))
+    .filter((point) => point.date && Number.isFinite(point.price))
+    .sort((left, right) => left.date.localeCompare(right.date));
+}
+
 function normalizeHistoryPoint(point) {
   const price = Number(point?.price);
   const time = String(point?.time || "").trim();
   if (!Number.isFinite(price) || !time) return null;
   return { price, time };
+}
+
+function chartDayKey(time) {
+  const raw = String(time || "").trim();
+  if (!raw) return "";
+  const parsed = Date.parse(raw);
+  if (Number.isFinite(parsed)) {
+    return new Date(parsed).toISOString().slice(0, 10);
+  }
+  return raw.slice(0, 10);
+}
+
+function newestHistoryPoint(points = []) {
+  return (Array.isArray(points) ? points : [])
+    .map(normalizeHistoryPoint)
+    .filter(Boolean)
+    .sort((left, right) => {
+      const leftTime = Date.parse(String(left.time || ""));
+      const rightTime = Date.parse(String(right.time || ""));
+      if (Number.isFinite(leftTime) && Number.isFinite(rightTime)) return leftTime - rightTime;
+      return String(left.time || "").localeCompare(String(right.time || ""));
+    })
+    .at(-1) || null;
+}
+
+function compactLocalSeriesByDay(points = []) {
+  const byDay = new Map();
+  (Array.isArray(points) ? points : [])
+    .map(normalizeHistoryPoint)
+    .filter(Boolean)
+    .forEach((point) => {
+      const day = chartDayKey(point.time);
+      if (!day) return;
+      const previous = byDay.get(day);
+      const previousTime = previous ? Date.parse(previous.time) : NaN;
+      const pointTime = Date.parse(point.time);
+      if (!previous || !Number.isFinite(previousTime) || !Number.isFinite(pointTime) || pointTime >= previousTime) {
+        byDay.set(day, point);
+      }
+    });
+  return [...byDay.values()].sort((left, right) => chartDayKey(left.time).localeCompare(chartDayKey(right.time)));
 }
 
 function buildAlertHistoryMap(paths, config, historyBySeries = {}, state = {}, liveResults = {}) {
@@ -1291,7 +1502,16 @@ function buildAlertHistoryMap(paths, config, historyBySeries = {}, state = {}, l
     const fallbackPoint = Number.isFinite(fallbackPrice) && fallbackTime
       ? { price: fallbackPrice, time: fallbackTime }
       : null;
-    const series = mergeChartSeries(externalSeries, localSeries, fallbackPoint);
+    const latestLocalPoint = newestHistoryPoint(localSeries);
+    const latestPoint = newestHistoryPoint([fallbackPoint, latestLocalPoint]);
+    const rawBaseSeries = externalSeries.length
+      ? externalSeries
+      : compactLocalSeriesByDay(localSeries);
+    const latestDay = chartDayKey(latestPoint?.time);
+    const baseSeries = latestDay
+      ? rawBaseSeries.filter((point) => chartDayKey(point.time) !== latestDay)
+      : rawBaseSeries;
+    const series = mergeChartSeries(baseSeries, [], latestPoint);
     if (!series.length) {
       return;
     }
@@ -1469,13 +1689,435 @@ function buildAlertRows(config, state, liveResults = {}, chartByAlertId = new Ma
   });
 }
 
-function buildDashboard(liveResults = {}, scanErrors = [], scannedAt = null) {
-  const paths = dataPaths();
-  const config = buildConfigSnapshot(loadConfig(paths));
+async function refreshPortfolioMarketState(paths, config, state, { allowNetwork = false, locale = "es" } = {}) {
+  const holdings = Array.isArray(config?.portfolio) ? config.portfolio : [];
+  const portfolioMarket = state.__portfolioMarket && typeof state.__portfolioMarket === "object"
+    ? state.__portfolioMarket
+    : {};
+  const nextMarket = { ...portfolioMarket };
+  const tickerCache = new Map();
+  const productCache = new Map();
+  const realmId = Number(config?.realmId || 0);
+  const results = new Map();
+
+  let tickerSnapshot = null;
+  if (holdings.length) {
+    try {
+      tickerSnapshot = await fetchMarketTicker(realmId, tickerCache, { allowNetwork, locale });
+    } catch (_error) {
+      tickerSnapshot = null;
+    }
+  }
+
+  const tickerByResource = new Map(
+    (Array.isArray(tickerSnapshot?.rows) ? tickerSnapshot.rows : [])
+      .map((row) => [Number(row?.kind), row])
+      .filter(([kind]) => Number.isFinite(kind))
+  );
+
+  let transportEntry = null;
+  try {
+    const transportSnapshot = await fetchMarketProduct(realmId, PORTFOLIO_TRANSPORT_RESOURCE_ID, productCache, { allowNetwork, locale });
+    const transportListing = lowestListingForQuality(transportSnapshot?.rows, 0);
+    if (transportListing && Number.isFinite(Number(transportListing.price))) {
+      transportEntry = {
+        resourceId: PORTFOLIO_TRANSPORT_RESOURCE_ID,
+        quality: 0,
+        resourceName: localizedResourceName(getResourceById(PORTFOLIO_TRANSPORT_RESOURCE_ID)) || resourceFallbackLabel(PORTFOLIO_TRANSPORT_RESOURCE_ID),
+        price: Number(transportListing.price),
+        sourceTime: transportListing.datetimeDecayUpdated || transportListing.posted || snapshotIso(transportSnapshot.fetchedAt),
+        updatedAt: new Date().toISOString()
+      };
+    }
+  } catch (_error) {
+    transportEntry = null;
+  }
+
+  if (!transportEntry) {
+    const transportTickerRow = tickerByResource.get(PORTFOLIO_TRANSPORT_RESOURCE_ID);
+    if (transportTickerRow && Number.isFinite(Number(transportTickerRow.price))) {
+      transportEntry = {
+        resourceId: PORTFOLIO_TRANSPORT_RESOURCE_ID,
+        quality: 0,
+        resourceName: localizedResourceName(getResourceById(PORTFOLIO_TRANSPORT_RESOURCE_ID)) || resourceFallbackLabel(PORTFOLIO_TRANSPORT_RESOURCE_ID),
+        price: Number(transportTickerRow.price),
+        sourceTime: tickerSnapshot ? snapshotIso(tickerSnapshot.fetchedAt) : "",
+        updatedAt: new Date().toISOString()
+      };
+    }
+  }
+
+  if (transportEntry) {
+    nextMarket[portfolioTransportSeriesKey()] = transportEntry;
+    results.set(portfolioTransportSeriesKey(), transportEntry);
+  }
+
+  const uniqueCombos = new Map();
+  holdings.forEach((holding) => {
+    uniqueCombos.set(alertSeriesKey(holding.resourceId, holding.quality), holding);
+  });
+
+  for (const [seriesKey, holding] of uniqueCombos.entries()) {
+    const resourceId = Number(holding.resourceId);
+    const quality = Number(holding.quality || 0);
+    const resource = getResourceById(resourceId);
+    const resourceName = localizedResourceName(resource) || resourceFallbackLabel(resourceId);
+
+    try {
+      const productSnapshot = await fetchMarketProduct(realmId, resourceId, productCache, { allowNetwork, locale });
+      const listing = lowestListingForQuality(productSnapshot.rows, quality);
+      if (!listing || !Number.isFinite(Number(listing.price))) {
+        if (quality !== 0) {
+          continue;
+        }
+        const tickerRow = tickerByResource.get(resourceId);
+        if (!tickerRow || !Number.isFinite(Number(tickerRow.price))) {
+          continue;
+        }
+        const fallbackEntry = {
+          resourceId,
+          quality,
+          resourceName,
+          price: Number(tickerRow.price),
+          sourceTime: tickerSnapshot ? snapshotIso(tickerSnapshot.fetchedAt) : "",
+          updatedAt: new Date().toISOString()
+        };
+        nextMarket[seriesKey] = fallbackEntry;
+        results.set(seriesKey, fallbackEntry);
+        continue;
+      }
+      const nextEntry = {
+        resourceId,
+        quality,
+        resourceName,
+        price: Number(listing.price),
+        sourceTime: listing.datetimeDecayUpdated || listing.posted || snapshotIso(productSnapshot.fetchedAt),
+        updatedAt: new Date().toISOString()
+      };
+      nextMarket[seriesKey] = nextEntry;
+      results.set(seriesKey, nextEntry);
+    } catch (_error) {
+      if (quality === 0) {
+        const tickerRow = tickerByResource.get(resourceId);
+        if (tickerRow && Number.isFinite(Number(tickerRow.price))) {
+          const fallbackEntry = {
+            resourceId,
+            quality,
+            resourceName,
+            price: Number(tickerRow.price),
+            sourceTime: tickerSnapshot ? snapshotIso(tickerSnapshot.fetchedAt) : "",
+            updatedAt: new Date().toISOString()
+          };
+          nextMarket[seriesKey] = fallbackEntry;
+          results.set(seriesKey, fallbackEntry);
+        }
+      }
+      // Conservamos la última lectura guardada para no vaciar la cartera si esta consulta falla.
+    }
+  }
+
+  state.__portfolioMarket = nextMarket;
+  return results;
+}
+
+async function getPortfolioResourceMeta(paths, config, resourceId, { allowNetwork = true, locale = "es" } = {}) {
+  const numericResourceId = Number(resourceId);
+  const resource = getResourceById(numericResourceId);
+  if (!Number.isFinite(numericResourceId) || numericResourceId <= 0 || !resource) {
+    throw new Error(uiText("Activo inválido para cartera.", "Invalid portfolio asset."));
+  }
+
+  const qualitySet = new Set([0]);
+  const qualitySources = new Set(["default"]);
+  const archive = loadSimtoolsProductArchive(paths, numericResourceId);
+  const archiveQualities = Object.keys(archive?.qualities || {})
+    .map((quality) => Number(quality))
+    .filter((quality) => Number.isInteger(quality) && quality >= 0 && quality <= 12);
+  archiveQualities.forEach((quality) => qualitySet.add(quality));
+  if (archiveQualities.length) {
+    qualitySources.add("history");
+  }
+
+  (Array.isArray(config?.portfolio) ? config.portfolio : [])
+    .filter((holding) => Number(holding?.resourceId) === numericResourceId)
+    .forEach((holding) => {
+      const quality = Number(holding?.quality || 0);
+      if (Number.isInteger(quality) && quality >= 0 && quality <= 12) {
+        qualitySet.add(quality);
+      }
+    });
+  if ((Array.isArray(config?.portfolio) ? config.portfolio : []).some((holding) => Number(holding?.resourceId) === numericResourceId)) {
+    qualitySources.add("portfolio");
+  }
+
+  try {
+    const productSnapshot = await fetchMarketProduct(Number(config?.realmId || 0), numericResourceId, new Map(), { allowNetwork, locale });
+    const snapshotQualities = (Array.isArray(productSnapshot?.rows) ? productSnapshot.rows : [])
+      .map((row) => Number(row?.quality))
+      .filter((quality) => Number.isInteger(quality) && quality >= 0 && quality <= 12);
+    snapshotQualities.forEach((quality) => qualitySet.add(quality));
+    if (snapshotQualities.length) {
+      qualitySources.add("market");
+    }
+  } catch (_error) {
+    // Si no hay snapshot actual, seguimos con la mejor metadata local disponible.
+  }
+
+  const availableQualities = [...qualitySet].sort((left, right) => left - right);
+  const transportUnits = Number(resource.transportUnits || 0);
+  return {
+    resourceId: numericResourceId,
+    resourceName: localizedResourceName(resource) || resourceFallbackLabel(numericResourceId),
+    transportUnits,
+    availableQualities,
+    fixedQuality: availableQualities[0] ?? 0,
+    supportsQualitySelection: availableQualities.length > 1,
+    qualityMode: availableQualities.length > 1 ? "select" : "fixed",
+    qualitySources: [...qualitySources]
+  };
+}
+
+function buildPortfolioHistoryChart(paths, portfolio = [], livePortfolioMap = new Map(), state = {}) {
+  if (!Array.isArray(portfolio) || !portfolio.length) return null;
+  const transportSeries = latestPortfolioArchiveSeries(paths, PORTFOLIO_TRANSPORT_RESOURCE_ID, 0);
+  const seriesCollection = portfolio
+    .map((holding) => ({
+      holding,
+      transportUnits: Number(getResourceById(holding.resourceId)?.transportUnits || 0),
+      points: latestPortfolioArchiveSeries(paths, holding.resourceId, holding.quality)
+    }))
+    .filter((entry) => entry.points.length);
+
+  if (!seriesCollection.length) return null;
+
+  const allDates = [...new Set(seriesCollection.flatMap((entry) => entry.points.map((point) => point.date)))]
+    .sort((left, right) => left.localeCompare(right));
+  const totals = [];
+
+  allDates.forEach((date) => {
+    const transportPoint = latestPortfolioSeriesPointBeforeDate(transportSeries, date);
+    const transportPrice = finitePortfolioNumber(transportPoint?.price);
+    let grossValue = 0;
+    let netValue = 0;
+    let anyGrossValue = false;
+    let anyNetValue = false;
+
+    seriesCollection.forEach((entry) => {
+      const latestPoint = latestPortfolioSeriesPointBeforeDate(entry.points, date);
+      if (!latestPoint) return;
+      const quantity = Number(entry.holding?.quantity || 0);
+      const grossUnitPrice = finitePortfolioNumber(latestPoint.price);
+      if (!Number.isFinite(grossUnitPrice) || !Number.isFinite(quantity)) return;
+
+      grossValue += grossUnitPrice * quantity;
+      anyGrossValue = true;
+
+      const netUnitPrice = portfolioNetUnitPrice(grossUnitPrice, entry.transportUnits, transportPrice);
+      if (!Number.isFinite(netUnitPrice)) return;
+      netValue += netUnitPrice * quantity;
+      anyNetValue = true;
+    });
+
+    if (anyGrossValue || anyNetValue) {
+      totals.push({
+        time: date,
+        grossValue: anyGrossValue ? grossValue : null,
+        netValue: anyNetValue ? netValue : null,
+        transportPrice: Number.isFinite(transportPrice) ? transportPrice : null
+      });
+    }
+  });
+
+  const liveTransportEntry = livePortfolioMap.get(portfolioTransportSeriesKey())
+    || state.__portfolioMarket?.[portfolioTransportSeriesKey()]
+    || null;
+  const liveTransportPrice = finitePortfolioNumber(liveTransportEntry?.price);
+
+  let latestLiveGrossValue = 0;
+  let latestLiveNetValue = 0;
+  let anyLiveGrossValue = false;
+  let anyLiveNetValue = false;
+  portfolio.forEach((holding) => {
+    const liveEntry = livePortfolioMap.get(alertSeriesKey(holding.resourceId, holding.quality))
+      || state.__portfolioMarket?.[alertSeriesKey(holding.resourceId, holding.quality)];
+    const price = finitePortfolioNumber(liveEntry?.price);
+    const quantity = Number(holding.quantity || 0);
+    if (!Number.isFinite(price) || !Number.isFinite(quantity)) return;
+    latestLiveGrossValue += price * quantity;
+    anyLiveGrossValue = true;
+
+    const transportUnits = Number(getResourceById(holding.resourceId)?.transportUnits || 0);
+    const netUnitPrice = portfolioNetUnitPrice(price, transportUnits, liveTransportPrice);
+    if (!Number.isFinite(netUnitPrice)) return;
+    latestLiveNetValue += netUnitPrice * quantity;
+    anyLiveNetValue = true;
+  });
+
+  const latestLiveDate = new Date().toISOString().slice(0, 10);
+  if (anyLiveGrossValue || anyLiveNetValue) {
+    const lastPoint = totals[totals.length - 1];
+    if (lastPoint?.time === latestLiveDate) {
+      if (anyLiveGrossValue) {
+        lastPoint.grossValue = latestLiveGrossValue;
+      }
+      if (anyLiveNetValue) {
+        lastPoint.netValue = latestLiveNetValue;
+      }
+      if (Number.isFinite(liveTransportPrice)) {
+        lastPoint.transportPrice = liveTransportPrice;
+      }
+    } else {
+      totals.push({
+        time: latestLiveDate,
+        grossValue: anyLiveGrossValue ? latestLiveGrossValue : null,
+        netValue: anyLiveNetValue ? latestLiveNetValue : null,
+        transportPrice: Number.isFinite(liveTransportPrice) ? liveTransportPrice : null
+      });
+    }
+  }
+
+  const points = totals.slice(-PORTFOLIO_CHART_POINT_COUNT);
+  const grossValues = points.map((point) => Number(point.grossValue)).filter(Number.isFinite);
+  const netValues = points.map((point) => Number(point.netValue)).filter(Number.isFinite);
+  if (!points.length || (!grossValues.length && !netValues.length)) return null;
+
+  return {
+    points,
+    latestTime: points[points.length - 1]?.time || "",
+    latestGrossValue: grossValues.length ? grossValues[grossValues.length - 1] : null,
+    latestNetValue: netValues.length ? netValues[netValues.length - 1] : null,
+    hasGrossSeries: grossValues.length > 0,
+    hasNetSeries: netValues.length > 0
+  };
+}
+
+function buildPortfolioRows(paths, config, state, livePortfolioMap = new Map()) {
+  const holdings = Array.isArray(config?.portfolio) ? config.portfolio : [];
+  const persistedPortfolio = state.__portfolioMarket && typeof state.__portfolioMarket === "object"
+    ? state.__portfolioMarket
+    : {};
+  const transportEntry = livePortfolioMap.get(portfolioTransportSeriesKey())
+    || persistedPortfolio[portfolioTransportSeriesKey()]
+    || null;
+  const transportPrice = finitePortfolioNumber(transportEntry?.price);
+  const positions = holdings.map((holding) => {
+    const resource = getResourceById(holding.resourceId);
+    const seriesKey = alertSeriesKey(holding.resourceId, holding.quality);
+    const liveEntry = livePortfolioMap.get(seriesKey) || persistedPortfolio[seriesKey] || null;
+    const currentPrice = finitePortfolioNumber(liveEntry?.price);
+    const quantity = Number(holding.quantity || 0);
+    const buyPrice = Number(holding.buyPrice || 0);
+    const transportUnits = Number(resource?.transportUnits || 0);
+    const invested = buyPrice * quantity;
+    const grossCurrentValue = Number.isFinite(currentPrice) ? currentPrice * quantity : null;
+    const grossPnl = Number.isFinite(grossCurrentValue) ? grossCurrentValue - invested : null;
+    const grossPnlPct = invested > 0 && Number.isFinite(grossPnl) ? (grossPnl / invested) * 100 : null;
+    const netCurrentPrice = portfolioNetUnitPrice(currentPrice, transportUnits, transportPrice);
+    const netCurrentValue = Number.isFinite(netCurrentPrice) ? netCurrentPrice * quantity : null;
+    const netPnl = Number.isFinite(netCurrentValue) ? netCurrentValue - invested : null;
+    const netPnlPct = invested > 0 && Number.isFinite(netPnl) ? (netPnl / invested) * 100 : null;
+    return {
+      id: String(holding.id),
+      resourceId: Number(holding.resourceId),
+      resourceName: localizedResourceName(resource) || resourceFallbackLabel(holding.resourceId),
+      groupName: isEnglishUi() ? String(resource?.groupEn || resource?.group || "") : String(resource?.group || ""),
+      quality: Number(holding.quality || 0),
+      quantity,
+      buyPrice,
+      invested,
+      transportUnits,
+      transportPrice,
+      grossCurrentPrice: Number.isFinite(currentPrice) ? currentPrice : null,
+      grossCurrentValue,
+      grossPnl,
+      grossPnlPct,
+      netCurrentPrice,
+      netCurrentValue,
+      netPnl,
+      netPnlPct,
+      currentPrice: Number.isFinite(currentPrice) ? currentPrice : null,
+      currentValue: grossCurrentValue,
+      pnl: grossPnl,
+      pnlPct: grossPnlPct,
+      priceSourceTime: String(liveEntry?.sourceTime || ""),
+      createdAt: String(holding.createdAt || ""),
+      logoUrl: resource?.logoUrl || "",
+      missingPrice: !Number.isFinite(currentPrice),
+      missingNetPrice: transportUnits > 0 ? !Number.isFinite(netCurrentPrice) : !Number.isFinite(currentPrice)
+    };
+  });
+
+  const totalInvested = positions.reduce((total, item) => total + item.invested, 0);
+  const totalUnits = positions.reduce((total, item) => total + item.quantity, 0);
+  const grossPricedEntries = positions.filter((item) => Number.isFinite(item.grossCurrentValue));
+  const grossPricedPositions = grossPricedEntries.length;
+  const totalGrossCurrentValue = grossPricedEntries.reduce((total, item) => total + Number(item.grossCurrentValue || 0), 0);
+  const totalGrossInvestedPriced = grossPricedEntries.reduce((total, item) => total + item.invested, 0);
+  const totalGrossPnl = grossPricedPositions ? totalGrossCurrentValue - totalGrossInvestedPriced : 0;
+  const totalGrossPnlPct = totalGrossInvestedPriced > 0 ? (totalGrossPnl / totalGrossInvestedPriced) * 100 : null;
+
+  const netPricedEntries = positions.filter((item) => Number.isFinite(item.netCurrentValue));
+  const netPricedPositions = netPricedEntries.length;
+  const totalNetCurrentValue = netPricedEntries.reduce((total, item) => total + Number(item.netCurrentValue || 0), 0);
+  const totalNetInvestedPriced = netPricedEntries.reduce((total, item) => total + item.invested, 0);
+  const totalNetPnl = netPricedPositions ? totalNetCurrentValue - totalNetInvestedPriced : 0;
+  const totalNetPnlPct = totalNetInvestedPriced > 0 ? (totalNetPnl / totalNetInvestedPriced) * 100 : null;
+
+  const chart = buildPortfolioHistoryChart(paths, holdings, livePortfolioMap, state);
+
+  return {
+    positions: positions.map((item) => ({
+      ...item,
+      investedDisplay: formatMarketNumber(item.invested),
+      grossCurrentPriceDisplay: Number.isFinite(item.grossCurrentPrice) ? formatMarketNumber(item.grossCurrentPrice) : "-",
+      grossCurrentValueDisplay: Number.isFinite(item.grossCurrentValue) ? formatMarketNumber(item.grossCurrentValue) : "-",
+      grossPnlDisplay: Number.isFinite(item.grossPnl) ? formatMarketNumber(item.grossPnl) : "-",
+      grossPnlPctDisplay: Number.isFinite(item.grossPnlPct) ? `${item.grossPnlPct >= 0 ? "+" : ""}${item.grossPnlPct.toFixed(2)}%` : "-",
+      netCurrentPriceDisplay: Number.isFinite(item.netCurrentPrice) ? formatMarketNumber(item.netCurrentPrice) : "-",
+      netCurrentValueDisplay: Number.isFinite(item.netCurrentValue) ? formatMarketNumber(item.netCurrentValue) : "-",
+      netPnlDisplay: Number.isFinite(item.netPnl) ? formatMarketNumber(item.netPnl) : "-",
+      netPnlPctDisplay: Number.isFinite(item.netPnlPct) ? `${item.netPnlPct >= 0 ? "+" : ""}${item.netPnlPct.toFixed(2)}%` : "-",
+      currentPriceDisplay: Number.isFinite(item.currentPrice) ? formatMarketNumber(item.currentPrice) : "-",
+      currentValueDisplay: Number.isFinite(item.currentValue) ? formatMarketNumber(item.currentValue) : "-",
+      pnlDisplay: Number.isFinite(item.pnl) ? formatMarketNumber(item.pnl) : "-",
+      pnlPctDisplay: Number.isFinite(item.pnlPct) ? `${item.pnlPct >= 0 ? "+" : ""}${item.pnlPct.toFixed(2)}%` : "-",
+      weightPct: totalGrossCurrentValue > 0 && Number.isFinite(item.grossCurrentValue) ? (item.grossCurrentValue / totalGrossCurrentValue) * 100 : 0
+    })),
+    summary: {
+      positionCount: positions.length,
+      pricedPositions: grossPricedPositions,
+      grossPricedPositions,
+      netPricedPositions,
+      totalUnits,
+      totalInvested,
+      totalCurrentValue: totalGrossCurrentValue,
+      totalPnl: totalGrossPnl,
+      totalPnlPct: totalGrossPnlPct,
+      totalGrossCurrentValue,
+      totalGrossPnl,
+      totalGrossPnlPct,
+      totalNetCurrentValue,
+      totalNetPnl,
+      totalNetPnlPct,
+      transportPrice,
+      feeRate: PORTFOLIO_MARKET_FEE_RATE,
+      coveragePct: positions.length ? (grossPricedPositions / positions.length) * 100 : 0,
+      grossCoveragePct: positions.length ? (grossPricedPositions / positions.length) * 100 : 0,
+      netCoveragePct: positions.length ? (netPricedPositions / positions.length) * 100 : 0
+    },
+    chart
+  };
+}
+
+function buildDashboard(liveResults = {}, scanErrors = [], scannedAt = null, livePortfolioMap = new Map()) {
+  const rootPaths = dataPaths();
+  const config = buildConfigSnapshot(loadConfig(rootPaths));
+  const paths = activeRealmDataPaths(rootPaths, config);
   const state = loadState(paths);
   const historyBySeries = loadPriceHistory(paths);
   const chartByAlertId = buildAlertHistoryMap(paths, config, historyBySeries, state, liveResults);
   const alerts = buildAlertRows(config, state, liveResults, chartByAlertId);
+  const portfolio = buildPortfolioRows(paths, config, state, livePortfolioMap);
   const events = recentEvents(paths);
   const effectiveErrors = Array.isArray(scanErrors) && (scanErrors.length || scannedAt)
     ? scanErrors
@@ -1486,10 +2128,12 @@ function buildDashboard(liveResults = {}, scanErrors = [], scannedAt = null) {
     app: {
       name: "SimMarket",
       mode: app.isPackaged ? "production" : "development",
-      dataDir: paths.baseDir,
-      configPath: paths.configPath,
+      dataDir: rootPaths.baseDir,
+      realmDataDir: paths.baseDir,
+      configPath: rootPaths.configPath,
       statePath: paths.statePath,
-      logPath: paths.eventsPath
+      logPath: paths.eventsPath,
+      realm: config.realm
     },
     config,
     summary: {
@@ -1507,6 +2151,7 @@ function buildDashboard(liveResults = {}, scanErrors = [], scannedAt = null) {
       affectedAlerts: marketStatus.affectedAlerts
     },
     alerts,
+    portfolio,
     events,
     resourceCatalog: RESOURCE_CATALOG,
     updates: updateState,
@@ -1525,8 +2170,9 @@ async function runScan(triggerNotifications = true, options = {}) {
   }
   scanInFlight = true;
   try {
-    const paths = dataPaths();
-    const config = buildConfigSnapshot(loadConfig(paths));
+    const rootPaths = dataPaths();
+    const config = buildConfigSnapshot(loadConfig(rootPaths));
+    const paths = activeRealmDataPaths(rootPaths, config);
     const state = loadState(paths);
     const append = (record) => appendEvent(paths, record);
     const result = await scanAlerts({
@@ -1547,13 +2193,17 @@ async function runScan(triggerNotifications = true, options = {}) {
         }
       }
     });
+    const portfolioLiveMap = await refreshPortfolioMarketState(paths, config, state, {
+      allowNetwork: options.allowNetwork !== false,
+      locale: uiLanguage
+    });
     saveState(paths, state);
     updatePriceHistory(paths, config, result.results, result.scannedAt);
     lastScanSnapshot = {
       scannedAt: result.scannedAt,
       errors: result.errors
     };
-    return buildDashboard(result.results, result.errors, result.scannedAt);
+    return buildDashboard(result.results, result.errors, result.scannedAt, portfolioLiveMap);
   } finally {
     scanInFlight = false;
   }
@@ -1641,6 +2291,40 @@ function configNeedsNetworkPriming(previousConfig, nextConfig) {
   });
 }
 
+function portfolioHoldingNeedsCachedMarketData(holding, realmId) {
+  const quality = Number(holding?.quality || 0);
+  const resourceId = Number(holding?.resourceId || 0);
+  if (!Number.isFinite(resourceId) || resourceId <= 0) return false;
+  if (quality === 0) {
+    return !hasTickerSnapshot(realmId);
+  }
+  return !hasProductSnapshot(realmId, resourceId);
+}
+
+function portfolioNeedsNetworkPriming(previousConfig, nextConfig) {
+  const realmId = Number(nextConfig?.realmId || 0);
+  const nextPortfolio = Array.isArray(nextConfig?.portfolio) ? nextConfig.portfolio : [];
+  const previousPortfolio = Array.isArray(previousConfig?.portfolio) ? previousConfig.portfolio : [];
+  const previousById = new Map(previousPortfolio.map((holding) => [String(holding.id), holding]));
+
+  if (Number(previousConfig?.realmId || 0) !== realmId) {
+    return nextPortfolio.some((holding) => portfolioHoldingNeedsCachedMarketData(holding, realmId));
+  }
+
+  return nextPortfolio.some((holding) => {
+    const previous = previousById.get(String(holding.id));
+    if (!previous) {
+      return portfolioHoldingNeedsCachedMarketData(holding, realmId);
+    }
+    const resourceChanged = Number(previous.resourceId) !== Number(holding.resourceId);
+    const qualityChanged = Number(previous.quality) !== Number(holding.quality);
+    if (!resourceChanged && !qualityChanged) {
+      return false;
+    }
+    return portfolioHoldingNeedsCachedMarketData(holding, realmId);
+  });
+}
+
 async function refreshAfterConfigSave(allowNetwork = false) {
   const startedAt = Date.now();
   try {
@@ -1687,19 +2371,60 @@ function createWindow() {
   });
 }
 
-function normalizeIncomingConfig(payload) {
-  return {
-    realmId: Number(payload.realmId || 0),
-    pollSeconds: DEFAULT_CONFIG.pollSeconds,
-    scanEnabled: Boolean(payload.scanEnabled ?? true),
-    channels: {
-      desktop: Boolean(payload.channels?.desktop),
-      discordWebhookUrl: String(payload.channels?.discordWebhookUrl || ""),
-      telegramBotToken: String(payload.channels?.telegramBotToken || ""),
-      telegramChatId: String(payload.channels?.telegramChatId || "")
-    },
-    alerts: Array.isArray(payload.alerts) ? payload.alerts.map((alert, index) => normalizeRule(alert, index + 1)) : structuredClone(DEFAULT_CONFIG.alerts)
+function normalizeIncomingPortfolio(payload) {
+  return Array.isArray(payload)
+    ? payload.map((holding, index) => normalizePortfolioHolding(holding, index + 1, uiLanguage))
+    : structuredClone(DEFAULT_CONFIG.portfolio);
+}
+
+function normalizeIncomingConfig(payload, previousConfig = DEFAULT_CONFIG) {
+  const previous = normalizeConfig(previousConfig);
+  const activeRealmId = normalizeRealmId(payload?.activeRealmId ?? payload?.realmId ?? previous.activeRealmId);
+  const incomingRealms = payload?.realms && typeof payload.realms === "object" ? payload.realms : {};
+  const nextRealms = structuredClone(previous.realms || {});
+  REALM_OPTIONS.forEach((realm) => {
+    const realmId = Number(realm.id);
+    const key = String(realmId);
+    const incomingBucket = incomingRealms[key] && typeof incomingRealms[key] === "object" ? incomingRealms[key] : null;
+    nextRealms[key] = {
+      alerts: Array.isArray(incomingBucket?.alerts)
+        ? structuredClone(incomingBucket.alerts)
+        : Array.isArray(nextRealms[key]?.alerts) ? structuredClone(nextRealms[key].alerts) : [],
+      portfolio: Array.isArray(incomingBucket?.portfolio)
+        ? structuredClone(incomingBucket.portfolio)
+        : Array.isArray(nextRealms[key]?.portfolio) ? structuredClone(nextRealms[key].portfolio) : []
+    };
+  });
+
+  const activeAlerts = Array.isArray(payload?.alerts)
+    ? payload.alerts.map((alert, index) => normalizeRule(alert, index + 1))
+    : Array.isArray(nextRealms[String(activeRealmId)]?.alerts)
+      ? nextRealms[String(activeRealmId)].alerts
+      : [];
+  const activePortfolio = normalizeIncomingPortfolio(Array.isArray(payload?.portfolio)
+    ? payload.portfolio
+    : nextRealms[String(activeRealmId)]?.portfolio);
+  nextRealms[String(activeRealmId)] = {
+    alerts: activeAlerts,
+    portfolio: activePortfolio
   };
+
+  return normalizeConfig({
+    ...previous,
+    realmId: activeRealmId,
+    activeRealmId,
+    pollSeconds: DEFAULT_CONFIG.pollSeconds,
+    scanEnabled: Boolean(payload?.scanEnabled ?? true),
+    channels: {
+      desktop: Boolean(payload?.channels?.desktop),
+      discordWebhookUrl: String(payload?.channels?.discordWebhookUrl || ""),
+      telegramBotToken: String(payload?.channels?.telegramBotToken || ""),
+      telegramChatId: String(payload?.channels?.telegramChatId || "")
+    },
+    alerts: activeAlerts,
+    portfolio: activePortfolio,
+    realms: nextRealms
+  });
 }
 
 app.on("second-instance", () => {
@@ -1736,11 +2461,14 @@ app.whenReady().then(() => {
   ipcMain.handle("startup:continue", async () => continueIntoApp());
 
   ipcMain.handle("config:save", async (_event, payload) => {
-    const paths = dataPaths();
-    const previousConfig = buildConfigSnapshot(loadConfig(paths));
-    const nextConfig = normalizeIncomingConfig(payload);
-    saveConfig(paths, nextConfig);
-    refreshSimtoolsHistoryIfNeeded(paths, buildConfigSnapshot(nextConfig), { reason: "config-save" })
+    const rootPaths = dataPaths();
+    const previousStoredConfig = loadConfig(rootPaths);
+    const previousConfig = buildConfigSnapshot(previousStoredConfig);
+    const nextConfig = normalizeIncomingConfig(payload, previousStoredConfig);
+    const nextSnapshot = buildConfigSnapshot(nextConfig);
+    const paths = activeRealmDataPaths(rootPaths, nextSnapshot);
+    saveConfig(rootPaths, nextConfig);
+    refreshSimtoolsHistoryIfNeeded(paths, nextSnapshot, { reason: "config-save" })
       .then((result) => {
         if (!result?.updatedTargets) return;
         if (mainWindow && !mainWindow.isDestroyed()) {
@@ -1754,11 +2482,122 @@ app.whenReady().then(() => {
       lastDiscordBrandedWebhook = "";
       discordBrandingInFlightWebhook = "";
     }
+    const needsPortfolioNetwork = portfolioNeedsNetworkPriming(previousConfig, nextSnapshot);
     if (nextConfig.scanEnabled !== false) {
-      const needsNetwork = configNeedsNetworkPriming(previousConfig, nextConfig);
+      const needsNetwork = configNeedsNetworkPriming(previousConfig, nextSnapshot) || needsPortfolioNetwork;
       return refreshAfterConfigSave(needsNetwork);
-    } else {
-      restartScheduler();
+    }
+    restartScheduler();
+    if (needsPortfolioNetwork && nextSnapshot.portfolio.length) {
+      const nextState = loadState(paths);
+      await refreshPortfolioMarketState(paths, nextSnapshot, nextState, {
+        allowNetwork: true,
+        locale: uiLanguage
+      });
+      saveState(paths, nextState);
+    }
+    return buildDashboard();
+  });
+
+  ipcMain.handle("portfolio:save", async (_event, payload) => {
+    const rootPaths = dataPaths();
+    const currentConfig = normalizeConfig(loadConfig(rootPaths));
+    const activeRealmId = normalizeRealmId(currentConfig.activeRealmId ?? currentConfig.realmId);
+    const nextPortfolio = normalizeIncomingPortfolio(payload);
+    const nextRealms = structuredClone(currentConfig.realms || {});
+    nextRealms[String(activeRealmId)] = {
+      alerts: Array.isArray(nextRealms[String(activeRealmId)]?.alerts)
+        ? nextRealms[String(activeRealmId)].alerts
+        : [],
+      portfolio: nextPortfolio
+    };
+    const nextConfig = normalizeConfig({
+      ...currentConfig,
+      realmId: activeRealmId,
+      activeRealmId,
+      portfolio: nextPortfolio,
+      realms: nextRealms
+    });
+    const nextSnapshot = buildConfigSnapshot(nextConfig);
+    const paths = activeRealmDataPaths(rootPaths, nextSnapshot);
+    saveConfig(rootPaths, nextConfig);
+    refreshSimtoolsHistoryIfNeeded(paths, nextSnapshot, { reason: "portfolio-save" })
+      .then((result) => {
+        if (!result?.updatedTargets) return;
+        if (mainWindow && !mainWindow.isDestroyed()) {
+          mainWindow.webContents.send("dashboard:updated");
+        }
+      })
+      .catch(() => {});
+    const nextState = loadState(paths);
+    await refreshPortfolioMarketState(paths, nextSnapshot, nextState, {
+      allowNetwork: true,
+      locale: uiLanguage
+    });
+    saveState(paths, nextState);
+    return buildDashboard();
+  });
+
+  ipcMain.handle("portfolio:refresh", async () => {
+    const rootPaths = dataPaths();
+    const config = buildConfigSnapshot(loadConfig(rootPaths));
+    const paths = activeRealmDataPaths(rootPaths, config);
+    const nextState = loadState(paths);
+    await refreshPortfolioMarketState(paths, config, nextState, {
+      allowNetwork: true,
+      locale: uiLanguage
+    });
+    saveState(paths, nextState);
+    return buildDashboard();
+  });
+
+  ipcMain.handle("portfolio:resource-meta", async (_event, payload) => {
+    const rootPaths = dataPaths();
+    const config = buildConfigSnapshot(loadConfig(rootPaths));
+    const paths = activeRealmDataPaths(rootPaths, config);
+    return getPortfolioResourceMeta(paths, config, payload?.resourceId, {
+      allowNetwork: true,
+      locale: uiLanguage
+    });
+  });
+
+  ipcMain.handle("realm:switch", async (_event, payload) => {
+    const rootPaths = dataPaths();
+    const currentConfig = normalizeConfig(loadConfig(rootPaths));
+    const nextRealmId = normalizeRealmId(typeof payload === "object" ? payload?.realmId : payload);
+    const nextConfig = normalizeConfig({
+      ...currentConfig,
+      realmId: nextRealmId,
+      activeRealmId: nextRealmId
+    });
+    saveConfig(rootPaths, nextConfig);
+    lastScanSnapshot = {
+      scannedAt: null,
+      errors: []
+    };
+    const nextSnapshot = buildConfigSnapshot(nextConfig);
+    const paths = activeRealmDataPaths(rootPaths, nextSnapshot);
+    refreshSimtoolsHistoryIfNeeded(paths, nextSnapshot, { reason: "realm-switch" })
+      .then((result) => {
+        if (!result?.updatedTargets) return;
+        if (mainWindow && !mainWindow.isDestroyed()) {
+          mainWindow.webContents.send("dashboard:updated");
+        }
+      })
+      .catch(() => {});
+    const nextState = loadState(paths);
+    if (nextSnapshot.portfolio.length) {
+      refreshPortfolioMarketState(paths, nextSnapshot, nextState, {
+        allowNetwork: true,
+        locale: uiLanguage
+      })
+        .then(() => {
+          saveState(paths, nextState);
+          if (mainWindow && !mainWindow.isDestroyed()) {
+            mainWindow.webContents.send("dashboard:updated");
+          }
+        })
+        .catch(() => {});
     }
     return buildDashboard();
   });
@@ -1780,12 +2619,16 @@ app.whenReady().then(() => {
   });
 
   ipcMain.handle("event:delete", async (_event, eventId) => {
-    deleteEvent(dataPaths(), eventId);
+    const rootPaths = dataPaths();
+    const config = buildConfigSnapshot(loadConfig(rootPaths));
+    deleteEvent(activeRealmDataPaths(rootPaths, config), eventId);
     return buildDashboard();
   });
 
   ipcMain.handle("events:clear", async () => {
-    clearEvents(dataPaths());
+    const rootPaths = dataPaths();
+    const config = buildConfigSnapshot(loadConfig(rootPaths));
+    clearEvents(activeRealmDataPaths(rootPaths, config));
     return buildDashboard();
   });
 

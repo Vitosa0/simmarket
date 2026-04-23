@@ -137,7 +137,7 @@ async function fetchJson(url, locale = "es") {
       const response = await fetch(url, {
         headers: {
           "Accept": "application/json",
-          "User-Agent": "simmarket/1.0"
+          "User-Agent": "SimMarket/1.0"
         },
         signal: controller.signal
       });
@@ -648,10 +648,14 @@ module.exports = {
   classifyRule,
   describeCondition,
   evaluateCondition,
+  fetchMarketProduct,
+  fetchMarketTicker,
   formatMarketNumber,
   hasProductSnapshot,
   hasTickerSnapshot,
   isoNow,
+  lowestListingForQuality,
   normalizeRule,
-  scanAlerts
+  scanAlerts,
+  snapshotIso
 };

@@ -1,9 +1,10 @@
 const fs = require("node:fs");
 const path = require("node:path");
 const { app } = require("electron");
-const { DEFAULT_CONFIG } = require("./defaults");
+const { DEFAULT_CONFIG, DEFAULT_REALM_ID, REALM_OPTIONS } = require("./defaults");
 
 const VITO_DATA_DIR = "simmarket-vito";
+const REALM_IDS = REALM_OPTIONS.map((realm) => Number(realm.id));
 
 function ensureDir(dirPath) {
   fs.mkdirSync(dirPath, { recursive: true });
@@ -58,6 +59,102 @@ function appDataPaths() {
   };
 }
 
+function normalizeRealmId(value) {
+  const numericValue = Number(value);
+  return REALM_IDS.includes(numericValue) ? numericValue : DEFAULT_REALM_ID;
+}
+
+function cloneList(value, fallback = []) {
+  return Array.isArray(value) ? structuredClone(value) : structuredClone(fallback);
+}
+
+function normalizeRealmBucket(value) {
+  const bucket = value && typeof value === "object" ? value : {};
+  return {
+    alerts: cloneList(bucket.alerts, DEFAULT_CONFIG.alerts),
+    portfolio: cloneList(bucket.portfolio, DEFAULT_CONFIG.portfolio)
+  };
+}
+
+function normalizeRealmBuckets(config, activeRealmId) {
+  const rawRealms = config?.realms && typeof config.realms === "object" ? config.realms : {};
+  const hasRealmBuckets = Boolean(config?.realms && typeof config.realms === "object");
+  const buckets = {};
+  REALM_IDS.forEach((realmId) => {
+    buckets[String(realmId)] = normalizeRealmBucket(rawRealms[String(realmId)]);
+  });
+
+  const legacyAlerts = Array.isArray(config?.alerts) ? structuredClone(config.alerts) : null;
+  const legacyPortfolio = Array.isArray(config?.portfolio) ? structuredClone(config.portfolio) : null;
+  const activeKey = String(activeRealmId);
+  if (!hasRealmBuckets) {
+    buckets[activeKey] = {
+      alerts: legacyAlerts || structuredClone(DEFAULT_CONFIG.alerts),
+      portfolio: legacyPortfolio || structuredClone(DEFAULT_CONFIG.portfolio)
+    };
+  } else if (legacyAlerts || legacyPortfolio) {
+    const rawActiveBucket = rawRealms[activeKey] && typeof rawRealms[activeKey] === "object" ? rawRealms[activeKey] : {};
+    buckets[activeKey] = {
+      alerts: Array.isArray(rawActiveBucket.alerts)
+        ? structuredClone(rawActiveBucket.alerts)
+        : legacyAlerts || buckets[activeKey].alerts,
+      portfolio: Array.isArray(rawActiveBucket.portfolio)
+        ? structuredClone(rawActiveBucket.portfolio)
+        : legacyPortfolio || buckets[activeKey].portfolio
+    };
+  }
+  return buckets;
+}
+
+function normalizeConfig(config) {
+  const rawConfig = config && typeof config === "object" ? config : DEFAULT_CONFIG;
+  const activeRealmId = normalizeRealmId(rawConfig.activeRealmId ?? rawConfig.realmId);
+  const realms = normalizeRealmBuckets(rawConfig, activeRealmId);
+  const activeBucket = realms[String(activeRealmId)] || normalizeRealmBucket();
+  return {
+    realmId: activeRealmId,
+    activeRealmId,
+    pollSeconds: DEFAULT_CONFIG.pollSeconds,
+    scanEnabled: Boolean(rawConfig.scanEnabled ?? DEFAULT_CONFIG.scanEnabled),
+    channels: {
+      desktop: Boolean(rawConfig.channels?.desktop ?? DEFAULT_CONFIG.channels.desktop),
+      discordWebhookUrl: String(rawConfig.channels?.discordWebhookUrl ?? ""),
+      telegramBotToken: String(rawConfig.channels?.telegramBotToken ?? ""),
+      telegramChatId: String(rawConfig.channels?.telegramChatId ?? "")
+    },
+    alerts: structuredClone(activeBucket.alerts),
+    portfolio: structuredClone(activeBucket.portfolio),
+    realms
+  };
+}
+
+function realmDataPaths(paths, realmId) {
+  const activeRealmId = normalizeRealmId(realmId);
+  const realmDir = path.join(paths.baseDir, `realm-${activeRealmId}`);
+  ensureDir(realmDir);
+
+  if (activeRealmId === DEFAULT_REALM_ID) {
+    ["state.json", "events.log", "price-history.json"].forEach((fileName) => {
+      copyFileIfMissing(path.join(paths.baseDir, fileName), path.join(realmDir, fileName));
+    });
+    const legacyHistoryDir = path.join(paths.baseDir, "simtools-history");
+    const realmHistoryDir = path.join(realmDir, "simtools-history");
+    if (fs.existsSync(legacyHistoryDir) && !fs.existsSync(realmHistoryDir)) {
+      fs.cpSync(legacyHistoryDir, realmHistoryDir, { recursive: true });
+    }
+  }
+
+  return {
+    rootBaseDir: paths.baseDir,
+    rootConfigPath: paths.configPath,
+    baseDir: realmDir,
+    configPath: paths.configPath,
+    statePath: path.join(realmDir, "state.json"),
+    eventsPath: path.join(realmDir, "events.log"),
+    priceHistoryPath: path.join(realmDir, "price-history.json")
+  };
+}
+
 function readJson(filePath, fallback) {
   try {
     if (!fs.existsSync(filePath)) {
@@ -76,21 +173,7 @@ function writeJson(filePath, payload) {
 
 function loadConfig(paths) {
   const config = readJson(paths.configPath, DEFAULT_CONFIG);
-  if (!config || typeof config !== "object") {
-    return structuredClone(DEFAULT_CONFIG);
-  }
-  return {
-    realmId: Number(config.realmId ?? DEFAULT_CONFIG.realmId),
-    pollSeconds: DEFAULT_CONFIG.pollSeconds,
-    scanEnabled: Boolean(config.scanEnabled ?? DEFAULT_CONFIG.scanEnabled),
-    channels: {
-      desktop: Boolean(config.channels?.desktop ?? DEFAULT_CONFIG.channels.desktop),
-      discordWebhookUrl: String(config.channels?.discordWebhookUrl ?? ""),
-      telegramBotToken: String(config.channels?.telegramBotToken ?? ""),
-      telegramChatId: String(config.channels?.telegramChatId ?? "")
-    },
-    alerts: Array.isArray(config.alerts) ? config.alerts : structuredClone(DEFAULT_CONFIG.alerts)
-  };
+  return normalizeConfig(config);
 }
 
 function saveConfig(paths, config) {
@@ -175,8 +258,11 @@ function clearEvents(paths) {
 
 module.exports = {
   appDataPaths,
+  realmDataPaths,
   loadConfig,
   saveConfig,
+  normalizeConfig,
+  normalizeRealmId,
   loadState,
   saveState,
   loadPriceHistory,

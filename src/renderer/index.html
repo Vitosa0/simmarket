@@ -18,7 +18,7 @@
       </div>
     </div>
     <div id="vitoOverlay" class="vito-overlay hidden" aria-hidden="true">
-      <main class="vito-shell" aria-label="Secuencia de marca Vito S.A.">
+      <main class="vito-shell" aria-label="Presentación de marca SimMarket">
         <div class="vito-bg-stage" aria-hidden="true">
           <div class="vito-bg-column left"></div>
           <div class="vito-bg-column right"></div>
@@ -32,14 +32,14 @@
           <div class="vito-logo-wrap">
             <div class="vito-logo-halo"></div>
             <div class="vito-logo-ring"></div>
-            <img class="vito-logo" src="../assets/branding/vito-sa-mark-1024.png?v=1" alt="Logo Vito S.A." />
+            <img class="vito-logo" src="../assets/branding/simmarket-mark-1024.png?v=4" alt="Logo SimMarket" />
           </div>
 
           <div class="vito-brand-block">
-            <h1 class="vito-brand-name">Vito S.A.</h1>
+            <h1 class="vito-brand-name">SimMarket</h1>
             <div class="vito-credit-stack">
-              <div class="vito-credit-line-primary">Crafted by Vito S.A. © 2026</div>
-              <div class="vito-credit-line-secondary">with my friend Codex</div>
+              <div class="vito-credit-line-primary">Market desk for SimCompanies © 2026</div>
+              <div class="vito-credit-line-secondary">Desktop alerts, portfolio, calculator and registry</div>
             </div>
           </div>
         </section>
@@ -57,11 +57,15 @@
         <div class="header-side">
           <div class="view-switcher">
             <button id="tab-mercado" class="view-tab active" type="button">Mercado</button>
+            <button id="tab-cartera" class="view-tab" type="button">Cartera</button>
             <button id="tab-calculadora" class="view-tab" type="button">Calculadora</button>
             <button id="tab-ejecutivos" class="view-tab" type="button">Ejecutivos</button>
             <button id="tab-registro" class="view-tab" type="button">Registro</button>
           </div>
           <button id="languageToggleButton" class="language-toggle" type="button" aria-label="Cambiar idioma a inglés" title="Cambiar idioma a inglés">EN</button>
+          <button id="realmToggleButton" class="realm-toggle" type="button" aria-label="Cambiar servidor" title="Cambiar servidor">
+            <img id="realmToggleIcon" class="realm-toggle-icon" src="../assets/realms/magnates.png" alt="Magnates" />
+          </button>
           <button id="themeToggleButton" class="theme-toggle" type="button" aria-label="Cambiar tema" title="Cambiar tema">
             <span id="themeToggleIcon" class="theme-toggle-icon" aria-hidden="true"></span>
           </button>
@@ -74,7 +78,7 @@
         </div>
         <div id="marketToolbar" class="header-actions">
           <button id="scanNowButton" class="action-btn action-btn-secondary" type="button">Escanear mercado</button>
-          <button id="checkUpdatesButton" class="action-btn action-btn-secondary" type="button">Buscar updates</button>
+          <button id="checkUpdatesButton" class="action-btn action-btn-secondary" type="button">Buscar actualizaciones</button>
           <button id="saveButton" class="save-btn" type="button">Guardar cambios</button>
           <button id="resetButton" class="action-btn action-btn-secondary" type="button">Descartar</button>
           <button id="scanToggleButton" class="action-btn action-btn-danger" type="button">Parar escaneo</button>
@@ -308,6 +312,54 @@
         </section>
       </div>
 
+      <div id="view-cartera" class="layout view-panel">
+        <aside class="form-panel">
+          <section class="panel-block">
+            <div id="portfolioSelectedLabel" class="section-label">Posición seleccionada</div>
+            <div id="portfolioSelectedCard" class="summary-card"></div>
+          </section>
+
+          <section class="panel-block">
+            <div id="portfolioEntryLabel" class="section-label">Cargar posición</div>
+            <div id="portfolioEditorContainer" class="editor-shell"></div>
+          </section>
+
+          <section class="panel-block">
+            <div id="portfolioImportLabel" class="section-label">Importar desde texto</div>
+            <div id="portfolioImportContainer" class="editor-shell"></div>
+          </section>
+        </aside>
+
+        <main class="list-panel portfolio-panel">
+          <section class="panel-block">
+            <div class="section-heading-row">
+              <div id="portfolioOverviewLabel" class="section-label">Resumen de cartera</div>
+            </div>
+            <div id="portfolioOverview" class="portfolio-overview"></div>
+          </section>
+
+          <section class="panel-block">
+            <div class="section-heading-row">
+              <div id="portfolioHoldingsLabel" class="section-label">Posiciones cargadas</div>
+            </div>
+            <div class="filters-row portfolio-filters-row">
+              <div class="search-wrap">
+                <span class="search-icon">&#9906;</span>
+                <input id="portfolioSearchInput" type="text" placeholder="Buscar producto en cartera" />
+              </div>
+              <button id="portfolioFilterAllButton" class="filter-btn active" type="button">Todas</button>
+              <button id="portfolioFilterGainButton" class="filter-btn" type="button">Ganancia</button>
+              <button id="portfolioFilterLossButton" class="filter-btn" type="button">Pérdida</button>
+              <button id="portfolioRefreshButton" class="action-btn action-btn-secondary" type="button">Actualizar precios</button>
+              <button id="portfolioNewButton" class="filter-btn filter-btn-strong" type="button">Nueva posición</button>
+            </div>
+            <div id="portfolioResultsInfo" class="results-info"></div>
+            <div id="portfolioList" class="portfolio-list"></div>
+            <div id="portfolioPagination" class="pagination-row"></div>
+          </section>
+        </main>
+      </div>
+
       <div id="view-registro" class="layout view-panel">
         <aside class="form-panel">
           <section class="panel-block">
@@ -388,7 +440,7 @@
     </div>
 
     <div id="historyModal" class="modal-backdrop">
-      <div class="modal-card modal-wide">
+      <div class="modal-card modal-wide history-modal-card">
         <h2 id="historyModalTitle">Historial del contacto</h2>
         <p id="historyModalSubtitle">Pegá una conversación o cargá una interacción manual. Cada entrada queda guardada dentro del contacto y puede editarse agregando nuevas interacciones cuando quieras.</p>
         <div class="history-layout">
@@ -401,7 +453,7 @@
               </div>
               <div class="input-group modal-stack-gap">
                 <label id="historyNoteLabel" for="historyNoteInput">Nota</label>
-                <textarea id="historyNoteInput" class="styled-input modal-note-input" placeholder="Escriba sus apreciaciones"></textarea>
+                <textarea id="historyNoteInput" class="styled-input modal-note-input" placeholder="Escribí tus observaciones"></textarea>
               </div>
               <div class="input-group modal-stack-gap">
                 <label id="historyConversationLabel" for="historyConversationInput">Pegar conversación</label>
@@ -444,7 +496,7 @@
 
     <div id="updateModal" class="modal-backdrop">
       <div class="modal-card">
-        <h2 id="updateModalTitle">Buscando updates</h2>
+        <h2 id="updateModalTitle">Buscando actualizaciones</h2>
         <p id="updateModalBody">Estamos consultando GitHub para ver si hay una versión más nueva.</p>
         <div id="updateModalMeta" class="results-info"></div>
         <div id="updateProgressWrap" class="update-progress hidden">
