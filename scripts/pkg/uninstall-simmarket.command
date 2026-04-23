@@ -4,7 +4,7 @@ set -euo pipefail
 APP_PATH="/Applications/SimMarket.app"
 UNINSTALL_PATH="/Applications/Desinstalar SimMarket.command"
 DESKTOP_LINK="$HOME/Desktop/SimMarket.app"
-DATA_DIR="$HOME/Library/Application Support/simmarket"
+DATA_DIR="$HOME/Library/Application Support/simmarket-vito"
 
 read -r -d '' APPLESCRIPT <<'OSA' || true
 display dialog "Esto va a borrar SimMarket, el acceso del escritorio y todos tus datos guardados. ¿Querés continuar?" buttons {"Cancelar", "Desinstalar"} default button "Desinstalar" with icon caution

@@ -1,11 +1,17 @@
 const { contextBridge, ipcRenderer } = require("electron");
+const { version: APP_VERSION } = require("../../package.json");
 
 contextBridge.exposeInMainWorld("simcoDesktop", {
   platform: process.platform,
+  appVersion: APP_VERSION,
   getDashboard: () => ipcRenderer.invoke("dashboard:get"),
   getResourceCatalog: () => ipcRenderer.invoke("catalog:get"),
   setLanguage: (locale) => ipcRenderer.invoke("ui:set-language", locale),
+  switchRealm: (realmId) => ipcRenderer.invoke("realm:switch", realmId),
   saveConfig: (payload) => ipcRenderer.invoke("config:save", payload),
+  savePortfolio: (payload) => ipcRenderer.invoke("portfolio:save", payload),
+  refreshPortfolio: () => ipcRenderer.invoke("portfolio:refresh"),
+  getPortfolioResourceMeta: (payload) => ipcRenderer.invoke("portfolio:resource-meta", payload),
   scanNow: () => ipcRenderer.invoke("scan:now"),
   setScanEnabled: (enabled) => ipcRenderer.invoke("monitor:set-enabled", enabled),
   deleteEvent: (eventId) => ipcRenderer.invoke("event:delete", eventId),

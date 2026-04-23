@@ -9,6 +9,8 @@ const SRC_DIR = path.join(ROOT_DIR, "src");
 const PRODUCT_LOGOS_DIR = path.join(SRC_DIR, "assets", "product-logos");
 const CATALOG_PATH = path.join(SRC_DIR, "shared", "resource-catalog.json");
 const PACKAGE_JSON_PATH = path.join(ROOT_DIR, "package.json");
+const README_PATH = path.join(ROOT_DIR, "README.md");
+const BRANDING_DIR = path.join(SRC_DIR, "assets", "branding");
 
 function listFiles(dirPath, matcher, output = []) {
   for (const entry of fs.readdirSync(dirPath, { withFileTypes: true })) {
@@ -74,6 +76,38 @@ function checkPackageScripts() {
   return "scripts de package.json presentes";
 }
 
+function checkBrandingAssets() {
+  const requiredFiles = [
+    path.join(ROOT_DIR, "build", "SimMarket.icns"),
+    path.join(BRANDING_DIR, "simmarket-mark-1024.png"),
+    path.join(BRANDING_DIR, "simmarket-mark.ico"),
+    path.join(BRANDING_DIR, "simmarket-mark.svg")
+  ];
+  requiredFiles.forEach((filePath) => {
+    if (!fs.existsSync(filePath)) {
+      throw new Error(`Falta asset de branding: ${relative(filePath)}`);
+    }
+  });
+  return `${requiredFiles.length} assets de branding verificados`;
+}
+
+function checkReadmeVersion() {
+  const pkg = JSON.parse(fs.readFileSync(PACKAGE_JSON_PATH, "utf8"));
+  const readme = fs.readFileSync(README_PATH, "utf8");
+  const version = String(pkg.version || "").trim();
+  const expectedReleaseTag = `SimMarket v${version}`;
+  const expectedPkg = `SimMarket-Installer-${version}-universal.pkg`;
+  const expectedDmg = `SimMarket-${version}-universal.dmg`;
+  const expectedExe = `SimMarket-Installer-${version}-x64.exe`;
+
+  [expectedReleaseTag, expectedPkg, expectedDmg, expectedExe].forEach((token) => {
+    if (!readme.includes(token)) {
+      throw new Error(`README desactualizado para versión ${version}: falta ${token}`);
+    }
+  });
+  return `README alineado con v${version}`;
+}
+
 function checkPortableCommands() {
   const commandFiles = [
     path.join(ROOT_DIR, "run_simmarket.command"),
@@ -96,7 +130,9 @@ function main() {
   const checks = [
     ["Sintaxis JS", checkJavaScriptSyntax],
     ["Catálogo", checkCatalog],
+    ["Branding", checkBrandingAssets],
     ["Package scripts", checkPackageScripts],
+    ["README", checkReadmeVersion],
     ["Launchers", checkPortableCommands]
   ];
 

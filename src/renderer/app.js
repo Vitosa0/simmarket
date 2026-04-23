@@ -5,14 +5,63 @@ const LANGUAGE_STORAGE_KEY = "simco-desktop-language";
 const CONTACTS_STORAGE_KEY = "simco-desktop-contacts";
 const EXECUTIVE_STORAGE_KEY = "simco-desktop-executive-intel";
 const CONTACT_IMPORT_BATCHES_STORAGE_KEY = "simco-desktop-contact-import-batches";
+const ACTIVE_REALM_STORAGE_KEY = "simco-desktop-active-realm";
+const REALM_LOCAL_MIGRATION_STORAGE_KEY = "simco-desktop-realm-local-migration-v1";
 const ONBOARDING_STORAGE_KEY = "simco-desktop-onboarding-completed";
 const NOTIFICATIONS_SEEN_STORAGE_KEY = "simco-desktop-last-seen-event";
+const PORTFOLIO_VIEW_MODE_STORAGE_KEY = "simco-desktop-portfolio-view-mode";
+const PORTFOLIO_CHART_RANGE_STORAGE_KEY = "simco-desktop-portfolio-chart-range";
 const CONTACTS_PER_PAGE = 4;
 const ALERTS_PER_PAGE = 5;
+const PORTFOLIO_GROUPS_PER_PAGE = 8;
+const PORTFOLIO_FEE_RATE = 0.04;
+const PORTFOLIO_CHART_RANGE_OPTIONS = [7, 14, 30];
 const CALC_TARGET_PCTS = [2, 5, 10, 15, 20, 25, 30, 50];
 const CALC_TRANSPORT_UNIT_OPTIONS = ["0", "0.1", "0.2", "0.5", "1", "2", "5", "10", "1000"];
+const PORTFOLIO_IMPORT_QUALITY_OPTIONS = Array.from({ length: 13 }, (_item, index) => index);
 const VARIOS_LABEL = "Varios";
 const VARIOS_LABEL_EN = "Miscellaneous";
+const REALM_OPTIONS = [
+  {
+    id: 0,
+    key: "magnates",
+    labelEs: "Magnates",
+    labelEn: "Magnates",
+    icon: "../assets/realms/magnates.png"
+  },
+  {
+    id: 1,
+    key: "entrepreneurs",
+    labelEs: "Emprendedores",
+    labelEn: "Entrepreneurs",
+    icon: "../assets/realms/entrepreneurs.png"
+  }
+];
+
+function storedActiveRealmId() {
+  return normalizeRealmId(localStorage.getItem(ACTIVE_REALM_STORAGE_KEY));
+}
+
+function realmScopedStorageKey(baseKey, realmId = storedActiveRealmId()) {
+  return `${baseKey}:realm:${normalizeRealmId(realmId)}`;
+}
+
+function realmContactsStorageKey(realmId = storedActiveRealmId()) {
+  return realmScopedStorageKey(CONTACTS_STORAGE_KEY, realmId);
+}
+
+function realmCalculatorStorageKey(realmId = storedActiveRealmId()) {
+  return realmScopedStorageKey(CALC_STORAGE_KEY, realmId);
+}
+
+function realmContactImportBatchesStorageKey(realmId = storedActiveRealmId()) {
+  return realmScopedStorageKey(CONTACT_IMPORT_BATCHES_STORAGE_KEY, realmId);
+}
+
+function storageKeyExists(key) {
+  return localStorage.getItem(key) !== null;
+}
+
 const CONTACT_TYPE_OPTIONS = ["Proveedor", "Cliente", "Desconocido", "Social", "Socio"];
 const CONTACT_TRUST_OPTIONS = [
   { value: "Alto", tone: "alto" },
@@ -24,20 +73,20 @@ const EXECUTIVE_ROLE_META = {
   mgmt: { labelEs: "Operaciones", labelEn: "Operations", short: "COO", accent: "gold" },
   acct: { labelEs: "Finanzas", labelEn: "Finance", short: "CFO", accent: "emerald" },
   comm: { labelEs: "Comercial", labelEn: "Commercial", short: "CMO", accent: "blue" },
-  tech: { labelEs: "Tecnologia", labelEn: "Technology", short: "CTO", accent: "crimson" }
+  tech: { labelEs: "Tecnología", labelEn: "Technology", short: "CTO", accent: "crimson" }
 };
 const EXECUTIVE_BAND_META = {
-  elite: { labelEs: "Calibre elite", labelEn: "Elite caliber", copyEs: "Patron muy fuerte en la base observada.", copyEn: "Very strong pattern in the observed base." },
+  elite: { labelEs: "Calibre élite", labelEn: "Elite caliber", copyEs: "Patrón muy fuerte en la base observada.", copyEn: "Very strong pattern in the observed base." },
   alto: { labelEs: "Alta señal", labelEn: "High signal", copyEs: "Perfil consistente para decisiones exigentes.", copyEn: "Consistent profile for demanding decisions." },
-  solido: { labelEs: "Base solida", labelEn: "Solid base", copyEs: "Señal estable y aprovechable.", copyEn: "Stable signal with practical value." },
-  desarrollo: { labelEs: "Potencial en desarrollo", labelEn: "Developing potential", copyEs: "Puede servir con lectura mas cuidadosa.", copyEn: "Useful with a more careful read." },
+  solido: { labelEs: "Base sólida", labelEn: "Solid base", copyEs: "Señal estable y aprovechable.", copyEn: "Stable signal with practical value." },
+  desarrollo: { labelEs: "Potencial en desarrollo", labelEn: "Developing potential", copyEs: "Puede servir con una lectura más cuidadosa.", copyEn: "Useful with a more careful read." },
   riesgoso: { labelEs: "Lectura incierta", labelEn: "Uncertain read", copyEs: "Conviene validar antes de mover fichas.", copyEn: "Best validated before making a move." }
 };
 const EXECUTIVE_CONFIDENCE_META = {
   exacta: { labelEs: "Coincidencia exacta", labelEn: "Exact match", min: 0.96 },
   muyAlta: { labelEs: "Coincidencia muy alta", labelEn: "Very high match", min: 0.8 },
   alta: { labelEs: "Coincidencia alta", labelEn: "High match", min: 0.64 },
-  media: { labelEs: "Coincidencia util", labelEn: "Useful match", min: 0.44 },
+  media: { labelEs: "Coincidencia útil", labelEn: "Useful match", min: 0.44 },
   baja: { labelEs: "Coincidencia exploratoria", labelEn: "Exploratory match", min: 0 }
 };
 const GROUP_TRANSLATIONS = {
@@ -58,6 +107,7 @@ const I18N = {
   es: {
     tabMercado: "Mercado",
     tabCalculadora: "Calculadora",
+    tabCartera: "Cartera",
     tabEjecutivos: "Ejecutivos",
     tabRegistro: "Registro",
     toggleThemeLight: "Activar modo claro",
@@ -69,7 +119,7 @@ const I18N = {
     statsLastReview: "Última revisión",
     noData: "Sin datos",
     scanMarket: "Escanear mercado",
-    checkUpdates: "Buscar updates",
+    checkUpdates: "Buscar actualizaciones",
     saveChanges: "Guardar cambios",
     savePendingChanges: "Guardar cambios pendientes",
     discard: "Descartar",
@@ -77,6 +127,7 @@ const I18N = {
     stopScan: "Parar escaneo",
     viewMercadoTitle: "ALERTAS DE MERCADO",
     viewCalculadoraTitle: "CALCULADORA DE COSTOS",
+    viewCarteraTitle: "CARTERA DE INVENTARIO",
     viewEjecutivosTitle: "RADAR DE EJECUTIVOS",
     viewRegistroTitle: "REGISTRO DE CONTACTOS",
     sectionCurrentReading: "Lectura actual",
@@ -124,6 +175,17 @@ const I18N = {
     profitTargets: "Objetivos de ganancia",
     targetPriceResult: "Resultado de tu precio objetivo",
     enterPrice: "Ingresá un precio",
+    portfolioSelected: "Posición seleccionada",
+    portfolioEntry: "Cargar posición",
+    portfolioOverview: "Resumen de cartera",
+    portfolioHoldings: "Posiciones cargadas",
+    portfolioSearch: "Buscar producto en cartera",
+    portfolioRefresh: "Actualizar precios",
+    portfolioNew: "Nueva posición",
+    portfolioImport: "Importar desde texto",
+    portfolioFilterAll: "Todas",
+    portfolioFilterGain: "Ganancia",
+    portfolioFilterLoss: "Pérdida",
     newContact: "Nuevo contacto",
     contactArchive: "Archivo de contactos",
     recordsCount: "{count} registros",
@@ -145,7 +207,7 @@ const I18N = {
     date: "Fecha",
     datePlaceholder: "Ej: 21 days ago o 29 de mar de 2026",
     note: "Nota",
-    notePlaceholder: "Escriba sus apreciaciones",
+    notePlaceholder: "Escribí tus observaciones",
     pasteConversation: "Pegar conversación",
     pasteConversationPlaceholder: "Pegá el chat copiado tal como sale del juego y se separará en mensajes.",
     clearForm: "Limpiar",
@@ -155,7 +217,7 @@ const I18N = {
     notificationsTitle: "NOTIFICACIONES",
     notificationsSubtitle: "Resumen reciente de disparos, salidas de zona y errores del monitor.",
     clearInbox: "Limpiar casilla",
-    checkingUpdates: "Buscando updates",
+    checkingUpdates: "Buscando actualizaciones",
     notNow: "Ahora no",
     download: "Descargar",
     onboardingStep: "Primer recorrido",
@@ -167,6 +229,7 @@ const I18N = {
   en: {
     tabMercado: "Market",
     tabCalculadora: "Calculator",
+    tabCartera: "Portfolio",
     tabEjecutivos: "Executives",
     tabRegistro: "Registry",
     toggleThemeLight: "Enable light mode",
@@ -178,7 +241,7 @@ const I18N = {
     statsLastReview: "Last review",
     noData: "No data",
     scanMarket: "Scan market",
-    checkUpdates: "Check updates",
+    checkUpdates: "Check for updates",
     saveChanges: "Save changes",
     savePendingChanges: "Save pending changes",
     discard: "Discard",
@@ -186,6 +249,7 @@ const I18N = {
     stopScan: "Stop scan",
     viewMercadoTitle: "MARKET ALERTS",
     viewCalculadoraTitle: "COST CALCULATOR",
+    viewCarteraTitle: "INVENTORY PORTFOLIO",
     viewEjecutivosTitle: "EXECUTIVE RADAR",
     viewRegistroTitle: "CONTACT REGISTRY",
     sectionCurrentReading: "Current reading",
@@ -233,6 +297,17 @@ const I18N = {
     profitTargets: "Profit targets",
     targetPriceResult: "Result for your target price",
     enterPrice: "Enter a price",
+    portfolioSelected: "Selected position",
+    portfolioEntry: "Position input",
+    portfolioOverview: "Portfolio overview",
+    portfolioHoldings: "Loaded positions",
+    portfolioSearch: "Search product in portfolio",
+    portfolioRefresh: "Refresh prices",
+    portfolioNew: "New position",
+    portfolioImport: "Import from text",
+    portfolioFilterAll: "All",
+    portfolioFilterGain: "Profit",
+    portfolioFilterLoss: "Loss",
     newContact: "New contact",
     contactArchive: "Contact archive",
     recordsCount: "{count} records",
@@ -264,7 +339,7 @@ const I18N = {
     notificationsTitle: "NOTIFICATIONS",
     notificationsSubtitle: "Recent summary of triggers, exits from zone, and monitor errors.",
     clearInbox: "Clear inbox",
-    checkingUpdates: "Checking updates",
+    checkingUpdates: "Checking for updates",
     notNow: "Not now",
     download: "Download",
     onboardingStep: "First tour",
@@ -365,7 +440,8 @@ const SPLASH_PROGRESS_SEGMENTS = [
   { start: 5400, end: SPLASH_TOTAL_MS, from: 75, to: 100, power: 0.48 }
 ];
 
-const initialCalculatorBook = loadCalculatorBook();
+const initialLocalRealmId = storedActiveRealmId();
+const initialCalculatorBook = loadCalculatorBook(initialLocalRealmId, { migrateLegacy: false });
 const initialExecutiveState = loadExecutiveState();
 
 const state = {
@@ -376,6 +452,10 @@ const state = {
     channels: {},
     config: {}
   },
+  realmProfiles: {},
+  localRealmId: initialLocalRealmId,
+  localRealmStateSynced: false,
+  realmSwitching: false,
   selectedAlertId: null,
   filter: "all",
   search: "",
@@ -384,7 +464,29 @@ const state = {
   resourceSelectorOpen: false,
   resourceActiveGroup: null,
   conditionSelectorOpen: false,
-  contacts: loadContacts(),
+  portfolioHoldings: [],
+  selectedPortfolioId: null,
+  selectedPortfolioGroupKey: null,
+  portfolioDraft: emptyPortfolioDraft(),
+  portfolioDirty: false,
+  portfolioSearch: "",
+  portfolioFilter: "all",
+  portfolioPage: 1,
+  portfolioExpandedKeys: [],
+  portfolioResourceSelectorOpen: false,
+  portfolioResourceSearch: "",
+  portfolioResourceActiveGroup: null,
+  portfolioResourceMetaCache: {},
+  portfolioResourceMetaPending: {},
+  portfolioImportText: "",
+  portfolioImportRows: [],
+  portfolioValuationMode: localStorage.getItem(PORTFOLIO_VIEW_MODE_STORAGE_KEY) === "net" ? "net" : "gross",
+  portfolioChartRange: PORTFOLIO_CHART_RANGE_OPTIONS.includes(Number(localStorage.getItem(PORTFOLIO_CHART_RANGE_STORAGE_KEY)))
+    ? Number(localStorage.getItem(PORTFOLIO_CHART_RANGE_STORAGE_KEY))
+    : 30,
+  portfolioChartSelectedTime: "",
+  portfolioChartHoverTime: "",
+  contacts: loadContacts(initialLocalRealmId, { migrateLegacy: false }),
   contactSearch: "",
   contactTypeFilter: "todos",
   contactTrustFilter: "todos",
@@ -415,7 +517,7 @@ const state = {
   updates: {
     platform: window.simcoDesktop?.platform || "unknown",
     strategy: "manual",
-    currentVersion: "1.0.6",
+    currentVersion: window.simcoDesktop?.appVersion || "",
     status: "idle",
     checking: false,
     available: false,
@@ -468,7 +570,7 @@ function onboardingSteps() {
     {
       title: langText("Bienvenido a SimMarket", "Welcome to SimMarket"),
       body: langText(
-        "La app está pensada para que vigiles mercado, armes alertas y tomes decisiones de compra o venta desde un solo panel.",
+        "La app está pensada para que vigiles el mercado, armes alertas y tomes decisiones de compra o venta desde un solo panel.",
         "The app is designed so you can watch the market, build alerts, and make buy or sell decisions from a single panel."
       ),
       points: state.language === "en"
@@ -645,9 +747,44 @@ function normalizeCalculatorState(saved, fallbackId = createCalculatorPageId()) 
   };
 }
 
-function loadCalculatorBook() {
+function migrateRealmLocalDataIfNeeded(realmId) {
+  const normalizedRealmId = normalizeRealmId(realmId);
+  if (localStorage.getItem(REALM_LOCAL_MIGRATION_STORAGE_KEY) === "true") return;
+
+  const calculatorKey = realmCalculatorStorageKey(normalizedRealmId);
+  if (!storageKeyExists(calculatorKey) && storageKeyExists(CALC_STORAGE_KEY)) {
+    localStorage.setItem(calculatorKey, localStorage.getItem(CALC_STORAGE_KEY) || "{}");
+  }
+
+  const contactsKey = realmContactsStorageKey(normalizedRealmId);
+  if (!storageKeyExists(contactsKey)) {
+    let contacts = [];
+    try {
+      const parsed = JSON.parse(localStorage.getItem(CONTACTS_STORAGE_KEY) || "[]");
+      contacts = Array.isArray(parsed) ? parsed : [];
+    } catch (error) {
+      contacts = [];
+    }
+    contacts = applyImportedContactBatches(contacts, normalizedRealmId);
+    localStorage.setItem(contactsKey, JSON.stringify(contacts));
+  }
+
+  const contactBatchesKey = realmContactImportBatchesStorageKey(normalizedRealmId);
+  if (!storageKeyExists(contactBatchesKey) && storageKeyExists(CONTACT_IMPORT_BATCHES_STORAGE_KEY)) {
+    localStorage.setItem(contactBatchesKey, localStorage.getItem(CONTACT_IMPORT_BATCHES_STORAGE_KEY) || "[]");
+  }
+
+  localStorage.setItem(REALM_LOCAL_MIGRATION_STORAGE_KEY, "true");
+}
+
+function loadCalculatorBook(realmId = storedActiveRealmId(), { migrateLegacy = true } = {}) {
+  const normalizedRealmId = normalizeRealmId(realmId);
+  if (migrateLegacy) {
+    migrateRealmLocalDataIfNeeded(normalizedRealmId);
+  }
+  const storageKey = realmCalculatorStorageKey(normalizedRealmId);
   try {
-    const saved = JSON.parse(localStorage.getItem(CALC_STORAGE_KEY) || "{}");
+    const saved = JSON.parse(localStorage.getItem(storageKey) || "{}");
     if (Array.isArray(saved?.pages) && saved.pages.length) {
       const pages = saved.pages.map((page, index) => normalizeCalculatorState(page, `calc-${index + 1}`));
       const activeId = pages.some((page) => page.id === saved.activeId)
@@ -815,17 +952,17 @@ function importedContactBatches() {
   return batches.filter((batch) => batch && batch.id && Array.isArray(batch.contacts));
 }
 
-function readAppliedContactImportBatches() {
+function readAppliedContactImportBatches(realmId = storedActiveRealmId()) {
   try {
-    const parsed = JSON.parse(localStorage.getItem(CONTACT_IMPORT_BATCHES_STORAGE_KEY) || "[]");
+    const parsed = JSON.parse(localStorage.getItem(realmContactImportBatchesStorageKey(realmId)) || "[]");
     return uniqueList(parsed);
   } catch (error) {
     return [];
   }
 }
 
-function writeAppliedContactImportBatches(batchIds) {
-  localStorage.setItem(CONTACT_IMPORT_BATCHES_STORAGE_KEY, JSON.stringify(uniqueList(batchIds)));
+function writeAppliedContactImportBatches(batchIds, realmId = storedActiveRealmId()) {
+  localStorage.setItem(realmContactImportBatchesStorageKey(realmId), JSON.stringify(uniqueList(batchIds)));
 }
 
 function mergeDistinctText(existingValue, importedValue) {
@@ -934,11 +1071,12 @@ function mergeImportedContactRecord(existingContact, importedContact) {
   });
 }
 
-function applyImportedContactBatches(savedContacts) {
+function applyImportedContactBatches(savedContacts, realmId = storedActiveRealmId()) {
   const batches = importedContactBatches();
   if (!batches.length) return savedContacts;
 
-  const applied = new Set(readAppliedContactImportBatches());
+  const normalizedRealmId = normalizeRealmId(realmId);
+  const applied = new Set(readAppliedContactImportBatches(normalizedRealmId));
   let changed = false;
   let contacts = savedContacts.map(normalizeContactRecord).filter((contact) => contact.name);
 
@@ -959,20 +1097,25 @@ function applyImportedContactBatches(savedContacts) {
   });
 
   if (changed) {
-    localStorage.setItem(CONTACTS_STORAGE_KEY, JSON.stringify(contacts));
-    writeAppliedContactImportBatches([...applied]);
+    localStorage.setItem(realmContactsStorageKey(normalizedRealmId), JSON.stringify(contacts));
+    writeAppliedContactImportBatches([...applied], normalizedRealmId);
   }
 
   return contacts;
 }
 
-function loadContacts() {
+function loadContacts(realmId = storedActiveRealmId(), { migrateLegacy = true } = {}) {
+  const normalizedRealmId = normalizeRealmId(realmId);
+  if (migrateLegacy) {
+    migrateRealmLocalDataIfNeeded(normalizedRealmId);
+  }
+  const storageKey = realmContactsStorageKey(normalizedRealmId);
   try {
-    const parsed = JSON.parse(localStorage.getItem(CONTACTS_STORAGE_KEY) || "[]");
+    const parsed = JSON.parse(localStorage.getItem(storageKey) || "[]");
     if (!Array.isArray(parsed)) return [];
-    return applyImportedContactBatches(parsed);
+    return parsed.map(normalizeContactRecord).filter((contact) => contact.name);
   } catch (error) {
-    return applyImportedContactBatches([]);
+    return [];
   }
 }
 
@@ -987,6 +1130,31 @@ function escapeHtml(value) {
     .replaceAll(">", "&gt;")
     .replaceAll('"', "&quot;")
     .replaceAll("'", "&#39;");
+}
+
+function emptyPortfolioDraft() {
+  return {
+    id: "",
+    resourceId: "",
+    quality: "0",
+    quantity: "",
+    buyPrice: "",
+    createdAt: ""
+  };
+}
+
+function normalizePortfolioValuationMode(value) {
+  return value === "net" ? "net" : "gross";
+}
+
+function normalizePortfolioChartRange(value) {
+  const numericValue = Number(value);
+  return PORTFOLIO_CHART_RANGE_OPTIONS.includes(numericValue) ? numericValue : 30;
+}
+
+function persistPortfolioViewPreferences() {
+  localStorage.setItem(PORTFOLIO_VIEW_MODE_STORAGE_KEY, normalizePortfolioValuationMode(state.portfolioValuationMode));
+  localStorage.setItem(PORTFOLIO_CHART_RANGE_STORAGE_KEY, String(normalizePortfolioChartRange(state.portfolioChartRange)));
 }
 
 function normalizeSearch(value) {
@@ -1260,6 +1428,49 @@ function formatCurrency(value) {
   return `$${number.toLocaleString(numberLocale(), { minimumFractionDigits: 0, maximumFractionDigits: maxFractionDigits })}`;
 }
 
+function finiteNumber(value) {
+  const numericValue = Number(value);
+  return Number.isFinite(numericValue) ? numericValue : null;
+}
+
+function formatShortDate(value) {
+  const raw = String(value || "").trim();
+  if (!raw) return "—";
+  const dateOnly = raw.match(/^(\d{4})-(\d{2})-(\d{2})/)?.[0] || raw;
+  const date = new Date(`${dateOnly}T12:00:00Z`);
+  if (Number.isNaN(date.getTime())) return raw;
+  return new Intl.DateTimeFormat(state.language === "en" ? "en-US" : "es-AR", {
+    day: "numeric",
+    month: "short"
+  }).format(date);
+}
+
+function formatPortfolioChartDate(value) {
+  const raw = String(value || "").trim();
+  if (!raw) return "—";
+  const parts = raw.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (parts) {
+    const [, year, month, day] = parts;
+    return state.language === "en" ? `${month}/${day}/${year}` : `${day}/${month}/${year}`;
+  }
+  const date = new Date(raw);
+  if (Number.isNaN(date.getTime())) return raw;
+  return new Intl.DateTimeFormat(state.language === "en" ? "en-US" : "es-AR", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric"
+  }).format(date);
+}
+
+function formatPortfolioChartScaleCurrency(value) {
+  const number = Number(value);
+  if (!Number.isFinite(number)) return "—";
+  const rounded = Math.abs(number) >= 5_000_000
+    ? Math.round(number / 100_000) * 100_000
+    : number;
+  return formatCurrency(rounded);
+}
+
 function parseLocaleDecimal(value) {
   const raw = String(value ?? "").trim().replace(/\s+/g, "");
   if (!raw) return Number.NaN;
@@ -1352,10 +1563,16 @@ function themeToggleMarkup() {
 }
 
 function applyTheme(theme = state.theme) {
+  document.body.classList.add("theme-switching");
   state.theme = theme === "light" ? "light" : "dark";
   document.body.dataset.theme = state.theme;
   localStorage.setItem(THEME_STORAGE_KEY, state.theme);
   renderThemeToggle();
+  requestAnimationFrame(() => {
+    requestAnimationFrame(() => {
+      document.body.classList.remove("theme-switching");
+    });
+  });
 }
 
 function renderThemeToggle() {
@@ -1377,6 +1594,44 @@ function renderLanguageToggle() {
   button.dataset.language = state.language;
   button.setAttribute("aria-label", langText("Cambiar idioma a inglés", "Switch language to Spanish"));
   button.setAttribute("title", langText("Cambiar idioma a inglés", "Switch language to Spanish"));
+}
+
+function normalizeRealmId(value) {
+  const numericValue = Number(value);
+  return REALM_OPTIONS.some((realm) => Number(realm.id) === numericValue) ? numericValue : 0;
+}
+
+function realmOption(realmId = state.draft?.config?.realmId) {
+  const normalizedRealmId = normalizeRealmId(realmId);
+  return REALM_OPTIONS.find((realm) => Number(realm.id) === normalizedRealmId) || REALM_OPTIONS[0];
+}
+
+function nextRealmOption() {
+  const currentIndex = REALM_OPTIONS.findIndex((realm) => Number(realm.id) === normalizeRealmId(state.draft?.config?.realmId));
+  return REALM_OPTIONS[(currentIndex + 1 + REALM_OPTIONS.length) % REALM_OPTIONS.length] || REALM_OPTIONS[0];
+}
+
+function localizedRealmLabel(realm = realmOption()) {
+  return state.language === "en" ? realm.labelEn : realm.labelEs;
+}
+
+function renderRealmToggle() {
+  const button = byId("realmToggleButton");
+  const icon = byId("realmToggleIcon");
+  if (!button || !icon) return;
+  const current = realmOption();
+  const next = nextRealmOption();
+  const currentLabel = localizedRealmLabel(current);
+  const nextLabel = localizedRealmLabel(next);
+  button.dataset.realm = current.key;
+  button.dataset.realmId = String(current.id);
+  button.disabled = false;
+  button.setAttribute("aria-disabled", state.realmSwitching ? "true" : "false");
+  button.classList.toggle("is-loading", Boolean(state.realmSwitching));
+  button.setAttribute("aria-label", langText(`Servidor actual: ${currentLabel}. Cambiar a ${nextLabel}.`, `Current server: ${currentLabel}. Switch to ${nextLabel}.`));
+  button.setAttribute("title", langText(`Servidor: ${currentLabel}. Tocar para cambiar a ${nextLabel}.`, `Server: ${currentLabel}. Click to switch to ${nextLabel}.`));
+  icon.src = current.icon;
+  icon.alt = currentLabel;
 }
 
 function showToast(message, tone = "neutral") {
@@ -1473,7 +1728,7 @@ async function openSupporterUrl(url) {
 }
 
 function persistContacts() {
-  localStorage.setItem(CONTACTS_STORAGE_KEY, JSON.stringify(state.contacts));
+  localStorage.setItem(realmContactsStorageKey(state.localRealmId), JSON.stringify(state.contacts));
 }
 
 function splashProgressForElapsed(elapsedMs) {
@@ -2007,11 +2262,1653 @@ function applyCalculatorProductSelection(resourceId) {
   recalculateCalculator();
 }
 
+function portfolioHoldingKey(resourceId, quality) {
+  return `${Number(resourceId || 0)}:${Number(quality || 0)}`;
+}
+
+function portfolioGroupKey(resourceId) {
+  return `portfolio-resource-${Number(resourceId || 0)}`;
+}
+
+function portfolioModeIsNet() {
+  return normalizePortfolioValuationMode(state.portfolioValuationMode) === "net";
+}
+
+function portfolioViewModeLabel() {
+  return portfolioModeIsNet()
+    ? langText("Venta neta", "Net sale")
+    : langText("Mercado bruto", "Gross market");
+}
+
+function portfolioMetricValue(entry, metric) {
+  if (!entry) return null;
+  const prefix = portfolioModeIsNet() ? "net" : "gross";
+  const key = `${prefix}${metric}`;
+  return entry[key];
+}
+
+function portfolioMetricCoverageFlag(entry) {
+  return portfolioModeIsNet()
+    ? Boolean(entry?.missingNetPrice)
+    : Boolean(entry?.missingPrice);
+}
+
+function portfolioCoverageRatio(entries = []) {
+  if (!Array.isArray(entries) || !entries.length) return 0;
+  const pricedCount = entries.filter((entry) => !portfolioMetricCoverageFlag(entry)).length;
+  return (pricedCount / entries.length) * 100;
+}
+
+function portfolioTransportPrice() {
+  return finiteNumber(state.dashboard?.portfolio?.summary?.transportPrice);
+}
+
+function portfolioFeeRate() {
+  return finiteNumber(state.dashboard?.portfolio?.summary?.feeRate) ?? PORTFOLIO_FEE_RATE;
+}
+
+function portfolioResourceMeta(resourceId) {
+  return state.portfolioResourceMetaCache[String(resourceId)]?.data || null;
+}
+
+function portfolioResourceMetaError(resourceId) {
+  return state.portfolioResourceMetaCache[String(resourceId)]?.error || "";
+}
+
+function portfolioResourceMetaLoading(resourceId) {
+  return Boolean(state.portfolioResourceMetaPending[String(resourceId)]);
+}
+
+function portfolioDraftResourceMeta() {
+  return portfolioResourceMeta(state.portfolioDraft.resourceId);
+}
+
+function portfolioQualityOptionsForResource(resourceId, extraQuality = null) {
+  const metaState = state.portfolioResourceMetaCache[String(resourceId)] || null;
+  const meta = metaState?.data || null;
+  const baseOptions = Array.isArray(meta?.availableQualities) && meta.availableQualities.length
+    ? [...meta.availableQualities]
+    : (metaState?.error ? [...PORTFOLIO_IMPORT_QUALITY_OPTIONS] : [0]);
+  const normalizedExtraQuality = parseIntegerInput(extraQuality);
+  if (Number.isInteger(normalizedExtraQuality) && normalizedExtraQuality >= 0 && normalizedExtraQuality <= 12 && !baseOptions.includes(normalizedExtraQuality)) {
+    baseOptions.push(normalizedExtraQuality);
+  }
+  return [...new Set(baseOptions)]
+    .filter((quality) => Number.isInteger(quality) && quality >= 0 && quality <= 12)
+    .sort((left, right) => left - right);
+}
+
+function portfolioImportApplyResourceMeta(resourceId) {
+  const meta = portfolioResourceMeta(resourceId);
+  if (!meta) return;
+  if (!meta.supportsQualitySelection) {
+    state.portfolioImportRows = state.portfolioImportRows.map((row) => (
+      Number(row.resourceId) === Number(resourceId)
+        ? { ...row, quality: String(meta.fixedQuality ?? 0) }
+        : row
+    ));
+  }
+}
+
+async function ensurePortfolioResourceMeta(resourceId, { allowNetwork = true, force = false, silent = true } = {}) {
+  const numericResourceId = Number(resourceId);
+  if (!Number.isFinite(numericResourceId) || numericResourceId <= 0) return null;
+  const cacheKey = String(numericResourceId);
+  if (!force && state.portfolioResourceMetaCache[cacheKey]?.data) {
+    return state.portfolioResourceMetaCache[cacheKey].data;
+  }
+  if (state.portfolioResourceMetaPending[cacheKey]) {
+    return null;
+  }
+
+  state.portfolioResourceMetaPending = {
+    ...state.portfolioResourceMetaPending,
+    [cacheKey]: true
+  };
+  renderPortfolioEditor();
+  renderPortfolioImport();
+
+  try {
+    const meta = await callDesktop("getPortfolioResourceMeta", { resourceId: numericResourceId, allowNetwork });
+    state.portfolioResourceMetaCache = {
+      ...state.portfolioResourceMetaCache,
+      [cacheKey]: { data: meta, error: "" }
+    };
+
+    if (Number(state.portfolioDraft.resourceId) === numericResourceId) {
+      const draftQuality = parseIntegerInput(state.portfolioDraft.quality);
+      const allowedQualities = portfolioQualityOptionsForResource(numericResourceId, draftQuality);
+      if (!allowedQualities.includes(draftQuality)) {
+        state.portfolioDraft.quality = String(meta?.fixedQuality ?? allowedQualities[0] ?? 0);
+      } else if (!meta?.supportsQualitySelection) {
+        state.portfolioDraft.quality = String(meta?.fixedQuality ?? draftQuality ?? 0);
+      }
+    }
+
+    portfolioImportApplyResourceMeta(numericResourceId);
+    return meta;
+  } catch (error) {
+    state.portfolioResourceMetaCache = {
+      ...state.portfolioResourceMetaCache,
+      [cacheKey]: { data: null, error: error.message || String(error || "") }
+    };
+    if (!silent) {
+      showToast(error.message || langText("No se pudo leer la metadata del producto.", "Could not load the product metadata."), "warn");
+    }
+    return null;
+  } finally {
+    const { [cacheKey]: _discarded, ...restPending } = state.portfolioResourceMetaPending;
+    state.portfolioResourceMetaPending = restPending;
+    renderPortfolioEditor();
+    renderPortfolioImport();
+  }
+}
+
+function canonicalizePortfolioHoldings(holdings = []) {
+  const buckets = new Map();
+  const order = [];
+  (Array.isArray(holdings) ? holdings : []).forEach((rawHolding) => {
+    const resourceId = Number(rawHolding?.resourceId);
+    const quality = parseIntegerInput(rawHolding?.quality);
+    const quantity = parseIntegerInput(rawHolding?.quantity);
+    const buyPrice = Number(rawHolding?.buyPrice);
+    if (!Number.isFinite(resourceId) || resourceId <= 0) return;
+    if (!Number.isInteger(quality) || quality < 0 || quality > 12) return;
+    if (!Number.isFinite(quantity) || quantity <= 0) return;
+    if (!Number.isFinite(buyPrice) || buyPrice < 0) return;
+
+    const key = portfolioHoldingKey(resourceId, quality);
+    if (!buckets.has(key)) {
+      buckets.set(key, {
+        id: String(rawHolding?.id || newPortfolioHoldingId()),
+        resourceId,
+        quality,
+        quantity: 0,
+        invested: 0,
+        createdAt: String(rawHolding?.createdAt || new Date().toISOString())
+      });
+      order.push(key);
+    }
+    const bucket = buckets.get(key);
+    bucket.quantity += quantity;
+    bucket.invested += quantity * buyPrice;
+  });
+
+  return order.map((key) => {
+    const bucket = buckets.get(key);
+    return {
+      id: bucket.id,
+      resourceId: bucket.resourceId,
+      quality: bucket.quality,
+      quantity: bucket.quantity,
+      buyPrice: bucket.quantity > 0 ? bucket.invested / bucket.quantity : 0,
+      createdAt: bucket.createdAt
+    };
+  });
+}
+
+function portfolioPositions() {
+  return Array.isArray(state.dashboard?.portfolio?.positions) ? state.dashboard.portfolio.positions : [];
+}
+
+function portfolioPositionById(holdingId) {
+  return portfolioPositions().find((item) => String(item.id) === String(holdingId)) || null;
+}
+
+function newPortfolioHoldingId() {
+  return `holding-${Date.now()}-${Math.round(Math.random() * 1000)}`;
+}
+
+function resetPortfolioResourceSelectorState({ keepOpen = false } = {}) {
+  state.portfolioResourceSelectorOpen = keepOpen;
+  state.portfolioResourceSearch = "";
+  state.portfolioResourceActiveGroup = null;
+}
+
+function selectedPortfolioHolding() {
+  return state.portfolioHoldings.find((item) => String(item.id) === String(state.selectedPortfolioId)) || null;
+}
+
+function portfolioRuntimeByKey() {
+  const runtime = new Map();
+  portfolioPositions().forEach((item) => {
+    const resourceId = Number(item?.resourceId);
+    const quality = parseIntegerInput(item?.quality);
+    if (!Number.isFinite(resourceId) || resourceId <= 0) return;
+    if (!Number.isInteger(quality) || quality < 0 || quality > 12) return;
+    const key = portfolioHoldingKey(resourceId, quality);
+    if (!runtime.has(key)) {
+      runtime.set(key, {
+        grossCurrentValue: 0,
+        netCurrentValue: 0,
+        invested: 0,
+        quantity: 0,
+        grossPricedQuantity: 0,
+        netPricedQuantity: 0,
+        grossPriceSum: 0,
+        grossPriceWeight: 0,
+        netPriceSum: 0,
+        netPriceWeight: 0,
+        priceSourceTime: "",
+        resourceName: item?.resourceName || "",
+        groupName: item?.groupName || "",
+        logoUrl: item?.logoUrl || "",
+        transportUnits: Number(item?.transportUnits || 0),
+        transportPrice: finiteNumber(item?.transportPrice),
+        missingPrice: true,
+        missingNetPrice: true
+      });
+    }
+    const bucket = runtime.get(key);
+    const quantity = Number(item?.quantity || 0);
+    const invested = Number(item?.invested || 0);
+    const grossCurrentValue = finiteNumber(item?.grossCurrentValue);
+    const grossCurrentPrice = finiteNumber(item?.grossCurrentPrice);
+    const netCurrentValue = finiteNumber(item?.netCurrentValue);
+    const netCurrentPrice = finiteNumber(item?.netCurrentPrice);
+    bucket.quantity += Number.isFinite(quantity) ? quantity : 0;
+    bucket.invested += Number.isFinite(invested) ? invested : 0;
+    if (!Number.isFinite(bucket.transportPrice)) {
+      bucket.transportPrice = finiteNumber(item?.transportPrice);
+    }
+    if (!bucket.transportUnits) {
+      bucket.transportUnits = Number(item?.transportUnits || 0);
+    }
+    if (Number.isFinite(grossCurrentValue)) {
+      bucket.grossCurrentValue += grossCurrentValue;
+      bucket.missingPrice = false;
+    }
+    if (Number.isFinite(netCurrentValue)) {
+      bucket.netCurrentValue += netCurrentValue;
+      bucket.missingNetPrice = false;
+    }
+    if (Number.isFinite(grossCurrentPrice) && Number.isFinite(quantity) && quantity > 0) {
+      bucket.grossPricedQuantity += quantity;
+      bucket.grossPriceSum += grossCurrentPrice * quantity;
+      bucket.grossPriceWeight += quantity;
+      bucket.priceSourceTime = String(item?.priceSourceTime || bucket.priceSourceTime || "");
+    }
+    if (Number.isFinite(netCurrentPrice) && Number.isFinite(quantity) && quantity > 0) {
+      bucket.netPricedQuantity += quantity;
+      bucket.netPriceSum += netCurrentPrice * quantity;
+      bucket.netPriceWeight += quantity;
+      bucket.priceSourceTime = String(item?.priceSourceTime || bucket.priceSourceTime || "");
+    }
+  });
+  return runtime;
+}
+
+function populatePortfolioDraft(holding) {
+  if (!holding) {
+    state.portfolioDraft = emptyPortfolioDraft();
+    state.portfolioDirty = false;
+    resetPortfolioResourceSelectorState();
+    return;
+  }
+  state.portfolioDraft = {
+    id: String(holding.id || ""),
+    resourceId: holding.resourceId === "" || holding.resourceId === null || holding.resourceId === undefined ? "" : String(holding.resourceId),
+    quality: String(holding.quality ?? 0),
+    quantity: String(holding.quantity ?? ""),
+    buyPrice: String(holding.buyPrice ?? ""),
+    createdAt: String(holding.createdAt || "")
+  };
+  state.portfolioDirty = false;
+  resetPortfolioResourceSelectorState();
+  if (Number(holding.resourceId) > 0) {
+    ensurePortfolioResourceMeta(holding.resourceId, { allowNetwork: true, silent: true }).catch(() => {});
+  }
+}
+
+function syncPortfolioStateFromDashboard(dashboard) {
+  const nextHoldings = canonicalizePortfolioHoldings(clone(dashboard?.config?.portfolio || []));
+  const selectedStillExists = nextHoldings.some((item) => String(item.id) === String(state.selectedPortfolioId));
+  const selectedGroupStillExists = nextHoldings.some((item) => portfolioGroupKey(item.resourceId) === state.selectedPortfolioGroupKey);
+  state.portfolioHoldings = nextHoldings;
+  if (!selectedStillExists) {
+    state.selectedPortfolioId = null;
+  }
+  if (!selectedGroupStillExists) {
+    state.selectedPortfolioGroupKey = nextHoldings[0] ? portfolioGroupKey(nextHoldings[0].resourceId) : null;
+  }
+  if (!state.portfolioDirty) {
+    const selected = nextHoldings.find((item) => String(item.id) === String(state.selectedPortfolioId)) || null;
+    if (selected) {
+      state.selectedPortfolioId = selected.id;
+      state.selectedPortfolioGroupKey = portfolioGroupKey(selected.resourceId);
+    }
+    populatePortfolioDraft(selected);
+  }
+}
+
+function portfolioMergedHolding(holding = selectedPortfolioHolding()) {
+  if (!holding) return null;
+  const runtime = portfolioRuntimeByKey().get(portfolioHoldingKey(holding.resourceId, holding.quality)) || {};
+  const resource = resourceEntry(holding.resourceId);
+  const resourceId = Number(holding.resourceId || runtime.resourceId || 0);
+  const quantity = Number(holding.quantity || 0);
+  const buyPrice = Number(holding.buyPrice || 0);
+  const invested = quantity * buyPrice;
+  const grossCurrentPrice = runtime.grossPriceWeight > 0 ? runtime.grossPriceSum / runtime.grossPriceWeight : null;
+  const grossCurrentValue = Number.isFinite(grossCurrentPrice) ? grossCurrentPrice * quantity : null;
+  const grossPnl = Number.isFinite(grossCurrentValue) ? grossCurrentValue - invested : null;
+  const grossPnlPct = invested > 0 && Number.isFinite(grossPnl) ? (grossPnl / invested) * 100 : null;
+  const netCurrentPrice = runtime.netPriceWeight > 0 ? runtime.netPriceSum / runtime.netPriceWeight : null;
+  const netCurrentValue = Number.isFinite(netCurrentPrice) ? netCurrentPrice * quantity : null;
+  const netPnl = Number.isFinite(netCurrentValue) ? netCurrentValue - invested : null;
+  const netPnlPct = invested > 0 && Number.isFinite(netPnl) ? (netPnl / invested) * 100 : null;
+  return {
+    ...holding,
+    resourceId,
+    resourceName: runtime.resourceName || resourceLabel(resourceId),
+    groupName: runtime.groupName || catalogItemGroup(resource),
+    logoUrl: runtime.logoUrl || resource?.logoUrl || "",
+    quantity,
+    buyPrice,
+    invested,
+    transportUnits: Number(runtime.transportUnits || resource?.transportUnits || 0),
+    transportPrice: finiteNumber(runtime.transportPrice),
+    grossCurrentPrice,
+    grossCurrentValue,
+    grossPnl,
+    grossPnlPct,
+    netCurrentPrice,
+    netCurrentValue,
+    netPnl,
+    netPnlPct,
+    currentPrice: grossCurrentPrice,
+    currentValue: grossCurrentValue,
+    pnl: grossPnl,
+    pnlPct: grossPnlPct,
+    priceSourceTime: runtime.priceSourceTime || "",
+    missingPrice: runtime.missingPrice ?? !Number.isFinite(grossCurrentPrice),
+    missingNetPrice: runtime.missingNetPrice ?? !Number.isFinite(netCurrentPrice)
+  };
+}
+
+function portfolioDisplayPositions() {
+  return canonicalizePortfolioHoldings(state.portfolioHoldings).map((holding) => portfolioMergedHolding(holding)).filter(Boolean);
+}
+
+function portfolioDisplayCurrentUnit(entry) {
+  const currentPrice = portfolioMetricValue(entry, "CurrentPrice");
+  if (Number.isFinite(currentPrice)) return formatCurrency(currentPrice);
+  const pricedQualityCount = portfolioModeIsNet()
+    ? Number(entry?.netPricedQualityCount || 0)
+    : Number(entry?.grossPricedQualityCount || 0);
+  if (pricedQualityCount > 0 && Number(entry?.qualityCount || 0) > pricedQualityCount) {
+    return langText("Mixto", "Mixed");
+  }
+  return "—";
+}
+
+function portfolioResultLabel(entry) {
+  const pnl = portfolioMetricValue(entry, "Pnl");
+  const pnlPct = portfolioMetricValue(entry, "PnlPct");
+  if (!Number.isFinite(pnl)) {
+    return langText("Sin precio", "No price");
+  }
+  const pct = Number.isFinite(pnlPct)
+    ? ` · ${pnlPct >= 0 ? "+" : ""}${pnlPct.toFixed(2)}%`
+    : "";
+  return `${formatCurrency(pnl)}${pct}`;
+}
+
+function portfolioGroupedPositions() {
+  const groups = new Map();
+  portfolioDisplayPositions().forEach((position) => {
+    const key = portfolioGroupKey(position.resourceId);
+    if (!groups.has(key)) {
+      groups.set(key, {
+        key,
+        resourceId: position.resourceId,
+        resourceName: position.resourceName,
+        groupName: position.groupName,
+        logoUrl: position.logoUrl,
+        quantity: 0,
+        invested: 0,
+        grossPricedInvested: 0,
+        grossCurrentValue: 0,
+        netPricedInvested: 0,
+        netCurrentValue: 0,
+        priceSourceTime: position.priceSourceTime || "",
+        qualityCount: 0,
+        grossPricedQualityCount: 0,
+        netPricedQualityCount: 0,
+        qualities: []
+      });
+    }
+    const group = groups.get(key);
+    group.quantity += Number(position.quantity || 0);
+    group.invested += Number(position.invested || 0);
+    group.qualityCount += 1;
+    group.qualities.push(position);
+    if (Number.isFinite(position.grossCurrentValue)) {
+      group.grossCurrentValue += position.grossCurrentValue;
+      group.grossPricedInvested += Number(position.invested || 0);
+      group.grossPricedQualityCount += 1;
+      if (!group.priceSourceTime && position.priceSourceTime) {
+        group.priceSourceTime = position.priceSourceTime;
+      }
+    }
+    if (Number.isFinite(position.netCurrentValue)) {
+      group.netCurrentValue += position.netCurrentValue;
+      group.netPricedInvested += Number(position.invested || 0);
+      group.netPricedQualityCount += 1;
+      if (!group.priceSourceTime && position.priceSourceTime) {
+        group.priceSourceTime = position.priceSourceTime;
+      }
+    }
+  });
+
+  return Array.from(groups.values()).map((group) => {
+    const quantity = Number(group.quantity || 0);
+    const invested = Number(group.invested || 0);
+    const buyPrice = quantity > 0 ? invested / quantity : 0;
+    const grossCurrentPrice = group.grossPricedQualityCount === group.qualityCount && quantity > 0
+      ? group.grossCurrentValue / quantity
+      : null;
+    const grossPnl = group.grossPricedQualityCount > 0 ? group.grossCurrentValue - group.grossPricedInvested : null;
+    const grossPnlPct = group.grossPricedInvested > 0 && Number.isFinite(grossPnl)
+      ? (grossPnl / group.grossPricedInvested) * 100
+      : null;
+    const netCurrentPrice = group.netPricedQualityCount === group.qualityCount && quantity > 0
+      ? group.netCurrentValue / quantity
+      : null;
+    const netPnl = group.netPricedQualityCount > 0 ? group.netCurrentValue - group.netPricedInvested : null;
+    const netPnlPct = group.netPricedInvested > 0 && Number.isFinite(netPnl)
+      ? (netPnl / group.netPricedInvested) * 100
+      : null;
+    return {
+      ...group,
+      qualities: [...group.qualities].sort((left, right) => Number(left.quality || 0) - Number(right.quality || 0)),
+      buyPrice,
+      grossCurrentPrice,
+      grossPnl,
+      grossPnlPct,
+      netCurrentPrice,
+      netPnl,
+      netPnlPct,
+      currentPrice: grossCurrentPrice,
+      currentValue: group.grossCurrentValue,
+      pnl: grossPnl,
+      pnlPct: grossPnlPct,
+      pricedInvested: group.grossPricedInvested,
+      pricedQualityCount: group.grossPricedQualityCount,
+      missingPrice: group.grossPricedQualityCount !== group.qualityCount,
+      missingNetPrice: group.netPricedQualityCount !== group.qualityCount
+    };
+  });
+}
+
+function portfolioSelectedGroup() {
+  const groups = portfolioGroupedPositions();
+  if (!groups.length) return null;
+  const selectedPosition = selectedPortfolioHolding();
+  if (selectedPosition) {
+    return groups.find((group) => group.key === portfolioGroupKey(selectedPosition.resourceId)) || groups[0];
+  }
+  if (state.selectedPortfolioGroupKey) {
+    return groups.find((group) => group.key === state.selectedPortfolioGroupKey) || groups[0];
+  }
+  return groups[0];
+}
+
+function ensurePortfolioSelection() {
+  const positions = portfolioDisplayPositions();
+  const groups = portfolioGroupedPositions();
+  if (state.selectedPortfolioId && !positions.some((item) => String(item.id) === String(state.selectedPortfolioId))) {
+    state.selectedPortfolioId = null;
+  }
+  if (state.selectedPortfolioGroupKey && !groups.some((item) => item.key === state.selectedPortfolioGroupKey)) {
+    state.selectedPortfolioGroupKey = null;
+  }
+  if (!state.selectedPortfolioGroupKey && groups.length) {
+    state.selectedPortfolioGroupKey = groups[0].key;
+  }
+  if (state.selectedPortfolioId) {
+    const selected = positions.find((item) => String(item.id) === String(state.selectedPortfolioId));
+    if (selected) {
+      state.selectedPortfolioGroupKey = portfolioGroupKey(selected.resourceId);
+    }
+  }
+}
+
+function filteredPortfolioGroups() {
+  const query = normalizeSearch(state.portfolioSearch);
+  const groups = portfolioGroupedPositions().filter((group) => {
+    const activePnl = portfolioMetricValue(group, "Pnl");
+    if (state.portfolioFilter === "gain") return Number(activePnl || 0) > 0;
+    if (state.portfolioFilter === "loss") return Number(activePnl || 0) < 0;
+    return true;
+  });
+  if (!query) return groups;
+  return groups.filter((group) => normalizeSearch([
+    group.resourceName,
+    group.groupName,
+    group.resourceId,
+    ...group.qualities.map((quality) => qualityLabel(quality.quality))
+  ].join(" ")).includes(query));
+}
+
+function filteredPortfolioResourceCatalog(query = state.portfolioResourceSearch) {
+  const normalized = normalizeSearch(query);
+  if (!normalized) return resourceCatalog();
+  return resourceCatalog().filter((item) => resourceSearchTokens(item).includes(normalized));
+}
+
+function filteredPortfolioResourceGroups() {
+  const grouped = new Map();
+  resourceCatalog().forEach((item) => {
+    const key = item.groupKey || item.group || VARIOS_LABEL;
+    if (!grouped.has(key)) {
+      grouped.set(key, {
+        key,
+        name: catalogItemGroup(item),
+        items: []
+      });
+    }
+    grouped.get(key).items.push(item);
+  });
+  const filtered = filteredPortfolioResourceCatalog();
+  return [...grouped.values()]
+    .map((entry) => {
+      const matchedItems = entry.items.filter((item) => filtered.some((filteredItem) => Number(filteredItem.id) === Number(item.id)));
+      return {
+        ...entry,
+        visibleCount: matchedItems.length,
+        matchedItems
+      };
+    })
+    .filter((entry) => entry.visibleCount > 0);
+}
+
+function filteredPortfolioResourcesInActiveGroup() {
+  const group = state.portfolioResourceActiveGroup;
+  if (!group) return [];
+  return filteredPortfolioResourceCatalog().filter((item) => (item.groupKey || item.group) === group);
+}
+
+function portfolioResourceSelectionSummary() {
+  const selected = resourceEntry(state.portfolioDraft.resourceId);
+  if (!selected) {
+    return {
+      title: t("noProductSelected"),
+      subtitle: t("productAutofillCopy")
+    };
+  }
+  return {
+    title: catalogItemLabel(selected),
+    subtitle: `${catalogItemGroup(selected)} · ${selected.apiName} · ID ${selected.id}`
+  };
+}
+
+function portfolioResourceCrumbsMarkup() {
+  if (!state.portfolioResourceActiveGroup) {
+    return `<span class="selector-tag">${escapeHtml(state.language === "en" ? "Groups" : "Rubros")}</span>`;
+  }
+  return [
+    `<span class="selector-tag">${escapeHtml(state.language === "en" ? "Group" : "Rubro")}</span>`,
+    `<span class="selector-tag">${escapeHtml(resourceGroups().find((entry) => entry.key === state.portfolioResourceActiveGroup)?.name || displayGroupName(state.portfolioResourceActiveGroup))}</span>`,
+    `<span class="selector-tag">${escapeHtml(state.language === "en" ? "Assets" : "Activos")}</span>`
+  ].join("");
+}
+
+function portfolioResourceSelectorOptionsMarkup() {
+  if (!state.portfolioResourceActiveGroup) {
+    const groups = filteredPortfolioResourceGroups();
+    if (!groups.length) {
+      return `<div class="selector-empty">${escapeHtml(state.language === "en" ? "No groups match the search." : "No hay rubros que coincidan con la búsqueda.")}</div>`;
+    }
+    return groups.map((entry) => `
+      <button class="selector-option" type="button" data-portfolio-action="open-group" data-resource-group="${escapeHtml(entry.key)}">
+        <div class="selector-option-main">
+          ${avatarMarkup({ resourceName: entry.name, logoUrl: entry.items[0]?.logoUrl }, "R")}
+          <span>${escapeHtml(entry.name)}</span>
+        </div>
+        <small>${escapeHtml(state.language === "en" ? `${entry.visibleCount} asset${entry.visibleCount === 1 ? "" : "s"}` : `${entry.visibleCount} activos`)}</small>
+      </button>
+    `).join("");
+  }
+
+  const items = filteredPortfolioResourcesInActiveGroup();
+  if (!items.length) {
+    return `<div class="selector-empty">${escapeHtml(state.language === "en" ? "No assets match the search." : "No hay activos que coincidan con la búsqueda.")}</div>`;
+  }
+
+  return items.map((item) => `
+    <button class="selector-option${Number(item.id) === Number(state.portfolioDraft.resourceId) ? " active" : ""}" type="button" data-portfolio-action="select-resource" data-resource-id="${item.id}">
+      <div class="selector-option-main">
+        ${avatarMarkup({ resourceId: item.id, resourceName: catalogItemLabel(item), logoUrl: item.logoUrl }, "A")}
+        <span>${escapeHtml(catalogItemLabel(item))}</span>
+      </div>
+      <small>${escapeHtml(item.apiName)} · ID ${item.id}</small>
+    </button>
+  `).join("");
+}
+
+function focusPortfolioResourceSearch() {
+  window.requestAnimationFrame(() => {
+    const input = byId("portfolioResourceSearch");
+    if (!input) return;
+    input.focus();
+    const end = input.value.length;
+    input.setSelectionRange(end, end);
+  });
+}
+
+async function applyPortfolioProductSelection(resourceId) {
+  const resource = resourceEntry(resourceId);
+  if (!resource) return;
+  state.portfolioDraft.resourceId = String(resource.id);
+  state.portfolioDraft.quality = "0";
+  state.portfolioDirty = true;
+  resetPortfolioResourceSelectorState();
+  renderPortfolioView();
+  await ensurePortfolioResourceMeta(resource.id, { allowNetwork: true, silent: true });
+  renderPortfolioView();
+}
+
+function normalizePortfolioDraftOrThrow() {
+  const resourceId = Number(state.portfolioDraft.resourceId);
+  const quality = parseIntegerInput(state.portfolioDraft.quality);
+  const quantity = parseIntegerInput(state.portfolioDraft.quantity);
+  const buyPrice = parseLocaleDecimal(state.portfolioDraft.buyPrice);
+
+  if (!Number.isFinite(resourceId) || resourceId <= 0) {
+    throw new Error(langText("Seleccioná un producto para la posición.", "Select a product for the position."));
+  }
+  if (!Number.isInteger(quality) || quality < 0 || quality > 12) {
+    throw new Error(langText("La calidad debe estar entre Q0 y Q12.", "Quality must be between Q0 and Q12."));
+  }
+  if (!Number.isFinite(quantity) || quantity <= 0) {
+    throw new Error(langText("La cantidad debe ser mayor a 0.", "Quantity must be greater than 0."));
+  }
+  if (!Number.isFinite(buyPrice) || buyPrice < 0) {
+    throw new Error(langText("Ingresá un precio de compra válido.", "Enter a valid purchase price."));
+  }
+
+  return {
+    id: state.portfolioDraft.id || newPortfolioHoldingId(),
+    resourceId,
+    quality,
+    quantity,
+    buyPrice,
+    createdAt: state.portfolioDraft.createdAt || new Date().toISOString()
+  };
+}
+
+function startNewPortfolioDraft() {
+  state.selectedPortfolioId = null;
+  state.portfolioChartHoverTime = "";
+  populatePortfolioDraft(null);
+  renderPortfolioView();
+}
+
+function portfolioChartToneClass(value) {
+  if (!Number.isFinite(value) || value === 0) return "";
+  return value > 0 ? "positive" : "negative";
+}
+
+function portfolioChartModeValueKey() {
+  return portfolioModeIsNet() ? "netValue" : "grossValue";
+}
+
+function portfolioVisibleChartPoints(chart) {
+  const valueKey = portfolioChartModeValueKey();
+  const range = normalizePortfolioChartRange(state.portfolioChartRange);
+  const points = (Array.isArray(chart?.points) ? chart.points : [])
+    .map((point) => ({
+      time: String(point?.time || "").trim(),
+      value: finiteNumber(point?.[valueKey])
+    }))
+    .filter((point) => point.time && Number.isFinite(point.value));
+  if (!points.length) return [];
+  return points.slice(-Math.min(range, points.length));
+}
+
+function selectedPortfolioChartPoint(points = []) {
+  if (!Array.isArray(points) || !points.length) return null;
+  return points.find((point) => point.time === state.portfolioChartHoverTime)
+    || points.find((point) => point.time === state.portfolioChartSelectedTime)
+    || points[points.length - 1];
+}
+
+function portfolioChartGeometryFromState() {
+  const chart = state.dashboard?.portfolio?.chart || null;
+  return buildPortfolioChartGeometry(chart);
+}
+
+function portfolioChartTimeFromPointer(event, surfaceElement) {
+  if (!(event instanceof MouseEvent) || !(surfaceElement instanceof Element)) return "";
+  const geometry = portfolioChartGeometryFromState();
+  if (!geometry?.points?.length) return "";
+  const svg = surfaceElement.closest("svg");
+  if (!(svg instanceof SVGElement)) return "";
+  const rect = svg.getBoundingClientRect();
+  if (!rect.width) return geometry.points[geometry.points.length - 1]?.time || "";
+  const ratio = Math.max(0, Math.min(1, (event.clientX - rect.left) / rect.width));
+  const chartX = ratio * geometry.width;
+  const nearest = geometry.points.reduce((best, point) => {
+    if (!best) return point;
+    return Math.abs(point.x - chartX) < Math.abs(best.x - chartX) ? point : best;
+  }, null);
+  return nearest?.time || "";
+}
+
+function portfolioChartSmoothPath(points = []) {
+  if (!Array.isArray(points) || !points.length) return "";
+  if (points.length === 1) {
+    return `M${points[0].x.toFixed(2)} ${points[0].y.toFixed(2)}`;
+  }
+  if (points.length === 2) {
+    return points
+      .map((point, index) => `${index === 0 ? "M" : "L"}${point.x.toFixed(2)} ${point.y.toFixed(2)}`)
+      .join(" ");
+  }
+
+  let path = `M${points[0].x.toFixed(2)} ${points[0].y.toFixed(2)}`;
+  for (let index = 0; index < points.length - 1; index += 1) {
+    const previous = points[index - 1] || points[index];
+    const current = points[index];
+    const next = points[index + 1];
+    const afterNext = points[index + 2] || next;
+    const controlPoint1X = current.x + ((next.x - previous.x) / 6);
+    const controlPoint1Y = current.y + ((next.y - previous.y) / 6);
+    const controlPoint2X = next.x - ((afterNext.x - current.x) / 6);
+    const controlPoint2Y = next.y - ((afterNext.y - current.y) / 6);
+    path += ` C${controlPoint1X.toFixed(2)} ${controlPoint1Y.toFixed(2)}, ${controlPoint2X.toFixed(2)} ${controlPoint2Y.toFixed(2)}, ${next.x.toFixed(2)} ${next.y.toFixed(2)}`;
+  }
+  return path;
+}
+
+function buildPortfolioChartGeometry(chart) {
+  const points = portfolioVisibleChartPoints(chart);
+  if (!points.length) return null;
+
+  const width = 420;
+  const height = 184;
+  const plotTop = 18;
+  const plotBottom = height - 18;
+  const values = points.map((point) => point.value);
+  const rawMinValue = Math.min(...values);
+  const rawMaxValue = Math.max(...values);
+  let minValue = rawMinValue;
+  let maxValue = rawMaxValue;
+  if (rawMinValue === rawMaxValue) {
+    const offset = Math.max(Math.abs(rawMinValue) * 0.03, 1);
+    minValue = rawMinValue - offset;
+    maxValue = rawMaxValue + offset;
+  } else {
+    const padding = Math.max((rawMaxValue - rawMinValue) * 0.08, 1);
+    minValue = rawMinValue - padding;
+    maxValue = rawMaxValue + padding;
+  }
+  const stepX = points.length > 1 ? width / (points.length - 1) : 0;
+  const toY = (value) => {
+    const ratio = (value - minValue) / (maxValue - minValue);
+    return plotBottom - (ratio * (plotBottom - plotTop));
+  };
+  const selected = selectedPortfolioChartPoint(points);
+  const coordinates = points.map((point, index) => {
+    const previousPoint = index > 0 ? points[index - 1] : null;
+    const changeFromStart = Math.abs(points[0].value) > 0.000001
+      ? ((point.value - points[0].value) / points[0].value) * 100
+      : null;
+    const changeFromPrevious = previousPoint && Math.abs(previousPoint.value) > 0.000001
+      ? ((point.value - previousPoint.value) / previousPoint.value) * 100
+      : null;
+    return {
+      x: stepX * index,
+      y: Math.max(plotTop, Math.min(plotBottom, toY(point.value))),
+      value: point.value,
+      time: point.time,
+      active: selected ? point.time === selected.time : index === points.length - 1,
+      previousValue: previousPoint?.value ?? null,
+      changeFromStart,
+      changeFromPrevious,
+      fullDateLabel: formatPortfolioChartDate(point.time)
+    };
+  });
+  const linePath = portfolioChartSmoothPath(coordinates);
+  const areaPath = `${linePath} L${coordinates[coordinates.length - 1].x.toFixed(2)} ${plotBottom.toFixed(2)} L${coordinates[0].x.toFixed(2)} ${plotBottom.toFixed(2)} Z`;
+  const selectedCoordinate = coordinates.find((point) => point.active) || coordinates[coordinates.length - 1];
+  const selectedChange = selectedCoordinate.changeFromStart;
+  const selectedMove = selectedCoordinate.changeFromPrevious;
+  const midValue = rawMinValue + ((rawMaxValue - rawMinValue) / 2);
+  const midY = Math.max(plotTop, Math.min(plotBottom, toY(midValue)));
+  return {
+    width,
+    height,
+    plotTop,
+    plotBottom,
+    linePath,
+    areaPath,
+    points: coordinates,
+    selected: selectedCoordinate,
+    startLabel: formatShortDate(coordinates[0]?.time),
+    endLabel: formatShortDate(coordinates[coordinates.length - 1]?.time),
+    selectedChange,
+    selectedMove,
+    midY,
+    minLabel: formatPortfolioChartScaleCurrency(rawMinValue),
+    midLabel: formatPortfolioChartScaleCurrency(midValue),
+    maxLabel: formatPortfolioChartScaleCurrency(rawMaxValue)
+  };
+}
+
+function portfolioChartMarkup(chart) {
+  const geometry = buildPortfolioChartGeometry(chart);
+  if (!geometry) {
+    return `
+      <div class="portfolio-chart-empty">
+        <div class="portfolio-chart-empty-title">${escapeHtml(portfolioModeIsNet() ? langText("Sin curva neta disponible", "No net curve available") : langText("Sin histórico suficiente", "Not enough history"))}</div>
+        <div class="portfolio-chart-empty-copy">${escapeHtml(portfolioModeIsNet() ? langText("La vista neta aparece cuando hay precio del activo y del transporte para estimar la venta real.", "The net view appears once both asset and transport prices are available to estimate the real sale.") : langText("La curva se completa cuando haya serie externa disponible para tus posiciones.", "The curve fills in once external history is available for your holdings."))}</div>
+      </div>
+    `;
+  }
+
+  return `
+    <div class="portfolio-chart-shell">
+      <div class="portfolio-chart-head">
+        <div class="portfolio-chart-head-main">
+          <span class="portfolio-chart-kicker">${escapeHtml(langText("Valor de la cartera en la fecha marcada", "Portfolio value on the highlighted date"))}</span>
+          <strong class="portfolio-chart-active-value">${escapeHtml(formatCurrency(geometry.selected.value))}</strong>
+          <span class="portfolio-chart-meta">
+            ${escapeHtml(geometry.selected.fullDateLabel)}
+            ${Number.isFinite(geometry.selectedMove) ? ` · ${escapeHtml(`${langText("Diario", "Daily")} ${geometry.selectedMove >= 0 ? "+" : ""}${geometry.selectedMove.toFixed(2)}%`)}` : ""}
+            ${Number.isFinite(geometry.selectedChange) ? ` · ${escapeHtml(`${langText("Rango", "Range")} ${geometry.selectedChange >= 0 ? "+" : ""}${geometry.selectedChange.toFixed(2)}%`)}` : ""}
+          </span>
+        </div>
+        <div class="portfolio-chart-controls" role="group" aria-label="${escapeHtml(langText("Rango del gráfico", "Chart range"))}">
+          ${PORTFOLIO_CHART_RANGE_OPTIONS.map((range) => `
+            <button class="chart-range-btn${normalizePortfolioChartRange(state.portfolioChartRange) === range ? " active" : ""}" type="button" data-portfolio-action="set-chart-range" data-chart-range="${range}">
+              ${range}D
+            </button>
+          `).join("")}
+        </div>
+      </div>
+      <div class="portfolio-chart-stage">
+        <svg class="portfolio-chart-svg" viewBox="0 0 ${geometry.width} ${geometry.height}" role="img" aria-label="${escapeHtml(langText("Evolución agregada de la cartera", "Aggregated portfolio evolution"))}">
+          <defs>
+            <linearGradient id="portfolioChartAreaGradient" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stop-color="rgba(86, 192, 122, 0.28)"></stop>
+              <stop offset="100%" stop-color="rgba(86, 192, 122, 0.03)"></stop>
+            </linearGradient>
+            <linearGradient id="portfolioChartLineGradient" x1="0" y1="0" x2="1" y2="0">
+              <stop offset="0%" stop-color="#65d28c"></stop>
+              <stop offset="55%" stop-color="#56c07a"></stop>
+              <stop offset="100%" stop-color="#f0c95d"></stop>
+            </linearGradient>
+            <filter id="portfolioChartGlow" x="-20%" y="-20%" width="140%" height="140%">
+              <feGaussianBlur stdDeviation="2.8" result="blur"></feGaussianBlur>
+              <feMerge>
+                <feMergeNode in="blur"></feMergeNode>
+                <feMergeNode in="SourceGraphic"></feMergeNode>
+              </feMerge>
+            </filter>
+          </defs>
+          <line class="portfolio-chart-grid" x1="0" y1="${geometry.plotTop}" x2="${geometry.width}" y2="${geometry.plotTop}"></line>
+          <line class="portfolio-chart-grid" x1="0" y1="${geometry.midY.toFixed(2)}" x2="${geometry.width}" y2="${geometry.midY.toFixed(2)}"></line>
+          <line class="portfolio-chart-grid" x1="0" y1="${geometry.plotBottom}" x2="${geometry.width}" y2="${geometry.plotBottom}"></line>
+          <text class="portfolio-chart-label" x="0" y="${Math.max(10, geometry.plotTop - 6)}">${escapeHtml(geometry.maxLabel)}</text>
+          <text class="portfolio-chart-label" x="0" y="${Math.max(geometry.plotTop + 10, geometry.midY - 6)}">${escapeHtml(geometry.midLabel)}</text>
+          <text class="portfolio-chart-label" x="0" y="${geometry.height - 2}">${escapeHtml(geometry.minLabel)}</text>
+          <path class="portfolio-chart-area" d="${geometry.areaPath}"></path>
+          <path class="portfolio-chart-line-glow" d="${geometry.linePath}"></path>
+          <path class="portfolio-chart-line" d="${geometry.linePath}"></path>
+          <line class="portfolio-chart-focus-line" x1="${geometry.selected.x.toFixed(2)}" y1="${geometry.plotTop}" x2="${geometry.selected.x.toFixed(2)}" y2="${geometry.plotBottom.toFixed(2)}"></line>
+          <rect class="portfolio-chart-overlay" x="0" y="${geometry.plotTop}" width="${geometry.width}" height="${(geometry.plotBottom - geometry.plotTop).toFixed(2)}" data-portfolio-action="hover-chart-surface"></rect>
+          ${geometry.points.map((point) => `
+            <circle class="portfolio-chart-point${point.active ? " active" : ""}" cx="${point.x.toFixed(2)}" cy="${point.y.toFixed(2)}" r="${point.active ? "3.2" : "1.7"}"></circle>
+          `).join("")}
+        </svg>
+      </div>
+      <div class="portfolio-chart-foot">
+        <span>${escapeHtml(geometry.startLabel)}</span>
+        <span>${escapeHtml(geometry.endLabel)}</span>
+      </div>
+    </div>
+  `;
+}
+
+function portfolioCurrentUnitHeading() {
+  return portfolioModeIsNet()
+    ? langText("Neto/u", "Net/u")
+    : langText("Actual/u", "Current/u");
+}
+
+function portfolioCurrentValueHeading() {
+  return portfolioModeIsNet()
+    ? langText("Venta neta", "Net sale value")
+    : langText("Valor", "Value");
+}
+
+function portfolioPnlHeading() {
+  return portfolioModeIsNet()
+    ? langText("Resultado real", "Real P/L")
+    : langText("Resultado", "P/L");
+}
+
+function portfolioSelectedCardMarkup() {
+  ensurePortfolioSelection();
+  const position = portfolioMergedHolding(selectedPortfolioHolding());
+  const group = portfolioSelectedGroup();
+  if (!position && !group) {
+    return `
+      <div class="portfolio-empty-state">
+        <div class="portfolio-empty-title">${escapeHtml(langText("Sin posiciones cargadas", "No positions loaded"))}</div>
+        <div class="portfolio-empty-copy">${escapeHtml(langText("Elegí producto, cantidad y precio de compra para empezar a seguir tu inventario.", "Pick a product, quantity, and purchase price to start tracking your inventory."))}</div>
+      </div>
+    `;
+  }
+  if (position) {
+    const activePnl = portfolioMetricValue(position, "Pnl");
+    const activeCurrentValue = portfolioMetricValue(position, "CurrentValue");
+    const transportPrice = finiteNumber(position.transportPrice);
+    const transportUnits = Number(position.transportUnits || 0);
+    const transportCostPerUnit = Number.isFinite(transportPrice) ? transportUnits * transportPrice : null;
+    return `
+      <div class="summary-top">
+        ${avatarMarkup({ resourceId: position.resourceId, resourceName: position.resourceName, logoUrl: position.logoUrl }, "P")}
+        <div class="summary-title">
+          <div class="summary-name">${escapeHtml(position.resourceName)}</div>
+          <div class="summary-meta">${escapeHtml(position.groupName)} · ${escapeHtml(qualityLabel(position.quality))} · ID ${escapeHtml(position.resourceId)}</div>
+        </div>
+        <span class="badge ${activePnl > 0 ? "badge-match" : activePnl < 0 ? "badge-error" : "badge-idle"}">${escapeHtml(qualityLabel(position.quality))}</span>
+      </div>
+      <div class="summary-metrics">
+        <div class="metric-box"><span>${escapeHtml(langText("Cantidad", "Quantity"))}</span><strong>${escapeHtml(Number(position.quantity).toLocaleString(numberLocale()))}</strong></div>
+        <div class="metric-box"><span>${escapeHtml(langText("Compra/u", "Buy/u"))}</span><strong>${escapeHtml(formatCurrency(position.buyPrice))}</strong></div>
+        <div class="metric-box"><span>${escapeHtml(portfolioCurrentUnitHeading())}</span><strong>${escapeHtml(portfolioDisplayCurrentUnit(position))}</strong></div>
+      </div>
+      <div class="summary-line"><strong>${escapeHtml(langText("Invertido:", "Invested:"))}</strong> ${escapeHtml(formatCurrency(position.invested))}</div>
+      <div class="summary-line"><strong>${escapeHtml(portfolioModeIsNet() ? langText("Venta neta estimada:", "Estimated net sale:") : langText("Valor actual:", "Current value:"))}</strong> ${escapeHtml(Number.isFinite(activeCurrentValue) ? formatCurrency(activeCurrentValue) : "—")}</div>
+      <div class="summary-line"><strong>${escapeHtml(portfolioModeIsNet() ? langText("Resultado real:", "Real P/L:") : langText("Resultado:", "P/L:"))}</strong> <span class="${portfolioChartToneClass(activePnl)}">${escapeHtml(portfolioResultLabel(position))}</span></div>
+      ${portfolioModeIsNet() ? `
+        <div class="summary-line"><strong>${escapeHtml(langText("Fee de venta:", "Sell fee:"))}</strong> ${escapeHtml(`${(portfolioFeeRate() * 100).toFixed(0)}%`)}</div>
+        <div class="summary-line"><strong>${escapeHtml(langText("Transporte/u:", "Transport/u:"))}</strong> ${escapeHtml(`${formatNumber(transportUnits)} × ${Number.isFinite(transportPrice) ? formatCurrency(transportPrice) : "—"}${Number.isFinite(transportCostPerUnit) ? ` = ${formatCurrency(transportCostPerUnit)}` : ""}`)}</div>
+      ` : ""}
+      <div class="summary-actions">
+        <button class="action-btn action-btn-danger" type="button" data-portfolio-action="delete-group">${escapeHtml(langText("Eliminar producto completo", "Delete full product"))}</button>
+      </div>
+    `;
+  }
+
+  const activePnl = portfolioMetricValue(group, "Pnl");
+  const activeCurrentValue = portfolioMetricValue(group, "CurrentValue");
+  return `
+    <div class="summary-top">
+      ${avatarMarkup({ resourceId: group.resourceId, resourceName: group.resourceName, logoUrl: group.logoUrl }, "P")}
+      <div class="summary-title">
+        <div class="summary-name">${escapeHtml(group.resourceName)}</div>
+        <div class="summary-meta">${escapeHtml(group.groupName)} · ${escapeHtml(langText(`${group.qualityCount} calidades`, `${group.qualityCount} qualities`))} · ID ${escapeHtml(group.resourceId)}</div>
+      </div>
+      <span class="badge ${activePnl > 0 ? "badge-match" : activePnl < 0 ? "badge-error" : "badge-idle"}">${escapeHtml(langText(`${group.qualityCount} Q`, `${group.qualityCount} Q`))}</span>
+    </div>
+    <div class="summary-metrics">
+      <div class="metric-box"><span>${escapeHtml(langText("Cantidad", "Quantity"))}</span><strong>${escapeHtml(Number(group.quantity).toLocaleString(numberLocale()))}</strong></div>
+      <div class="metric-box"><span>${escapeHtml(langText("Compra prom/u", "Avg buy/u"))}</span><strong>${escapeHtml(formatCurrency(group.buyPrice))}</strong></div>
+      <div class="metric-box"><span>${escapeHtml(portfolioModeIsNet() ? langText("Neto prom/u", "Avg net/u") : langText("Actual prom/u", "Avg current/u"))}</span><strong>${escapeHtml(portfolioDisplayCurrentUnit(group))}</strong></div>
+    </div>
+    <div class="summary-line"><strong>${escapeHtml(langText("Invertido:", "Invested:"))}</strong> ${escapeHtml(formatCurrency(group.invested))}</div>
+    <div class="summary-line"><strong>${escapeHtml(portfolioModeIsNet() ? langText("Venta neta estimada:", "Estimated net sale:") : langText("Valor actual:", "Current value:"))}</strong> ${escapeHtml(Number.isFinite(activeCurrentValue) ? formatCurrency(activeCurrentValue) : "—")}</div>
+    <div class="summary-line"><strong>${escapeHtml(portfolioModeIsNet() ? langText("Resultado real:", "Real P/L:") : langText("Resultado:", "P/L:"))}</strong> <span class="${portfolioChartToneClass(activePnl)}">${escapeHtml(portfolioResultLabel(group))}</span></div>
+    ${portfolioModeIsNet() ? `<div class="summary-line"><strong>${escapeHtml(langText("Fee + transporte actual:", "Current fee + transport:"))}</strong> ${escapeHtml(langText("Aplicado a todas las calidades con precio disponible.", "Applied to all priced qualities."))}</div>` : ""}
+    <div class="summary-actions">
+      <button class="action-btn action-btn-danger" type="button" data-portfolio-action="delete-group">${escapeHtml(langText("Eliminar producto completo", "Delete full product"))}</button>
+    </div>
+  `;
+}
+
+function portfolioEditorMarkup() {
+  const draft = state.portfolioDraft;
+  const selectedResource = resourceEntry(draft.resourceId);
+  const selector = portfolioResourceSelectionSummary();
+  const visibleItems = state.portfolioResourceActiveGroup
+    ? filteredPortfolioResourcesInActiveGroup().length
+    : filteredPortfolioResourceGroups().length;
+  const resourceMeta = portfolioDraftResourceMeta();
+  const qualityOptions = selectedResource
+    ? portfolioQualityOptionsForResource(draft.resourceId, draft.quality)
+    : [0];
+  const fixedQuality = resourceMeta?.fixedQuality ?? qualityOptions[0] ?? 0;
+  const resolvedDraftQuality = Number.isInteger(parseIntegerInput(draft.quality))
+    ? parseIntegerInput(draft.quality)
+    : fixedQuality;
+  const resourceMetaError = portfolioResourceMetaError(draft.resourceId);
+  const shouldLockQuality = Boolean(selectedResource) && !portfolioResourceMetaLoading(draft.resourceId) && resourceMeta && !resourceMeta.supportsQualitySelection;
+  const qualityHint = !selectedResource
+    ? ""
+    : portfolioResourceMetaLoading(draft.resourceId)
+      ? langText("Leyendo calidades del producto…", "Reading product qualities…")
+      : (!resourceMeta && resourceMetaError)
+        ? langText("No pude validar las calidades en vivo. Te dejo elegir manualmente para no bloquear la carga.", "I could not validate the live qualities. Manual selection is enabled so the entry stays unblocked.")
+        : (!resourceMeta)
+          ? langText("Todavía no hay metadata suficiente para decidir la calidad.", "There is not enough metadata yet to decide the quality.")
+      : resourceMeta?.supportsQualitySelection
+        ? langText(`Calidades detectadas: ${qualityOptions.map((quality) => qualityLabel(quality)).join(", ")}`, `Detected qualities: ${qualityOptions.map((quality) => qualityLabel(quality)).join(", ")}`)
+        : langText("Este producto trabaja en Q0 según la lectura actual.", "This product is currently operating in Q0.")
+          + (resourceMetaError ? ` ${langText("La validación en vivo falló y se conservó la mejor metadata local.", "Live validation failed, so the best local metadata was kept.")}` : "");
+  return `
+    <div class="editor-card">
+      <div class="summary-top">
+        ${avatarMarkup({ resourceId: draft.resourceId, resourceName: selectedResource ? catalogItemLabel(selectedResource) : langText("Nueva posición", "New position"), logoUrl: selectedResource?.logoUrl || "" }, "P")}
+        <div class="summary-title">
+          <div class="summary-name">${escapeHtml(selectedResource ? catalogItemLabel(selectedResource) : langText("Nueva posición", "New position"))}</div>
+          <div class="summary-meta">${escapeHtml(selectedResource ? `${catalogItemGroup(selectedResource)} · ${selectedResource.apiName}` : langText("Elegí producto, calidad y precio de compra", "Pick a product, quality, and purchase price"))}</div>
+        </div>
+      </div>
+
+      <div class="input-group">
+        <label>${escapeHtml(langText("Producto", "Product"))}</label>
+        <div class="hierarchy-selector${state.portfolioResourceSelectorOpen ? " open" : ""}" id="portfolioResourceSelector">
+          <button type="button" class="selector-summary" data-portfolio-action="toggle-selector">
+            <div class="selector-summary-main">
+              <div class="selector-title">${escapeHtml(selector.title)}</div>
+              <div class="selector-subtitle">${escapeHtml(selector.subtitle)}</div>
+            </div>
+            <div class="selector-chevron">${state.portfolioResourceSelectorOpen ? "▲" : "▼"}</div>
+          </button>
+          <div class="selector-panel">
+            <input id="portfolioResourceSearch" class="selector-search" type="text" value="${escapeHtml(state.portfolioResourceSearch)}" placeholder="${escapeHtml(state.portfolioResourceActiveGroup ? t("searchAssetByNameId") : t("searchGroupOrAsset"))}" />
+            <div class="selector-crumbs">${portfolioResourceCrumbsMarkup()}<span class="selector-tag">${escapeHtml(`${visibleItems} ${state.language === "en" ? "visible" : "visibles"}`)}</span></div>
+            <div class="selector-actions">
+              ${state.portfolioResourceActiveGroup ? `<button type="button" class="selector-action-btn" data-portfolio-action="back-groups">${escapeHtml(state.language === "en" ? "Back to groups" : "Volver a rubros")}</button>` : ""}
+              ${draft.resourceId ? `<button type="button" class="selector-action-btn" data-portfolio-action="clear-resource">${escapeHtml(langText("Quitar producto", "Clear product"))}</button>` : ""}
+            </div>
+            <div class="selector-list">${portfolioResourceSelectorOptionsMarkup()}</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="form-row">
+        <div class="input-group">
+          <label for="portfolioQualityInput">${escapeHtml(langText("Calidad (Q)", "Quality (Q)"))}</label>
+          <select id="portfolioQualityInput" class="styled-input portfolio-quality-select" data-portfolio-field="quality"${!selectedResource || portfolioResourceMetaLoading(draft.resourceId) || shouldLockQuality ? " disabled" : ""}>
+            ${(shouldLockQuality ? [fixedQuality] : qualityOptions).map((quality) => `
+              <option value="${quality}"${String(quality) === String(resolvedDraftQuality) ? " selected" : ""}>${escapeHtml(qualityLabel(quality))}</option>
+            `).join("")}
+          </select>
+          ${qualityHint ? `<div class="portfolio-quality-help">${escapeHtml(qualityHint)}</div>` : ""}
+        </div>
+        <div class="input-group">
+          <label for="portfolioQuantityInput">${escapeHtml(langText("Cantidad", "Quantity"))}</label>
+          <input id="portfolioQuantityInput" class="styled-input no-spinner" data-portfolio-field="quantity" type="text" inputmode="numeric" value="${escapeHtml(draft.quantity)}" />
+        </div>
+      </div>
+
+      <div class="input-group">
+        <label for="portfolioBuyPriceInput">${escapeHtml(langText("Precio de compra/u", "Purchase price/u"))}</label>
+        <input id="portfolioBuyPriceInput" class="styled-input no-spinner" data-portfolio-field="buyPrice" type="text" inputmode="decimal" value="${escapeHtml(draft.buyPrice)}" />
+      </div>
+
+      <div class="editor-actions portfolio-editor-actions">
+        <button id="portfolioSaveButton" class="save-btn" type="button" data-portfolio-action="save">${escapeHtml(langText("Guardar posición", "Save position"))}</button>
+        <button id="portfolioResetButton" class="action-btn action-btn-secondary" type="button" data-portfolio-action="reset">${escapeHtml(langText("Limpiar", "Clear"))}</button>
+        ${draft.id ? `<button id="portfolioDeleteButton" class="action-btn action-btn-danger" type="button" data-portfolio-action="delete">${escapeHtml(langText("Eliminar posición", "Delete position"))}</button>` : ""}
+      </div>
+    </div>
+  `;
+}
+
+function portfolioResolveResourceFromText(rawName) {
+  const normalized = normalizeSearch(rawName);
+  if (!normalized) return null;
+  const exact = resourceCatalog().find((item) => [
+    item.label,
+    item.labelEs,
+    item.labelEn,
+    item.apiName
+  ].some((value) => normalizeSearch(value) === normalized));
+  if (exact) return exact;
+  const partial = resourceCatalog().filter((item) => [
+    item.label,
+    item.labelEs,
+    item.labelEn,
+    item.apiName
+  ].some((value) => {
+    const candidate = normalizeSearch(value);
+    return candidate && (candidate.includes(normalized) || normalized.includes(candidate));
+  }));
+  return partial.length === 1 ? partial[0] : null;
+}
+
+function portfolioImportStarCount(value) {
+  const matches = String(value || "").match(/[★⭐☆✦✶✸]/g);
+  return matches ? matches.length : 0;
+}
+
+function portfolioImportQuantityLine(line) {
+  const raw = String(line || "").trim();
+  if (!raw || raw.includes("$") || raw.includes("%")) return null;
+  const stars = portfolioImportStarCount(raw);
+  const withoutStars = raw.replace(/[★⭐☆✦✶✸]/g, "").trim();
+  const match = withoutStars.match(/^([\d.,]+)\s*(units?)?$/i);
+  if (!match) return null;
+  const quantity = parseIntegerInput(match[1]);
+  if (!Number.isFinite(quantity) || quantity <= 0) return null;
+  return {
+    quantity,
+    quality: stars > 0 ? String(stars) : "",
+    isSummary: /units?/i.test(withoutStars)
+  };
+}
+
+function portfolioImportMoneyValue(line) {
+  const match = String(line || "").match(/\$\s*([\d.,]+)/);
+  if (!match) return Number.NaN;
+  return parseLocaleDecimal(match[1]);
+}
+
+function portfolioImportStructuredColumns(line) {
+  const raw = String(line || "").trim();
+  if (!raw) return [];
+  const columns = raw.includes("\t")
+    ? raw.split("\t")
+    : raw.split(/\s{2,}/);
+  return columns.map((value) => String(value || "").trim()).filter(Boolean);
+}
+
+function portfolioImportStructuredRow(line, index = 0) {
+  const columns = portfolioImportStructuredColumns(line);
+  if (columns.length < 3) return null;
+
+  const productCell = columns[0];
+  const productMatch = productCell.match(/^(.*?)\s+Q(\d{1,2})$/i);
+  if (!productMatch) return null;
+
+  const quality = Number(productMatch[2]);
+  if (!Number.isInteger(quality) || quality < 0 || quality > 12) return null;
+
+  const resource = portfolioResolveResourceFromText(productMatch[1]);
+  if (!resource) return null;
+
+  const quantity = parseIntegerInput(columns[1]);
+  const buyPrice = parseLocaleDecimal(String(columns[2] || "").replace(/^\$/, ""));
+  if (!Number.isFinite(quantity) || quantity <= 0 || !Number.isFinite(buyPrice) || buyPrice < 0) {
+    return null;
+  }
+
+  return {
+    id: `import-table-${Date.now()}-${index}-${Math.round(Math.random() * 1000)}`,
+    resourceId: resource.id,
+    resourceName: catalogItemLabel(resource),
+    quality: String(quality),
+    quantity,
+    buyPrice
+  };
+}
+
+function parsePortfolioImportRows(text) {
+  const lines = String(text || "")
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter(Boolean);
+  if (!lines.length) {
+    throw new Error(langText("Pegá texto antes de importar.", "Paste text before importing."));
+  }
+
+  const structuredRows = lines
+    .map((line, index) => portfolioImportStructuredRow(line, index))
+    .filter(Boolean);
+  const looksLikeStructuredPortfolio = lines.some((line) => /\bQ\d{1,2}\b/i.test(line) && /\$\s*[\d.,]+/.test(line));
+  if (looksLikeStructuredPortfolio && structuredRows.length) {
+    return structuredRows;
+  }
+
+  const productName = lines.find((line) => !line.startsWith("$") && !portfolioImportQuantityLine(line));
+  const resource = portfolioResolveResourceFromText(productName || "");
+  if (!resource) {
+    throw new Error(langText("No pude identificar el producto desde el texto pegado.", "I could not identify the product from the pasted text."));
+  }
+
+  const rows = [];
+  for (let index = 0; index < lines.length; index += 1) {
+    const quantityLine = portfolioImportQuantityLine(lines[index]);
+    if (!quantityLine || quantityLine.isSummary) continue;
+
+    let buyPrice = Number.NaN;
+    for (let cursor = index + 1; cursor < lines.length; cursor += 1) {
+      const nextQuantity = portfolioImportQuantityLine(lines[cursor]);
+      if (nextQuantity && !nextQuantity.isSummary) break;
+      const money = portfolioImportMoneyValue(lines[cursor]);
+      if (Number.isFinite(money)) {
+        buyPrice = money;
+        break;
+      }
+    }
+
+    if (!Number.isFinite(buyPrice) || buyPrice < 0) continue;
+    rows.push({
+      id: `import-${Date.now()}-${index}-${Math.round(Math.random() * 1000)}`,
+      resourceId: resource.id,
+      resourceName: catalogItemLabel(resource),
+      quality: quantityLine.quality,
+      quantity: quantityLine.quantity,
+      buyPrice
+    });
+  }
+
+  if (!rows.length) {
+    const summaryQuantity = lines.map(portfolioImportQuantityLine).find((item) => item?.isSummary);
+    const sourcingLine = lines.find((line) => /sourcing cost/i.test(line));
+    const sourcingCost = portfolioImportMoneyValue(sourcingLine);
+    if (summaryQuantity && Number.isFinite(sourcingCost) && sourcingCost >= 0) {
+      rows.push({
+        id: `import-${Date.now()}-summary`,
+        resourceId: resource.id,
+        resourceName: catalogItemLabel(resource),
+        quality: "",
+        quantity: summaryQuantity.quantity,
+        buyPrice: sourcingCost
+      });
+    }
+  }
+
+  if (!rows.length) {
+    throw new Error(langText("No encontré bloques válidos de cantidad y precio para importar.", "I could not find valid quantity and price blocks to import."));
+  }
+
+  return rows;
+}
+
+function portfolioImportRowsReady() {
+  return state.portfolioImportRows.length > 0
+    && state.portfolioImportRows.every((row) => {
+      const quality = parseIntegerInput(row.quality);
+      return Number.isInteger(quality) && quality >= 0 && quality <= 12;
+    });
+}
+
+function portfolioImportMarkup() {
+  const unresolvedCount = state.portfolioImportRows.filter((row) => !Number.isInteger(parseIntegerInput(row.quality))).length;
+
+  return `
+    <div class="editor-card portfolio-import-card">
+      <div class="input-group">
+        <label for="portfolioImportTextarea">${escapeHtml(langText("Pegá el texto de MERCANCÍAS o ESTADÍSTICAS", "Paste the WARES or STATS text"))}</label>
+        <textarea id="portfolioImportTextarea" class="styled-input portfolio-import-textarea" placeholder="${escapeHtml(langText("Pegá productos específicos o copiá y pegá todo el texto dentro de Estadísticas para agregar el costo de todos tus productos.", "Paste specific products or copy and paste all text from STATS to add the cost of all your products."))}">${escapeHtml(state.portfolioImportText)}</textarea>
+      </div>
+      <div class="editor-actions portfolio-import-actions">
+        <button class="save-btn" type="button" data-portfolio-action="parse-import">${escapeHtml(langText("Analizar texto", "Analyze text"))}</button>
+        <button class="action-btn action-btn-secondary" type="button" data-portfolio-action="clear-import">${escapeHtml(langText("Limpiar importación", "Clear import"))}</button>
+        <button class="filter-btn filter-btn-strong" type="button" data-portfolio-action="apply-import"${portfolioImportRowsReady() ? "" : " disabled"}>${escapeHtml(langText("Cargar en cartera", "Load into portfolio"))}</button>
+      </div>
+      ${state.portfolioImportRows.length ? `
+        <div class="portfolio-import-summary ${unresolvedCount ? "warning" : "ok"}">
+          ${escapeHtml(unresolvedCount
+            ? langText(`${state.portfolioImportRows.length} filas detectadas · ${unresolvedCount} sin calidad`, `${state.portfolioImportRows.length} rows detected · ${unresolvedCount} missing quality`)
+            : langText(`${state.portfolioImportRows.length} filas listas para cargar`, `${state.portfolioImportRows.length} rows ready to import`))}
+        </div>
+        <div class="portfolio-import-preview">
+          ${state.portfolioImportRows.map((row) => `
+            <div class="portfolio-import-row${Number.isInteger(parseIntegerInput(row.quality)) ? "" : " pending"}">
+              <div class="portfolio-import-row-main">
+                <strong>${escapeHtml(row.resourceName || resourceLabel(row.resourceId))}</strong>
+                <small>${escapeHtml(Number.isInteger(parseIntegerInput(row.quality)) ? qualityLabel(row.quality) : langText("Sin Q", "No Q"))} · ${escapeHtml(Number(row.quantity).toLocaleString(numberLocale()))} ${escapeHtml(langText("unidades", "units"))} · ${escapeHtml(langText("compra", "buy"))} ${escapeHtml(formatCurrency(row.buyPrice))}</small>
+              </div>
+              <div class="portfolio-import-row-controls">
+                <select class="styled-input portfolio-import-quality-select" data-portfolio-import-field="quality" data-import-row-id="${escapeHtml(row.id)}"${(() => {
+                  const rowMeta = portfolioResourceMeta(row.resourceId);
+                  return (portfolioResourceMetaLoading(row.resourceId) || (rowMeta && !rowMeta.supportsQualitySelection)) ? " disabled" : "";
+                })()}>
+                  ${(() => {
+                    const rowMeta = portfolioResourceMeta(row.resourceId);
+                    const rowQualityOptions = rowMeta && !rowMeta.supportsQualitySelection
+                      ? [rowMeta.fixedQuality ?? 0]
+                      : portfolioQualityOptionsForResource(row.resourceId, row.quality);
+                    const rowOptions = [`<option value="">${escapeHtml(langText("Asignar Q", "Assign Q"))}</option>`]
+                      .concat(rowQualityOptions.map((value) => `<option value="${value}">${escapeHtml(qualityLabel(value))}</option>`))
+                      .join("");
+                    return rowOptions.replace(`value="${escapeHtml(row.quality)}"`, `value="${escapeHtml(row.quality)}" selected`);
+                  })()}
+                </select>
+              </div>
+            </div>
+          `).join("")}
+        </div>
+      ` : `
+        <div class="portfolio-import-empty">${escapeHtml(langText("Todavía no hay filas analizadas.", "There are no parsed rows yet."))}</div>
+      `}
+    </div>
+  `;
+}
+
+function portfolioOverviewMarkup() {
+  const portfolio = state.dashboard?.portfolio || { chart: null };
+  const groups = portfolioGroupedPositions();
+  const positions = portfolioDisplayPositions();
+  const totalInvested = groups.reduce((sum, item) => sum + Number(item.invested || 0), 0);
+  const currentValueKey = portfolioModeIsNet() ? "netCurrentValue" : "grossCurrentValue";
+  const pricedInvestedKey = portfolioModeIsNet() ? "netPricedInvested" : "grossPricedInvested";
+  const totalCurrentValue = groups.reduce((sum, item) => sum + (Number.isFinite(item?.[currentValueKey]) ? Number(item[currentValueKey]) : 0), 0);
+  const totalPricedInvested = groups.reduce((sum, item) => sum + Number(item?.[pricedInvestedKey] || 0), 0);
+  const totalPnl = groups.length ? totalCurrentValue - totalPricedInvested : 0;
+  const totalPnlPct = totalPricedInvested > 0 ? (totalPnl / totalPricedInvested) * 100 : null;
+  const coveragePct = portfolioCoverageRatio(positions);
+  const transportPrice = portfolioTransportPrice();
+  const feeRate = portfolioFeeRate();
+  const chart = portfolio.chart || null;
+  const chartLatestValue = portfolioModeIsNet()
+    ? finiteNumber(chart?.latestNetValue)
+    : finiteNumber(chart?.latestGrossValue);
+  return `
+    <div class="portfolio-hero-card">
+      <div class="portfolio-hero-copy">
+        <div class="portfolio-hero-topline">
+          <div class="portfolio-hero-kicker">${escapeHtml(portfolioModeIsNet() ? langText("Venta neta estimada", "Estimated net sale") : langText("Inventario valorizado", "Inventory value"))}</div>
+          <div class="portfolio-mode-switch" role="group" aria-label="${escapeHtml(langText("Modo de valuación", "Valuation mode"))}">
+            <button class="portfolio-mode-btn${!portfolioModeIsNet() ? " active" : ""}" type="button" data-portfolio-action="set-view-mode" data-portfolio-view="gross">${escapeHtml(langText("Bruto", "Gross"))}</button>
+            <button class="portfolio-mode-btn${portfolioModeIsNet() ? " active" : ""}" type="button" data-portfolio-action="set-view-mode" data-portfolio-view="net">${escapeHtml(langText("Neto venta", "Net sale"))}</button>
+          </div>
+        </div>
+        <div class="portfolio-hero-value">${escapeHtml(formatCurrency(totalCurrentValue || 0))}</div>
+        <div class="portfolio-hero-trend ${portfolioChartToneClass(totalPnl)}">
+          ${escapeHtml(`${formatCurrency(totalPnl)}${Number.isFinite(totalPnlPct) ? ` · ${totalPnlPct >= 0 ? "+" : ""}${totalPnlPct.toFixed(2)}%` : ""}`)}
+        </div>
+        <div class="portfolio-hero-meta">
+          ${escapeHtml(langText("Capital invertido", "Invested capital"))}: ${escapeHtml(formatCurrency(totalInvested))}
+          ${portfolioModeIsNet() ? ` · ${escapeHtml(langText("Fee", "Fee"))}: ${escapeHtml(`${(feeRate * 100).toFixed(0)}%`)} · ${escapeHtml(langText("Transporte", "Transport"))}: ${escapeHtml(Number.isFinite(transportPrice) ? formatCurrency(transportPrice) : "—")}` : ""}
+        </div>
+      </div>
+      ${portfolioChartMarkup(chart)}
+    </div>
+    <div class="portfolio-summary-grid">
+      <div class="metric-box"><span>${escapeHtml(langText("Productos", "Products"))}</span><strong>${escapeHtml(String(groups.length))}</strong></div>
+      <div class="metric-box"><span>${escapeHtml(langText("Calidades", "Qualities"))}</span><strong>${escapeHtml(String(positions.length))}</strong></div>
+      ${portfolioModeIsNet() ? "" : `<div class="metric-box"><span>${escapeHtml(langText("Unidades totales", "Total units"))}</span><strong>${escapeHtml(positions.reduce((sum, item) => sum + Number(item.quantity || 0), 0).toLocaleString(numberLocale()))}</strong></div>`}
+      <div class="metric-box"><span>${escapeHtml(portfolioModeIsNet() ? langText("Resultado real", "Real P/L") : langText("Resultado no realizado", "Unrealized P/L"))}</span><strong class="${portfolioChartToneClass(totalPnl)}">${escapeHtml(formatCurrency(totalPnl))}</strong></div>
+      ${portfolioModeIsNet() ? `<div class="metric-box"><span>${escapeHtml(langText("Última salida neta", "Latest net sale"))}</span><strong>${escapeHtml(Number.isFinite(chartLatestValue) ? formatCurrency(chartLatestValue) : "—")}</strong></div>` : ""}
+    </div>
+  `;
+}
+
+function portfolioGroupRowMarkup(group) {
+  const expanded = state.portfolioExpandedKeys.includes(group.key);
+  const selected = state.selectedPortfolioGroupKey === group.key;
+  const pnlClass = portfolioChartToneClass(portfolioMetricValue(group, "Pnl"));
+  return `
+    <button class="portfolio-row portfolio-group-row${selected ? " selected" : ""}" type="button" data-portfolio-group-key="${escapeHtml(group.key)}">
+      <span class="portfolio-cell portfolio-product-cell">
+        <span class="portfolio-row-expander" aria-hidden="true">${expanded ? "▾" : "▸"}</span>
+        ${avatarMarkup({ resourceId: group.resourceId, resourceName: group.resourceName, logoUrl: group.logoUrl }, "P")}
+        <span class="portfolio-product-copy">
+          <strong>${escapeHtml(group.resourceName)}</strong>
+          <small>${escapeHtml(group.groupName)} · ${escapeHtml(langText(`${group.qualityCount} calidades`, `${group.qualityCount} qualities`))} · ID ${escapeHtml(group.resourceId)}</small>
+        </span>
+      </span>
+      <span class="portfolio-cell">${escapeHtml(Number(group.quantity).toLocaleString(numberLocale()))}</span>
+      <span class="portfolio-cell">${escapeHtml(formatCurrency(group.buyPrice))}</span>
+      <span class="portfolio-cell">${escapeHtml(portfolioDisplayCurrentUnit(group))}</span>
+      <span class="portfolio-cell">${escapeHtml(formatCurrency(group.invested))}</span>
+      <span class="portfolio-cell">${escapeHtml(Number.isFinite(portfolioMetricValue(group, "CurrentValue")) ? formatCurrency(portfolioMetricValue(group, "CurrentValue")) : "—")}</span>
+      <span class="portfolio-cell portfolio-result-cell ${pnlClass}">${escapeHtml(portfolioResultLabel(group))}</span>
+    </button>
+  `;
+}
+
+function portfolioQualityRowMarkup(position, groupKey) {
+  const selected = String(position.id) === String(state.selectedPortfolioId);
+  const pnlClass = portfolioChartToneClass(portfolioMetricValue(position, "Pnl"));
+  return `
+    <button class="portfolio-row portfolio-quality-row${selected ? " selected" : ""}" type="button" data-portfolio-id="${escapeHtml(position.id)}" data-portfolio-group-key="${escapeHtml(groupKey)}">
+      <span class="portfolio-cell portfolio-product-cell">
+        <span class="portfolio-quality-indent" aria-hidden="true"></span>
+        <span class="portfolio-quality-pill">${escapeHtml(qualityLabel(position.quality))}</span>
+        <span class="portfolio-product-copy">
+          <strong>${escapeHtml(position.resourceName)}</strong>
+          <small>${escapeHtml(langText("Vista agrupada por calidad", "Grouped by quality"))}</small>
+        </span>
+      </span>
+      <span class="portfolio-cell">${escapeHtml(Number(position.quantity).toLocaleString(numberLocale()))}</span>
+      <span class="portfolio-cell">${escapeHtml(formatCurrency(position.buyPrice))}</span>
+      <span class="portfolio-cell">${escapeHtml(portfolioDisplayCurrentUnit(position))}</span>
+      <span class="portfolio-cell">${escapeHtml(formatCurrency(position.invested))}</span>
+      <span class="portfolio-cell">${escapeHtml(Number.isFinite(portfolioMetricValue(position, "CurrentValue")) ? formatCurrency(portfolioMetricValue(position, "CurrentValue")) : "—")}</span>
+      <span class="portfolio-cell portfolio-result-cell ${pnlClass}">${escapeHtml(portfolioResultLabel(position))}</span>
+    </button>
+  `;
+}
+
+function renderPortfolioSelectedCard() {
+  const node = byId("portfolioSelectedCard");
+  if (!node) return;
+  node.innerHTML = portfolioSelectedCardMarkup();
+}
+
+function renderPortfolioEditor() {
+  const node = byId("portfolioEditorContainer");
+  if (!node) return;
+  node.innerHTML = portfolioEditorMarkup();
+}
+
+function renderPortfolioImport() {
+  const node = byId("portfolioImportContainer");
+  if (!node) return;
+  node.innerHTML = portfolioImportMarkup();
+}
+
+function renderPortfolioOverview() {
+  const node = byId("portfolioOverview");
+  if (!node) return;
+  node.innerHTML = portfolioOverviewMarkup();
+}
+
+function portfolioPageCount(totalItems = filteredPortfolioGroups().length) {
+  return Math.max(1, Math.ceil(totalItems / PORTFOLIO_GROUPS_PER_PAGE));
+}
+
+function clampPortfolioPage(totalItems = filteredPortfolioGroups().length) {
+  state.portfolioPage = Math.min(Math.max(1, state.portfolioPage), portfolioPageCount(totalItems));
+}
+
+function renderPortfolioFilterButtons() {
+  [
+    ["portfolioFilterAllButton", "all"],
+    ["portfolioFilterGainButton", "gain"],
+    ["portfolioFilterLossButton", "loss"]
+  ].forEach(([id, value]) => {
+    byId(id)?.classList.toggle("active", state.portfolioFilter === value);
+  });
+}
+
+function renderPortfolioList() {
+  const list = byId("portfolioList");
+  const info = byId("portfolioResultsInfo");
+  const pagination = byId("portfolioPagination");
+  if (!list || !info || !pagination) return;
+  ensurePortfolioSelection();
+  const allGroups = portfolioGroupedPositions();
+  const filtered = filteredPortfolioGroups();
+  clampPortfolioPage(filtered.length);
+  const pageStart = (state.portfolioPage - 1) * PORTFOLIO_GROUPS_PER_PAGE;
+  const paged = filtered.slice(pageStart, pageStart + PORTFOLIO_GROUPS_PER_PAGE);
+  const qualityCount = filtered.reduce((sum, group) => sum + group.qualityCount, 0);
+
+  info.textContent = allGroups.length
+    ? (filtered.length === allGroups.length
+      ? langText(`${allGroups.length} productos · ${qualityCount} calidades`, `${allGroups.length} products · ${qualityCount} qualities`)
+      : langText(`${filtered.length} de ${allGroups.length} productos · ${qualityCount} calidades visibles`, `${filtered.length} of ${allGroups.length} products · ${qualityCount} visible qualities`))
+    : "";
+
+  if (!filtered.length) {
+    pagination.innerHTML = "";
+    list.innerHTML = `<div class="empty-card">${escapeHtml(allGroups.length ? langText("No hay productos que coincidan con la búsqueda o el filtro.", "No products match the current search or filter.") : langText("Todavía no cargaste productos en cartera.", "You have not added products to the portfolio yet."))}</div>`;
+    stabilizePagedListHeight(list, {
+      itemSelector: ".portfolio-group-row",
+      perPage: PORTFOLIO_GROUPS_PER_PAGE,
+      fallbackItemHeight: 72,
+      fallbackGap: 0,
+      headerSelector: ".portfolio-table-head",
+      fallbackHeaderHeight: 44
+    });
+    return;
+  }
+
+  list.innerHTML = `
+    <div class="portfolio-table">
+      <div class="portfolio-table-head">
+        <span>${escapeHtml(langText("Producto", "Product"))}</span>
+        <span>${escapeHtml(langText("Cantidad", "Quantity"))}</span>
+        <span>${escapeHtml(langText("Compra/u", "Buy/u"))}</span>
+        <span>${escapeHtml(portfolioCurrentUnitHeading())}</span>
+        <span>${escapeHtml(langText("Invertido", "Invested"))}</span>
+        <span>${escapeHtml(portfolioCurrentValueHeading())}</span>
+        <span>${escapeHtml(portfolioPnlHeading())}</span>
+      </div>
+      <div class="portfolio-table-body">
+        ${paged.map((group) => `
+          <div class="portfolio-group-block">
+            ${portfolioGroupRowMarkup(group)}
+            ${state.portfolioExpandedKeys.includes(group.key)
+              ? group.qualities.map((quality) => portfolioQualityRowMarkup(quality, group.key)).join("")
+              : ""}
+          </div>
+        `).join("")}
+      </div>
+    </div>
+  `;
+  pagination.innerHTML = filtered.length > PORTFOLIO_GROUPS_PER_PAGE
+    ? contactPaginationMarkup(filtered.length, state.portfolioPage, PORTFOLIO_GROUPS_PER_PAGE, "portfolio")
+    : "";
+  stabilizePagedListHeight(list, {
+    itemSelector: ".portfolio-group-row",
+    perPage: PORTFOLIO_GROUPS_PER_PAGE,
+    fallbackItemHeight: 72,
+    fallbackGap: 0,
+    headerSelector: ".portfolio-table-head",
+    fallbackHeaderHeight: 44
+  });
+}
+
+function renderPortfolioView() {
+  ensurePortfolioSelection();
+  renderPortfolioSelectedCard();
+  renderPortfolioEditor();
+  renderPortfolioImport();
+  renderPortfolioOverview();
+  renderPortfolioFilterButtons();
+  renderPortfolioList();
+}
+
+function mergeDashboardAfterPortfolioSave(dashboard) {
+  syncNotificationState(dashboard);
+  state.dashboard = dashboard;
+  cacheResourceCatalog(dashboard.resourceCatalog);
+  state.updates = {
+    ...state.updates,
+    ...(dashboard.updates || {})
+  };
+  syncPortfolioStateFromDashboard(dashboard);
+}
+
+async function persistPortfolio(showSuccessMessage = true) {
+  state.portfolioHoldings = canonicalizePortfolioHoldings(state.portfolioHoldings);
+  const dashboard = await callDesktop("savePortfolio", state.portfolioHoldings);
+  mergeDashboardAfterPortfolioSave(dashboard);
+  renderAll();
+  if (showSuccessMessage) {
+    showToast(langText("Cartera guardada", "Portfolio saved"));
+  }
+}
+
+async function savePortfolioHolding() {
+  const normalized = normalizePortfolioDraftOrThrow();
+  const remaining = state.portfolioHoldings.filter((item) => String(item.id) !== String(normalized.id) && !(Number(item.resourceId) === normalized.resourceId && Number(item.quality) === normalized.quality));
+  state.portfolioHoldings = canonicalizePortfolioHoldings([normalized, ...remaining]);
+  const selected = state.portfolioHoldings.find((item) => Number(item.resourceId) === normalized.resourceId && Number(item.quality) === normalized.quality) || normalized;
+  state.selectedPortfolioId = selected.id;
+  state.selectedPortfolioGroupKey = portfolioGroupKey(selected.resourceId);
+  state.portfolioExpandedKeys = uniqueList([portfolioGroupKey(selected.resourceId), ...state.portfolioExpandedKeys]);
+  state.portfolioPage = 1;
+  state.portfolioDirty = false;
+  state.portfolioChartHoverTime = "";
+  populatePortfolioDraft(selected);
+  await persistPortfolio(true);
+}
+
+async function deletePortfolioHolding() {
+  const currentId = state.portfolioDraft.id || state.selectedPortfolioId;
+  if (!currentId) {
+    startNewPortfolioDraft();
+    return;
+  }
+  state.portfolioHoldings = state.portfolioHoldings.filter((item) => String(item.id) !== String(currentId));
+  state.selectedPortfolioId = null;
+  state.portfolioDirty = false;
+  state.portfolioChartHoverTime = "";
+  populatePortfolioDraft(null);
+  await persistPortfolio(true);
+}
+
+async function deletePortfolioGroup() {
+  ensurePortfolioSelection();
+  const selected = selectedPortfolioHolding();
+  const group = portfolioSelectedGroup();
+  const resourceId = Number(selected?.resourceId ?? group?.resourceId ?? 0);
+  if (!Number.isFinite(resourceId) || resourceId <= 0) {
+    startNewPortfolioDraft();
+    return;
+  }
+  const groupKey = portfolioGroupKey(resourceId);
+  state.portfolioHoldings = state.portfolioHoldings.filter((item) => Number(item.resourceId) !== resourceId);
+  state.selectedPortfolioId = null;
+  state.selectedPortfolioGroupKey = null;
+  state.portfolioExpandedKeys = state.portfolioExpandedKeys.filter((key) => key !== groupKey);
+  state.portfolioDirty = false;
+  state.portfolioChartHoverTime = "";
+  populatePortfolioDraft(null);
+  await persistPortfolio(true);
+}
+
+async function applyPortfolioImportRows() {
+  if (!portfolioImportRowsReady()) {
+    throw new Error(langText("Asigná la calidad de todas las filas antes de cargarlas.", "Assign a quality to every row before loading them."));
+  }
+  const importedRows = state.portfolioImportRows.map((row) => ({
+    id: newPortfolioHoldingId(),
+    resourceId: Number(row.resourceId),
+    quality: parseIntegerInput(row.quality),
+    quantity: parseIntegerInput(row.quantity),
+    buyPrice: Number(row.buyPrice),
+    createdAt: new Date().toISOString()
+  }));
+
+  state.portfolioHoldings = canonicalizePortfolioHoldings([...importedRows, ...state.portfolioHoldings]);
+  const firstImported = importedRows[0];
+  const selected = state.portfolioHoldings.find((item) => Number(item.resourceId) === firstImported.resourceId && Number(item.quality) === firstImported.quality) || null;
+  state.selectedPortfolioId = selected?.id || null;
+  state.selectedPortfolioGroupKey = selected ? portfolioGroupKey(selected.resourceId) : state.selectedPortfolioGroupKey;
+  state.portfolioExpandedKeys = selected ? uniqueList([portfolioGroupKey(selected.resourceId), ...state.portfolioExpandedKeys]) : state.portfolioExpandedKeys;
+  state.portfolioPage = 1;
+  state.portfolioChartHoverTime = "";
+  state.portfolioImportText = "";
+  state.portfolioImportRows = [];
+  populatePortfolioDraft(selected);
+  await persistPortfolio(true);
+}
+
+async function refreshPortfolioPrices() {
+  state.portfolioChartHoverTime = "";
+  const dashboard = await callDesktop("refreshPortfolio");
+  mergeDashboardAfterPortfolioSave(dashboard);
+  renderAll();
+  showToast(langText("Precios de cartera actualizados", "Portfolio prices refreshed"));
+}
+
 function viewMeta(view = state.activeView) {
   if (view === "calculadora") {
     return {
       id: "calculadora",
       title: t("viewCalculadoraTitle"),
+      toolbarVisible: false
+    };
+  }
+  if (view === "cartera") {
+    return {
+      id: "cartera",
+      title: t("viewCarteraTitle"),
       toolbarVisible: false
     };
   }
@@ -2050,6 +3947,7 @@ function renderStaticLanguage() {
   document.documentElement.lang = localeCode();
   setText("tab-mercado", t("tabMercado"));
   setText("tab-calculadora", t("tabCalculadora"));
+  setText("tab-cartera", t("tabCartera"));
   setText("tab-ejecutivos", t("tabEjecutivos"));
   setText("tab-registro", t("tabRegistro"));
   setText("headerMonitorLabel", t("statsMonitor"));
@@ -2104,6 +4002,17 @@ function renderStaticLanguage() {
   setText("calcSummaryFreightLabel", t("totalFreight"));
   setText("calcTargetsLabel", t("profitTargets"));
   setText("calcCheckerLabel", t("targetPriceResult"));
+  setText("portfolioSelectedLabel", t("portfolioSelected"));
+  setText("portfolioEntryLabel", t("portfolioEntry"));
+  setText("portfolioImportLabel", t("portfolioImport"));
+  setText("portfolioOverviewLabel", t("portfolioOverview"));
+  setText("portfolioHoldingsLabel", t("portfolioHoldings"));
+  setPlaceholder("portfolioSearchInput", t("portfolioSearch"));
+  setText("portfolioFilterAllButton", t("portfolioFilterAll"));
+  setText("portfolioFilterGainButton", t("portfolioFilterGain"));
+  setText("portfolioFilterLossButton", t("portfolioFilterLoss"));
+  setText("portfolioRefreshButton", t("portfolioRefresh"));
+  setText("portfolioNewButton", t("portfolioNew"));
   setText("registroNewContactLabel", t("newContact"));
   setText("registroArchiveLabel", t("contactArchive"));
   setPlaceholder("contactSearchInput", t("searchContact"));
@@ -2143,6 +4052,7 @@ function renderStaticLanguage() {
   setText("onboardingBody", onboardingSteps()[state.onboardingStep]?.body || "");
   byId("onboardingNextButton").textContent = onboardingSteps()[state.onboardingStep]?.finalAction ? t("onboardingCreateAlert") : t("onboardingNext");
   renderLanguageToggle();
+  renderRealmToggle();
   renderThemeToggle();
 }
 
@@ -2308,10 +4218,40 @@ function editableAlert(alert) {
   };
 }
 
+function syncRealmScopedLocalState(realmId, { force = false } = {}) {
+  const normalizedRealmId = normalizeRealmId(realmId);
+  localStorage.setItem(ACTIVE_REALM_STORAGE_KEY, String(normalizedRealmId));
+  if (!force && state.localRealmStateSynced && state.localRealmId === normalizedRealmId) return;
+
+  state.localRealmId = normalizedRealmId;
+  state.localRealmStateSynced = true;
+  state.calculatorBook = loadCalculatorBook(normalizedRealmId, { migrateLegacy: true });
+  state.calculator = activeCalculatorFromBook(state.calculatorBook);
+  resetCalculatorResourceSelectorState();
+  state.calculatorUnitsSelectorOpen = false;
+
+  state.contacts = loadContacts(normalizedRealmId, { migrateLegacy: true });
+  state.contactSearch = "";
+  state.contactTypeFilter = "todos";
+  state.contactTrustFilter = "todos";
+  state.contactRubroFilter = "todos";
+  state.contactPage = 1;
+  state.contactDraft = emptyContactDraft();
+  state.contactSelectorOpen = false;
+  state.contactTypeSelectorOpen = false;
+  state.contactActiveGroup = null;
+  state.contactResourceSearch = "";
+  state.contactSelectedRubros = {};
+  state.currentHistoryContactId = null;
+}
+
 function syncDraftFromDashboard(dashboard) {
   syncNotificationState(dashboard);
   state.dashboard = dashboard;
   cacheResourceCatalog(dashboard.resourceCatalog);
+  syncPortfolioStateFromDashboard(dashboard);
+  const dashboardRealmId = normalizeRealmId(dashboard.config?.activeRealmId ?? dashboard.config?.realmId ?? 0);
+  syncRealmScopedLocalState(dashboardRealmId);
   state.updates = {
     ...state.updates,
     ...(dashboard.updates || {})
@@ -2320,11 +4260,13 @@ function syncDraftFromDashboard(dashboard) {
     alerts: clone((dashboard.alerts || []).map(editableAlert)),
     channels: clone(dashboard.config?.channels || {}),
     config: {
-      realmId: dashboard.config?.realmId ?? 0,
+      realmId: dashboardRealmId,
+      activeRealmId: dashboardRealmId,
       pollSeconds: dashboard.config?.pollSeconds ?? 180,
       scanEnabled: dashboard.config?.scanEnabled !== false
     }
   };
+  state.realmProfiles = clone(dashboard.config?.realms || {});
   if (!state.selectedAlertId || !state.draft.alerts.some((item) => item.id === state.selectedAlertId)) {
     state.selectedAlertId = state.draft.alerts[0]?.id || null;
   }
@@ -2466,12 +4408,29 @@ function validateDraftPayload() {
     };
   });
 
+  const activeRealmId = normalizeRealmId(state.draft.config.activeRealmId ?? state.draft.config.realmId);
+  const realms = clone(state.realmProfiles || {});
+  REALM_OPTIONS.forEach((realm) => {
+    const key = String(realm.id);
+    realms[key] = {
+      alerts: Array.isArray(realms[key]?.alerts) ? clone(realms[key].alerts) : [],
+      portfolio: Array.isArray(realms[key]?.portfolio) ? clone(realms[key].portfolio) : []
+    };
+  });
+  realms[String(activeRealmId)] = {
+    alerts: clone(alerts),
+    portfolio: clone(state.portfolioHoldings)
+  };
+
   return {
-    realmId: Number(state.draft.config.realmId || 0),
+    realmId: activeRealmId,
+    activeRealmId,
     pollSeconds: 300,
     scanEnabled: state.draft.config.scanEnabled !== false,
     channels: state.draft.channels,
-    alerts
+    alerts,
+    portfolio: clone(state.portfolioHoldings),
+    realms
   };
 }
 
@@ -2488,7 +4447,7 @@ async function persistDraft(showSuccessMessage = true) {
 
 function renderActiveView() {
   const active = viewMeta();
-  ["mercado", "calculadora", "ejecutivos", "registro"].forEach((view) => {
+  ["mercado", "calculadora", "cartera", "ejecutivos", "registro"].forEach((view) => {
     byId(`view-${view}`)?.classList.toggle("active", active.id === view);
     byId(`tab-${view}`)?.classList.toggle("active", active.id === view);
   });
@@ -2496,11 +4455,12 @@ function renderActiveView() {
   byId("viewTitle").textContent = active.title;
   renderCalculatorResourceSelector();
   renderCalculatorUnitsSelector();
+  renderPortfolioView();
   renderExecutiveView();
 }
 
 function switchView(view) {
-  state.activeView = ["mercado", "calculadora", "ejecutivos", "registro"].includes(view) ? view : "mercado";
+  state.activeView = ["mercado", "calculadora", "cartera", "ejecutivos", "registro"].includes(view) ? view : "mercado";
   localStorage.setItem(VIEW_STORAGE_KEY, state.activeView);
   renderActiveView();
 }
@@ -2515,6 +4475,7 @@ function renderHeader() {
   renderSaveButtonState();
   renderScanToggleButton();
   renderUpdateButton();
+  renderRealmToggle();
 }
 
 function renderScanToggleButton() {
@@ -2528,10 +4489,10 @@ function renderScanToggleButton() {
 
 function updateButtonLabel() {
   const updates = state.updates;
-  if (updates.checking) return state.language === "en" ? "Checking update" : "Buscando update";
-  if (updates.downloaded) return state.language === "en" ? "Install update" : "Instalar update";
-  if (updates.downloading) return state.language === "en" ? `Downloading ${Math.round(updates.progress || 0)}%` : `Descargando ${Math.round(updates.progress || 0)}%`;
-  if (updates.available) return state.language === "en" ? "Download update" : "Descargar update";
+  if (updates.checking) return state.language === "en" ? "Checking for updates" : "Buscando actualizaciones";
+  if (updates.downloaded) return state.language === "en" ? "Install update" : "Instalar actualización";
+  if (updates.downloading) return state.language === "en" ? `Downloading ${Math.round(updates.progress || 0)}%` : `Descargando actualización ${Math.round(updates.progress || 0)}%`;
+  if (updates.available) return state.language === "en" ? "Download update" : "Descargar actualización";
   return t("checkUpdates");
 }
 
@@ -2550,11 +4511,11 @@ function renderUpdateButton() {
 
 function updateModalTitle() {
   const updates = state.updates;
-  if (updates.error) return state.language === "en" ? "Could not check for updates" : "No se pudo revisar updates";
-  if (updates.downloaded) return state.language === "en" ? "Update ready to install" : "Update lista para instalar";
-  if (updates.downloading) return state.language === "en" ? "Downloading update" : "Descargando update";
-  if (updates.available) return state.language === "en" ? "An update is available" : "Hay una update disponible";
-  if (updates.checking) return state.language === "en" ? "Checking updates" : "Buscando updates";
+  if (updates.error) return state.language === "en" ? "Could not check for updates" : "No se pudieron revisar las actualizaciones";
+  if (updates.downloaded) return state.language === "en" ? "Update ready to install" : "Actualización lista para instalar";
+  if (updates.downloading) return state.language === "en" ? "Downloading update" : "Descargando actualización";
+  if (updates.available) return state.language === "en" ? "An update is available" : "Hay una actualización disponible";
+  if (updates.checking) return state.language === "en" ? "Checking for updates" : "Buscando actualizaciones";
   return state.language === "en" ? "SimMarket up to date" : "SimMarket actualizado";
 }
 
@@ -3040,6 +5001,12 @@ function renderAlertList() {
   pagination.innerHTML = items.length > ALERTS_PER_PAGE
     ? contactPaginationMarkup(items.length, state.alertPage, ALERTS_PER_PAGE, "alert")
     : "";
+  stabilizePagedListHeight(container, {
+    itemSelector: ":scope > .contact-card",
+    perPage: ALERTS_PER_PAGE,
+    fallbackItemHeight: 164,
+    fallbackGap: 10
+  });
 }
 
 function eventBadgeClass(type) {
@@ -3625,6 +5592,43 @@ function contactPaginationMarkup(totalItems, currentPage = state.contactPage, pe
   return paginationMarkup(totalPages, currentPage, scope);
 }
 
+function numericCssValue(value, fallback = 0) {
+  const parsed = Number.parseFloat(String(value || ""));
+  return Number.isFinite(parsed) ? parsed : fallback;
+}
+
+function stabilizePagedListHeight(container, {
+  itemSelector,
+  perPage,
+  fallbackItemHeight,
+  fallbackGap = 10,
+  headerSelector = "",
+  fallbackHeaderHeight = 0
+} = {}) {
+  if (!(container instanceof Element) || !itemSelector || !Number.isFinite(Number(perPage))) return;
+  window.requestAnimationFrame(() => {
+    const style = window.getComputedStyle(container);
+    const gap = numericCssValue(style.rowGap, numericCssValue(style.gap, fallbackGap));
+    const itemHeights = Array.from(container.querySelectorAll(itemSelector))
+      .map((item) => item.getBoundingClientRect().height)
+      .filter((height) => Number.isFinite(height) && height > 0);
+    const measuredAverage = itemHeights.length
+      ? itemHeights.reduce((total, height) => total + height, 0) / itemHeights.length
+      : 0;
+    const itemHeight = Math.max(fallbackItemHeight || 0, measuredAverage || 0);
+    const header = headerSelector ? container.querySelector(headerSelector) : null;
+    const headerHeight = header instanceof Element
+      ? Math.max(fallbackHeaderHeight || 0, header.getBoundingClientRect().height || 0)
+      : fallbackHeaderHeight || 0;
+    const totalHeight = headerHeight
+      + (itemHeight * Number(perPage))
+      + (gap * Math.max(0, Number(perPage) - 1));
+    if (Number.isFinite(totalHeight) && totalHeight > 0) {
+      container.style.minHeight = `${Math.ceil(totalHeight)}px`;
+    }
+  });
+}
+
 function renderContactList() {
   const container = byId("contactsRegisterList");
   const countInfo = byId("contactCountInfo");
@@ -3645,6 +5649,12 @@ function renderContactList() {
         <div class="empty-text">${escapeHtml(state.language === "en" ? "There are no registered contacts yet." : "Aún no hay contactos registrados.")}</div>
       </div>
     `;
+    stabilizePagedListHeight(container, {
+      itemSelector: ":scope > .register-contact-card",
+      perPage: CONTACTS_PER_PAGE,
+      fallbackItemHeight: 152,
+      fallbackGap: 10
+    });
     return;
   }
 
@@ -3657,6 +5667,12 @@ function renderContactList() {
         <div class="empty-text">${escapeHtml(state.language === "en" ? "No contacts were found<br>with the current filters." : "No se encontraron contactos<br>con los filtros actuales.")}</div>
       </div>
     `;
+    stabilizePagedListHeight(container, {
+      itemSelector: ":scope > .register-contact-card",
+      perPage: CONTACTS_PER_PAGE,
+      fallbackItemHeight: 152,
+      fallbackGap: 10
+    });
     return;
   }
 
@@ -3669,6 +5685,12 @@ function renderContactList() {
       : `Página ${state.contactPage} de ${totalPages}`);
   container.innerHTML = paged.map(contactCardMarkup).join("");
   pagination.innerHTML = contactPaginationMarkup(filtered.length, state.contactPage, CONTACTS_PER_PAGE, "contact");
+  stabilizePagedListHeight(container, {
+    itemSelector: ":scope > .register-contact-card",
+    perPage: CONTACTS_PER_PAGE,
+    fallbackItemHeight: 152,
+    fallbackGap: 10
+  });
 }
 
 function findContactById(contactId) {
@@ -3877,6 +5899,10 @@ function deleteHistoryEntry(entryId) {
 }
 
 function renderContactView() {
+  const searchInput = byId("contactSearchInput");
+  if (searchInput) {
+    searchInput.value = state.contactSearch;
+  }
   renderContactStats();
   renderContactEditor();
   renderContactFilters();
@@ -4278,6 +6304,7 @@ function renderAll() {
   renderActiveView();
   renderThemeToggle();
   renderLanguageToggle();
+  renderRealmToggle();
   renderHeader();
   renderUpdateModal();
   renderMarketHealthBanner();
@@ -4286,6 +6313,7 @@ function renderAll() {
   renderChannels();
   renderFilterButtons();
   renderAlertList();
+  renderPortfolioView();
   renderEvents();
   renderNotificationsModal();
   syncCalculatorInputs();
@@ -4319,6 +6347,9 @@ function handlePagination(event) {
       if (scope === "contact") {
         state.contactPage = nextPage;
         renderContactList();
+      } else if (scope === "portfolio") {
+        state.portfolioPage = nextPage;
+        renderPortfolioList();
       } else if (scope === "calc") {
         const nextCalculator = state.calculatorBook.pages[nextPage - 1];
         if (nextCalculator) {
@@ -4342,6 +6373,13 @@ function handlePagination(event) {
     renderContactList();
     return;
   }
+  if (scope === "portfolio") {
+    const totalPages = portfolioPageCount(filteredPortfolioGroups().length);
+    if (direction === "prev" && state.portfolioPage > 1) state.portfolioPage -= 1;
+    if (direction === "next" && state.portfolioPage < totalPages) state.portfolioPage += 1;
+    renderPortfolioList();
+    return;
+  }
   if (scope === "calc") {
     const totalPages = Math.max(1, state.calculatorBook.pages.length);
     let nextPage = calculatorPageIndex() + 1;
@@ -4357,6 +6395,207 @@ function handlePagination(event) {
   if (direction === "prev" && state.alertPage > 1) state.alertPage -= 1;
   if (direction === "next" && state.alertPage < totalPages) state.alertPage += 1;
   renderAlertList();
+}
+
+async function handlePortfolioMutation(event) {
+  const target = event.target;
+  if (!(target instanceof Element)) return;
+
+  const actionTarget = target.closest("[data-portfolio-action]");
+  const portfolioAction = actionTarget?.dataset.portfolioAction || "";
+  if (event.type === "mousemove" && portfolioAction !== "hover-chart-surface") return;
+
+  if (portfolioAction === "set-view-mode") {
+    if (event.type !== "click") return;
+    event.preventDefault();
+    const nextMode = normalizePortfolioValuationMode(actionTarget.dataset.portfolioView);
+    if (state.portfolioValuationMode !== nextMode) {
+      state.portfolioValuationMode = nextMode;
+      state.portfolioChartSelectedTime = "";
+      state.portfolioChartHoverTime = "";
+      persistPortfolioViewPreferences();
+      renderPortfolioView();
+    }
+    return;
+  }
+
+  if (portfolioAction === "set-chart-range") {
+    if (event.type !== "click") return;
+    event.preventDefault();
+    const nextRange = normalizePortfolioChartRange(actionTarget.dataset.chartRange);
+    if (state.portfolioChartRange !== nextRange) {
+      state.portfolioChartRange = nextRange;
+      state.portfolioChartSelectedTime = "";
+      state.portfolioChartHoverTime = "";
+      persistPortfolioViewPreferences();
+      renderPortfolioOverview();
+    }
+    return;
+  }
+
+  if (portfolioAction === "hover-chart-surface") {
+    const nextHoverTime = portfolioChartTimeFromPointer(event, actionTarget);
+    if (!nextHoverTime) return;
+    if (event.type === "mousemove") {
+      if (state.portfolioChartHoverTime !== nextHoverTime) {
+        state.portfolioChartHoverTime = nextHoverTime;
+        renderPortfolioOverview();
+      }
+    } else if (event.type === "click") {
+      event.preventDefault();
+      state.portfolioChartSelectedTime = nextHoverTime;
+      state.portfolioChartHoverTime = nextHoverTime;
+      renderPortfolioOverview();
+    }
+    return;
+  }
+
+  if (actionTarget?.dataset.portfolioAction === "toggle-selector") {
+    event.preventDefault();
+    event.stopPropagation();
+    state.portfolioResourceSelectorOpen = !state.portfolioResourceSelectorOpen;
+    if (!state.portfolioResourceSelectorOpen) {
+      resetPortfolioResourceSelectorState();
+    }
+    renderPortfolioEditor();
+    if (state.portfolioResourceSelectorOpen) {
+      focusPortfolioResourceSearch();
+    }
+    return;
+  }
+
+  if (actionTarget?.dataset.portfolioAction === "back-groups") {
+    event.preventDefault();
+    event.stopPropagation();
+    state.portfolioResourceActiveGroup = null;
+    state.portfolioResourceSearch = "";
+    renderPortfolioEditor();
+    focusPortfolioResourceSearch();
+    return;
+  }
+
+  if (actionTarget?.dataset.portfolioAction === "open-group") {
+    event.preventDefault();
+    event.stopPropagation();
+    state.portfolioResourceActiveGroup = actionTarget.dataset.resourceGroup || null;
+    state.portfolioResourceSearch = "";
+    renderPortfolioEditor();
+    focusPortfolioResourceSearch();
+    return;
+  }
+
+  if (actionTarget?.dataset.portfolioAction === "select-resource") {
+    event.preventDefault();
+    event.stopPropagation();
+    applyPortfolioProductSelection(Number(actionTarget.dataset.resourceId)).catch((error) => {
+      showToast(error.message, "error");
+    });
+    return;
+  }
+
+  if (actionTarget?.dataset.portfolioAction === "clear-resource") {
+    event.preventDefault();
+    event.stopPropagation();
+    state.portfolioDraft.resourceId = "";
+    state.portfolioDirty = true;
+    resetPortfolioResourceSelectorState();
+    renderPortfolioEditor();
+    return;
+  }
+
+  if (actionTarget?.dataset.portfolioAction === "save") {
+    event.preventDefault();
+    savePortfolioHolding().catch((error) => showToast(error.message, "error"));
+    return;
+  }
+
+  if (actionTarget?.dataset.portfolioAction === "reset") {
+    event.preventDefault();
+    if (state.selectedPortfolioId) {
+      populatePortfolioDraft(selectedPortfolioHolding());
+    } else {
+      populatePortfolioDraft(null);
+    }
+    renderPortfolioView();
+    return;
+  }
+
+  if (actionTarget?.dataset.portfolioAction === "delete") {
+    event.preventDefault();
+    deletePortfolioHolding().catch((error) => showToast(error.message, "error"));
+    return;
+  }
+
+  if (actionTarget?.dataset.portfolioAction === "delete-group") {
+    event.preventDefault();
+    deletePortfolioGroup().catch((error) => showToast(error.message, "error"));
+    return;
+  }
+
+  if (actionTarget?.dataset.portfolioAction === "parse-import") {
+    event.preventDefault();
+    try {
+      state.portfolioImportRows = parsePortfolioImportRows(state.portfolioImportText);
+      const importResourceIds = uniqueList(state.portfolioImportRows.map((row) => row.resourceId))
+        .map((value) => Number(value))
+        .filter((value) => Number.isFinite(value) && value > 0);
+      if (importResourceIds.length) {
+        await Promise.allSettled(importResourceIds.map((resourceId) => ensurePortfolioResourceMeta(resourceId, {
+          allowNetwork: true,
+          silent: true
+        })));
+      }
+      renderPortfolioImport();
+      showToast(langText("Texto analizado", "Text analyzed"));
+    } catch (error) {
+      showToast(error.message, "error");
+    }
+    return;
+  }
+
+  if (actionTarget?.dataset.portfolioAction === "clear-import") {
+    event.preventDefault();
+    state.portfolioImportText = "";
+    state.portfolioImportRows = [];
+    renderPortfolioImport();
+    return;
+  }
+
+  if (actionTarget?.dataset.portfolioAction === "apply-import") {
+    event.preventDefault();
+    applyPortfolioImportRows().catch((error) => showToast(error.message, "error"));
+    return;
+  }
+
+  if (target instanceof HTMLInputElement && target.id === "portfolioResourceSearch") {
+    state.portfolioResourceSearch = target.value;
+    renderPortfolioEditor();
+    focusPortfolioResourceSearch();
+    return;
+  }
+
+  if (target instanceof HTMLTextAreaElement && target.id === "portfolioImportTextarea") {
+    state.portfolioImportText = target.value;
+    return;
+  }
+
+  const importField = target.dataset.portfolioImportField;
+  if (importField === "quality" && target instanceof HTMLSelectElement) {
+    if (event.type !== "change") return;
+    const rowId = target.dataset.importRowId;
+    state.portfolioImportRows = state.portfolioImportRows.map((row) => (
+      String(row.id) === String(rowId)
+        ? { ...row, quality: target.value }
+        : row
+    ));
+    renderPortfolioImport();
+    return;
+  }
+
+  const field = target.dataset.portfolioField;
+  if (!field) return;
+  state.portfolioDraft[field] = target.value;
+  state.portfolioDirty = true;
 }
 
 function handleEditorMutation(event) {
@@ -4543,6 +6782,29 @@ async function toggleScanEnabled() {
   }
 }
 
+async function switchRealm() {
+  if (state.realmSwitching) return;
+  const nextRealm = nextRealmOption();
+  state.realmSwitching = true;
+  renderRealmToggle();
+  try {
+    persistCalculatorState();
+    persistContacts();
+    if (state.dirty) {
+      await persistDraft(false);
+    }
+    const dashboard = await callDesktop("switchRealm", nextRealm.id);
+    syncDraftFromDashboard(dashboard);
+    renderAll();
+    showToast(langText(`Servidor activo: ${localizedRealmLabel(realmOption())}`, `Active server: ${localizedRealmLabel(realmOption())}`));
+  } catch (error) {
+    showToast(error.message, "error");
+  } finally {
+    state.realmSwitching = false;
+    renderRealmToggle();
+  }
+}
+
 async function checkForUpdates(manual = false) {
   try {
     const nextState = await callDesktop("checkForUpdates");
@@ -4556,7 +6818,7 @@ async function checkForUpdates(manual = false) {
       showToast(langText("Ya tenés la última versión", "You already have the latest version"));
     }
     if (manual && state.updates.status === "error") {
-      showToast(state.updates.error || langText("No se pudo revisar updates", "Could not check updates"), "error");
+      showToast(state.updates.error || langText("No se pudieron revisar las actualizaciones", "Could not check for updates"), "error");
     }
   } catch (error) {
     showToast(error.message, "error");
@@ -4657,6 +6919,7 @@ async function loadDashboard({ quiet = false } = {}) {
     } else {
       syncNotificationState(dashboard);
       state.dashboard = dashboard;
+      syncPortfolioStateFromDashboard(dashboard);
       state.updates = {
         ...state.updates,
         ...(dashboard.updates || {})
@@ -4668,6 +6931,7 @@ async function loadDashboard({ quiet = false } = {}) {
       renderOnboarding();
       renderSelectedRuntime();
       renderAlertList();
+      renderPortfolioView();
       renderEvents();
       renderNotificationsModal();
     }
@@ -4716,7 +6980,7 @@ function persistCalculatorState() {
       sellCheck: page.sellCheck ?? ""
     }))
   };
-  localStorage.setItem(CALC_STORAGE_KEY, JSON.stringify(payload));
+  localStorage.setItem(realmCalculatorStorageKey(state.localRealmId), JSON.stringify(payload));
 }
 
 function syncCalculatorInputs() {
@@ -4838,6 +7102,7 @@ function bindStaticUi() {
     renderAll();
     loadDashboard({ quiet: true });
   });
+  byId("realmToggleButton")?.addEventListener("click", switchRealm);
   [byId("supporterCooperButton"), byId("supporterSimcoToolsButton")].forEach((button) => {
     if (!button) return;
     button.addEventListener("click", () => {
@@ -4847,6 +7112,7 @@ function bindStaticUi() {
   byId("notificationsButton").addEventListener("click", openNotificationsModal);
   byId("tab-mercado").addEventListener("click", () => switchView("mercado"));
   byId("tab-calculadora").addEventListener("click", () => switchView("calculadora"));
+  byId("tab-cartera").addEventListener("click", () => switchView("cartera"));
   byId("tab-ejecutivos").addEventListener("click", () => switchView("ejecutivos"));
   byId("tab-registro").addEventListener("click", () => switchView("registro"));
   const scanNowButton = byId("scanNowButton");
@@ -4889,6 +7155,75 @@ function bindStaticUi() {
     state.alertPage = 1;
     renderAlertList();
   });
+  byId("portfolioSearchInput").addEventListener("input", (event) => {
+    state.portfolioSearch = event.target.value;
+    state.portfolioPage = 1;
+    state.portfolioChartHoverTime = "";
+    renderPortfolioList();
+  });
+  byId("portfolioNewButton").addEventListener("click", startNewPortfolioDraft);
+  byId("portfolioRefreshButton").addEventListener("click", () => {
+    refreshPortfolioPrices().catch((error) => showToast(error.message, "error"));
+  });
+  byId("portfolioFilterAllButton").addEventListener("click", () => {
+    state.portfolioFilter = "all";
+    state.portfolioPage = 1;
+    state.portfolioChartHoverTime = "";
+    renderPortfolioFilterButtons();
+    renderPortfolioList();
+  });
+  byId("portfolioFilterGainButton").addEventListener("click", () => {
+    state.portfolioFilter = "gain";
+    state.portfolioPage = 1;
+    state.portfolioChartHoverTime = "";
+    renderPortfolioFilterButtons();
+    renderPortfolioList();
+  });
+  byId("portfolioFilterLossButton").addEventListener("click", () => {
+    state.portfolioFilter = "loss";
+    state.portfolioPage = 1;
+    state.portfolioChartHoverTime = "";
+    renderPortfolioFilterButtons();
+    renderPortfolioList();
+  });
+  byId("portfolioEditorContainer").addEventListener("click", handlePortfolioMutation);
+  byId("portfolioEditorContainer").addEventListener("input", handlePortfolioMutation);
+  byId("portfolioEditorContainer").addEventListener("change", handlePortfolioMutation);
+  byId("portfolioImportContainer").addEventListener("click", handlePortfolioMutation);
+  byId("portfolioImportContainer").addEventListener("input", handlePortfolioMutation);
+  byId("portfolioImportContainer").addEventListener("change", handlePortfolioMutation);
+  byId("portfolioSelectedCard").addEventListener("click", handlePortfolioMutation);
+  byId("portfolioOverview").addEventListener("click", handlePortfolioMutation);
+  byId("portfolioOverview").addEventListener("mousemove", handlePortfolioMutation);
+  byId("portfolioOverview").addEventListener("mouseleave", () => {
+    if (!state.portfolioChartHoverTime) return;
+    state.portfolioChartHoverTime = "";
+    renderPortfolioOverview();
+  });
+  byId("portfolioList").addEventListener("click", (event) => {
+    const target = event.target;
+    if (!(target instanceof HTMLElement)) return;
+    const qualityRow = target.closest("[data-portfolio-id]");
+    if (qualityRow instanceof HTMLElement) {
+      state.selectedPortfolioId = qualityRow.dataset.portfolioId;
+      state.selectedPortfolioGroupKey = qualityRow.dataset.portfolioGroupKey || state.selectedPortfolioGroupKey;
+      state.portfolioChartHoverTime = "";
+      populatePortfolioDraft(selectedPortfolioHolding());
+      renderPortfolioView();
+      return;
+    }
+    const groupRow = target.closest("[data-portfolio-group-key]");
+    if (!(groupRow instanceof HTMLElement)) return;
+    const groupKey = groupRow.dataset.portfolioGroupKey || "";
+    state.selectedPortfolioGroupKey = groupKey;
+    state.selectedPortfolioId = null;
+    state.portfolioChartHoverTime = "";
+    state.portfolioExpandedKeys = state.portfolioExpandedKeys.includes(groupKey)
+      ? state.portfolioExpandedKeys.filter((item) => item !== groupKey)
+      : [...state.portfolioExpandedKeys, groupKey];
+    renderPortfolioView();
+  });
+  byId("portfolioPagination").addEventListener("click", handlePagination);
 
   document.querySelectorAll("[data-filter]").forEach((button) => {
     button.addEventListener("click", () => {
@@ -4924,6 +7259,7 @@ function bindStaticUi() {
     const contactTypeSelector = byId("contactTypeSelector");
     const calcProductSelector = byId("calcProductSelector");
     const calcUnitsSelector = byId("calcUnitsSelector");
+    const portfolioResourceSelector = byId("portfolioResourceSelector");
     let shouldRender = false;
     if (state.resourceSelectorOpen && resourceSelector && !resourceSelector.contains(target)) {
       resetResourceSelectorState();
@@ -4949,11 +7285,16 @@ function bindStaticUi() {
       state.calculatorUnitsSelectorOpen = false;
       shouldRender = true;
     }
+    if (state.portfolioResourceSelectorOpen && portfolioResourceSelector && !portfolioResourceSelector.contains(target)) {
+      resetPortfolioResourceSelectorState();
+      shouldRender = true;
+    }
     if (shouldRender) {
       renderEditor();
       renderContactEditor();
       renderCalculatorResourceSelector();
       renderCalculatorUnitsSelector();
+      renderPortfolioEditor();
     }
   });
 
@@ -4984,6 +7325,10 @@ function bindStaticUi() {
       state.calculatorUnitsSelectorOpen = false;
       shouldRender = true;
     }
+    if (state.portfolioResourceSelectorOpen) {
+      resetPortfolioResourceSelectorState();
+      shouldRender = true;
+    }
     if (state.currentHistoryContactId) {
       closeHistoryModal();
     }
@@ -4992,6 +7337,7 @@ function bindStaticUi() {
       renderContactEditor();
       renderCalculatorResourceSelector();
       renderCalculatorUnitsSelector();
+      renderPortfolioEditor();
     }
   });
 

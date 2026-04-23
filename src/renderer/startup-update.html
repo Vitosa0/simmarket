@@ -183,7 +183,7 @@
         </div>
       </div>
 
-      <div id="version" class="startup-footer">v1.0.6</div>
+      <div id="version" class="startup-footer"></div>
 
       <div id="actions" class="startup-actions hidden">
         <button id="secondaryAction" class="startup-btn" type="button">Entrar sin actualizar</button>
@@ -192,7 +192,9 @@
     </main>
 
     <script>
-      const VERSION = new URLSearchParams(window.location.search).get("version") || "1.0.6";
+      const VERSION = new URLSearchParams(window.location.search).get("version")
+        || window.simcoDesktop?.appVersion
+        || "0.0.0";
       const TOTAL_MS = 3000;
       const TEXT_PHASE_MS = 1500;
       const PROGRESS_PHASE_MS = 1500;
@@ -200,7 +202,7 @@
       const lines = [
         "Iniciando proceso...",
         "Leyendo configuración...",
-        "Inicializando storage...",
+        "Inicializando almacenamiento...",
         "Cargando catálogo de recursos...",
         "Verificando grupos de activos...",
         "Conectando con SimCompanies...",
@@ -221,7 +223,7 @@
       let introFinished = false;
       let primaryBusy = false;
 
-      version.textContent = `v${VERSION.replace(/^v/i, "")}`;
+      version.textContent = VERSION ? `v${VERSION.replace(/^v/i, "")}` : "";
 
       const start = performance.now();
 
@@ -252,7 +254,7 @@
         } else if (status === "offline") {
           primaryAction.textContent = "Reintentar";
         } else {
-          primaryAction.textContent = platform === "win32" ? "Actualizar ahora" : "Descargar update";
+          primaryAction.textContent = platform === "win32" ? "Actualizar ahora" : "Descargar actualización";
         }
       }
 
@@ -276,7 +278,7 @@
           const progress = Math.max(4, Math.min(100, Number(liveUpdateState?.progress || 0)));
           message.textContent = progress >= 100
             ? "Terminando descarga..."
-            : `Descargando update... ${Math.round(progress)}%`;
+            : `Descargando actualización... ${Math.round(progress)}%`;
           message.classList.remove("is-success");
           progressBar.style.width = `${progress}%`;
           updateActionButtons();
@@ -290,7 +292,7 @@
           return true;
         }
         if (status === "installing") {
-          message.textContent = "Instalando update...";
+          message.textContent = "Instalando actualización...";
           message.classList.add("is-success");
           progressBar.style.width = "100%";
           updateActionButtons();

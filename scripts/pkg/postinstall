@@ -8,7 +8,7 @@ if [ -n "${CONSOLE_USER:-}" ] && [ "$CONSOLE_USER" != "root" ]; then
   USER_HOME="$(dscl . -read "/Users/$CONSOLE_USER" NFSHomeDirectory 2>/dev/null | awk '{print $2}')"
 
   if [ -n "${USER_HOME:-}" ] && [ -d "$USER_HOME" ]; then
-    DATA_DIR="$USER_HOME/Library/Application Support/simmarket"
+    DATA_DIR="$USER_HOME/Library/Application Support/simmarket-vito"
     DESKTOP_LINK="$USER_HOME/Desktop/SimMarket.app"
     UNINSTALL_SCRIPT="/Applications/Desinstalar SimMarket.command"
 

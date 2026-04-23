@@ -22,6 +22,7 @@ else
 fi
 
 PKG_PATH="$ROOT_DIR/dist/SimMarket-Installer-${VERSION}-${PKG_ARCH}.pkg"
+PKG_TMP_PATH="${PKG_PATH}.tmp"
 
 if [ ! -d "$APP_PATH" ]; then
   echo "No existe $APP_PATH. Ejecuta primero el build de macOS." >&2
@@ -29,10 +30,13 @@ if [ ! -d "$APP_PATH" ]; then
 fi
 
 rm -rf "$PAYLOAD_DIR"
+rm -f "$PKG_PATH" "$PKG_TMP_PATH"
 mkdir -p "$PAYLOAD_DIR/Applications"
 ditto "$APP_PATH" "$PAYLOAD_DIR/Applications/SimMarket.app"
 cp "$SCRIPTS_DIR/uninstall-simmarket.command" "$PAYLOAD_DIR/Applications/Desinstalar SimMarket.command"
 chmod +x "$PAYLOAD_DIR/Applications/Desinstalar SimMarket.command"
+
+trap 'rm -f "$PKG_TMP_PATH"' EXIT
 
 pkgbuild \
   --root "$PAYLOAD_DIR" \
@@ -41,6 +45,8 @@ pkgbuild \
   --identifier "com.javi.simmarket.installer" \
   --version "$VERSION" \
   --install-location "/" \
-  "$PKG_PATH"
+  "$PKG_TMP_PATH"
+
+mv -f "$PKG_TMP_PATH" "$PKG_PATH"
 
 echo "Instalador generado en $PKG_PATH"
