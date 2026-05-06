@@ -12,7 +12,7 @@ Repositorio oficial:
 - [https://github.com/Vitosa0/simmarket](https://github.com/Vitosa0/simmarket)
 
 Release objetivo actual:
-- [SimMarket v1.0.7](https://github.com/Vitosa0/simmarket/releases/tag/v1.0.7)
+- [SimMarket v1.0.8](https://github.com/Vitosa0/simmarket/releases/tag/v1.0.8)
 
 ## Qué incluye
 
@@ -37,8 +37,8 @@ Para instalar y usar la app no hace falta tener `Node.js` ni `npm`.
 
 macOS:
 
-- [Instalador `.pkg` universal](https://github.com/Vitosa0/simmarket/releases/download/v1.0.7/SimMarket-Installer-1.0.7-universal.pkg)
-- [Imagen `.dmg` universal](https://github.com/Vitosa0/simmarket/releases/download/v1.0.7/SimMarket-1.0.7-universal.dmg)
+- [Instalador `.pkg` universal](https://github.com/Vitosa0/simmarket/releases/download/v1.0.8/SimMarket-Installer-1.0.8-universal.pkg)
+- [Imagen `.dmg` universal](https://github.com/Vitosa0/simmarket/releases/download/v1.0.8/SimMarket-1.0.8-universal.dmg)
 
 1. Abrí el instalador.
 2. Instalá `SimMarket.app` en `/Applications`.
@@ -48,7 +48,7 @@ macOS:
 
 Windows:
 
-- [Instalador `.exe` x64](https://github.com/Vitosa0/simmarket/releases/download/v1.0.7/SimMarket-Installer-1.0.7-x64.exe)
+- [Instalador `.exe` x64](https://github.com/Vitosa0/simmarket/releases/download/v1.0.8/SimMarket-Installer-1.0.8-x64.exe)
 
 1. Abrí el instalador.
 2. Elegí la carpeta de instalación o usá la sugerida.
@@ -78,10 +78,10 @@ Windows (SmartScreen):
 
 La app usa como carpeta principal:
 
-- `~/Library/Application Support/simmarket-vito`
-- `%APPDATA%/simmarket-vito`
+- `~/Library/Application Support/simmarket`
+- `%APPDATA%/simmarket`
 
-Si venís de builds anteriores, la app puede reutilizar datos ya existentes dentro de `simmarket-vito`.
+Si venís de builds anteriores, la app puede reutilizar datos ya existentes dentro de `simmarket` o migrarlos desde carpetas legacy.
 
 Ahí se guardan, según el uso:
 
@@ -157,7 +157,7 @@ Artefactos principales:
 
 ## Estado de release
 
-- La versión objetivo preparada en este repo es la `1.0.7`
+- La versión objetivo preparada en este repo es la `1.0.8`
 - Los builds de macOS siguen saliendo sin firma ni notarización
 - El instalador de Windows sigue sin certificado de firma de código
 

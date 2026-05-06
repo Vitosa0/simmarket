@@ -1767,6 +1767,7 @@ async function runSplashScreen() {
 
   fill.style.width = "100%";
   overlay.classList.add("hidden");
+  document.body.classList.remove("splash-active");
 }
 
 function buildVitoParticles() {
@@ -7562,7 +7563,6 @@ async function boot() {
   }
   const dashboardPromise = loadDashboard({ quiet: true });
   await Promise.all([dashboardPromise, runSplashScreen()]);
-  await runVitoIntro();
   if (shouldShowOnboarding()) {
     openOnboarding();
     renderOnboarding();

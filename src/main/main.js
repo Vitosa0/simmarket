@@ -1128,15 +1128,7 @@ async function fetchSimtoolsCandles(realmId, resourceId, quality, startMs, endMs
 }
 
 function simtoolsHistoryDirCandidates(paths) {
-  const appDataRoot = app.getPath("appData");
-  const candidates = [simtoolsHistoryRoot(paths)];
-  if (isDefaultRealmHistoryPath(paths)) {
-    candidates.push(
-      path.join(appDataRoot, "simmarket-vito", "simtools-history"),
-      path.join(appDataRoot, "simmarket", "simtools-history")
-    );
-  }
-  return [...new Set(candidates)];
+  return [simtoolsHistoryRoot(paths)];
 }
 
 function resolveSimtoolsHistoryDir(paths) {
