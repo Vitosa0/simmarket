@@ -1,5 +1,10 @@
 const { contextBridge, ipcRenderer } = require("electron");
-const { version: APP_VERSION } = require("../../package.json");
+let APP_VERSION = "";
+try {
+  APP_VERSION = String(require("../../package.json")?.version || "");
+} catch (_error) {
+  APP_VERSION = "";
+}
 
 contextBridge.exposeInMainWorld("simcoDesktop", {
   platform: process.platform,

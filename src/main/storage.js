@@ -3,7 +3,7 @@ const path = require("node:path");
 const { app } = require("electron");
 const { DEFAULT_CONFIG, DEFAULT_REALM_ID, REALM_OPTIONS } = require("./defaults");
 
-const VITO_DATA_DIR = "simmarket-vito";
+const APP_DATA_DIR = "simmarket";
 const REALM_IDS = REALM_OPTIONS.map((realm) => Number(realm.id));
 
 function ensureDir(dirPath) {
@@ -44,11 +44,8 @@ function migrateLegacyData(preferredDir, legacyDirs = []) {
 function appDataPaths() {
   const appDataRoot = app.getPath("appData");
   const legacyUserDataDir = app.getPath("userData");
-  const baseDir = path.join(appDataRoot, VITO_DATA_DIR);
-  migrateLegacyData(baseDir, [
-    legacyUserDataDir,
-    path.join(appDataRoot, "simmarket")
-  ]);
+  const baseDir = path.join(appDataRoot, APP_DATA_DIR);
+  migrateLegacyData(baseDir, [legacyUserDataDir]);
   ensureDir(baseDir);
   return {
     baseDir,

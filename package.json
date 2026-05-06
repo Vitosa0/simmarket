@@ -1,6 +1,6 @@
 {
   "name": "simmarket",
-  "version": "1.0.7",
+  "version": "1.0.8",
   "description": "Desktop dashboard for SimCompanies alerts, portfolio, calculator, executive radar, and contact registry.",
   "homepage": "https://github.com/Vitosa0/simmarket",
   "main": "src/main/main.js",
