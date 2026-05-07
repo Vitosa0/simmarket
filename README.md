@@ -8,7 +8,7 @@
   Dashboard de escritorio para <strong>SimCompanies</strong> con alertas, cartera, calculadora de costos, radar de ejecutivos y registro de contactos.
 </p>
 
-Repositorio oficial:
+Repositorio:
 - [https://github.com/Vitosa0/simmarket](https://github.com/Vitosa0/simmarket)
 
 Release objetivo actual:
